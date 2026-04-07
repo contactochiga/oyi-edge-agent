@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Oma Widget Preview</title>
+    <style>
+      :root {
+        --ink: #0f241d;
+        --green: #0d5c46;
+        --sand: #f2c66d;
+        --paper: #fbf6ec;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top right, rgba(242, 198, 109, 0.55), transparent 24%),
+          linear-gradient(180deg, #f8f0df 0%, #f4efe7 44%, #ffffff 100%);
+      }
+      .hero {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 88px 24px 140px;
+        display: grid;
+        gap: 28px;
+      }
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 12px;
+        color: var(--green);
+        font-weight: 700;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(42px, 7vw, 82px);
+        line-height: 0.95;
+        max-width: 920px;
+      }
+      p {
+        margin: 0;
+        max-width: 700px;
+        font-size: 18px;
+        line-height: 1.7;
+        color: #385248;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+        margin-top: 12px;
+      }
+      .card {
+        padding: 22px;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(13, 92, 70, 0.08);
+        box-shadow: 0 18px 50px rgba(11, 34, 28, 0.08);
+      }
+      .card strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--green);
+      }
+      .embed {
+        margin-top: 24px;
+        padding: 18px 20px;
+        border-radius: 18px;
+        background: #0d1f18;
+        color: #d6e6dc;
+        overflow-x: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="hero">
+      <div class="eyebrow">Ochiga Lead Agents</div>
+      <h1>Oma is ready for your website.</h1>
+      <p>
+        This preview serves the embeddable website widget from the same backend.
+        Use it to test inbound qualification before building the full operator dashboard.
+      </p>
+      <div class="cards">
+        <div class="card">
+          <strong>Who it is</strong>
+          Oma is the Ochiga Marketing Agent for first-touch qualification.
+        </div>
+        <div class="card">
+          <strong>What it does</strong>
+          Qualifies inbound estate and building leads, scores fit, and routes strong projects to Sales.
+        </div>
+        <div class="card">
+          <strong>How to embed</strong>
+          Add the script below to any website and point it at your backend.
+        </div>
+      </div>
+      <div class="embed">
+        &lt;script
+        src="/widget.js"
+        data-oma-widget="true"
+        data-api-base="https://your-backend.example.com"
+        data-title="Chat with Oma"&gt;&lt;/script&gt;
+      </div>
+    </main>
+
+    <script src="/widget.js" data-oma-widget="true"></script>
+  </body>
+</html>

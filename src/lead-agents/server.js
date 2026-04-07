@@ -1,6 +1,7 @@
 require("dotenv").config();
 require("dotenv").config({ path: ".env.lead-agents.local", override: true });
 const http = require("http");
+const path = require("path");
 const { createConfig } = require("./config");
 const { log } = require("./logger");
 const { createStore } = require("./store-factory");
@@ -17,6 +18,7 @@ const {
   methodNotAllowed,
   notFound,
   readJsonBody,
+  serveFile,
   setCorsHeaders,
 } = require("./http");
 
@@ -41,6 +43,13 @@ function requireObject(body, name) {
 
 function buildServer({ config, store, runtime, rateLimiter }) {
   const startedAt = Date.now();
+  const widgetIndexPath = path.join(process.cwd(), "public", "widget", "index.html");
+  const widgetScriptPath = path.join(
+    process.cwd(),
+    "public",
+    "widget",
+    "oma-widget.js"
+  );
 
   return http.createServer(async (req, res) => {
     const ctx = createRequestContext(req);
@@ -63,7 +72,13 @@ function buildServer({ config, store, runtime, rateLimiter }) {
     }
 
     try {
-      if (pathname !== "/healthz") {
+      const isPublicWidgetPath =
+        pathname === "/widget" ||
+        pathname === "/widget/" ||
+        pathname === "/widget.js" ||
+        pathname === "/api/lead-agents/public/chat";
+
+      if (pathname !== "/healthz" && !isPublicWidgetPath) {
         enforceAuth(req, config);
         const rateLimitState = rateLimiter.check(req);
         res.setHeader("x-ratelimit-remaining", String(rateLimitState.remaining));
@@ -84,6 +99,57 @@ function buildServer({ config, store, runtime, rateLimiter }) {
           stats: await store.stats(),
           environment: config.environment,
           store_driver: config.storeDriver,
+        });
+        return;
+      }
+
+      if (pathname === "/widget" || pathname === "/widget/") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, widgetIndexPath);
+        return;
+      }
+
+      if (pathname === "/widget.js") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, widgetScriptPath);
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/public/chat") {
+        const rateLimitState = rateLimiter.check(req);
+        res.setHeader("x-ratelimit-remaining", String(rateLimitState.remaining));
+        res.setHeader(
+          "x-ratelimit-reset",
+          new Date(rateLimitState.resetAt).toISOString()
+        );
+
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+
+        const body = await readJsonBody(req);
+        if (!body.message || typeof body.message !== "string") {
+          json(res, 400, { error: "message is required" });
+          return;
+        }
+
+        const result = await runtime.runChat({
+          agent: "marketing",
+          lead_id: body.lead_id,
+          source: body.source || config.defaultLeadSource,
+          message: body.message,
+          profile: body.profile || {},
+        });
+
+        json(res, 200, result, {
+          "x-request-id": ctx.requestId,
         });
         return;
       }

@@ -26,6 +26,9 @@ This v1 contains two agents:
 ## HTTP endpoints
 
 - `GET /healthz`
+- `GET /widget`
+- `GET /widget.js`
+- `POST /api/lead-agents/public/chat`
 - `POST /api/lead-agents/chat`
 - `GET /api/lead-agents/leads`
 - `GET /api/lead-agents/leads/:leadId`
@@ -47,6 +50,17 @@ Example chat request:
     "location": "Lagos"
   }
 }
+```
+
+Public widget embed:
+
+```html
+<script
+  src="https://your-backend.example.com/widget.js"
+  data-oma-widget="true"
+  data-api-base="https://your-backend.example.com"
+  data-title="Chat with Oma"
+></script>
 ```
 
 ## Environment variables
@@ -105,6 +119,11 @@ npm run lead-agents:test
 ```
 
 This validates the lead lifecycle, tool execution, and transcript persistence without a live OpenAI call.
+
+For the browser widget, open:
+
+- `/widget` for the preview page
+- `/widget.js` for the embeddable script
 
 ## Agent packs
 

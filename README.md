@@ -110,3 +110,8 @@ Deployment and testing assets:
 - [`render.yaml`](/Users/ochigaidoko/oyi-edge-agent/render.yaml): Render Blueprint for the lead-agents service
 - [`.env.lead-agents.example`](/Users/ochigaidoko/oyi-edge-agent/.env.lead-agents.example): env template for local or hosted setup
 - [`scripts/test-lead-agents.js`](/Users/ochigaidoko/oyi-edge-agent/scripts/test-lead-agents.js): mock-backed integration harness
+
+Website widget assets:
+
+- [`public/widget/index.html`](/Users/ochigaidoko/oyi-edge-agent/public/widget/index.html): local preview page for Oma
+- [`public/widget/oma-widget.js`](/Users/ochigaidoko/oyi-edge-agent/public/widget/oma-widget.js): embeddable website widget script

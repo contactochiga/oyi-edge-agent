@@ -1,5 +1,7 @@
 const { URL } = require("url");
 const crypto = require("crypto");
+const fs = require("fs/promises");
+const path = require("path");
 
 function json(res, statusCode, payload, headers = {}) {
   res.writeHead(statusCode, {
@@ -83,6 +85,31 @@ function getPathname(req) {
   return new URL(req.url, "http://localhost").pathname;
 }
 
+function contentTypeForFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".js":
+      return "application/javascript; charset=utf-8";
+    case ".css":
+      return "text/css; charset=utf-8";
+    case ".json":
+      return "application/json; charset=utf-8";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+async function serveFile(res, filePath) {
+  const body = await fs.readFile(filePath);
+  res.writeHead(200, {
+    "content-type": contentTypeForFile(filePath),
+    "cache-control": "no-cache",
+  });
+  res.end(body);
+}
+
 module.exports = {
   createRequestContext,
   getPathname,
@@ -90,5 +117,6 @@ module.exports = {
   methodNotAllowed,
   notFound,
   readJsonBody,
+  serveFile,
   setCorsHeaders,
 };
