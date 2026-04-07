@@ -1,0 +1,23 @@
+{
+  "name": "oyi-edge-agent",
+  "version": "1.0.0",
+  "description": "",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "lead-agents:start": "node lead-agents-server.js",
+    "lead-agents:apply-schema": "node scripts/apply-supabase-schema.js",
+    "check": "node --check agent.js",
+    "test": "npm run check",
+    "lead-agents:test": "node scripts/test-lead-agents.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.13.4",
+    "dotenv": "^17.2.4",
+    "pg": "^8.20.0"
+  }
+}

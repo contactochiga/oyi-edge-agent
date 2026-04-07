@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: ochiga-lead-agents
+    runtime: node
+    plan: starter
+    rootDir: .
+    buildCommand: npm install
+    startCommand: npm run lead-agents:start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: OPENAI_MODEL
+        value: gpt-5-mini
+      - key: LEAD_AGENTS_HOST
+        value: 0.0.0.0
+      - key: LEAD_AGENTS_PORT
+        value: 10000
+      - key: LEAD_AGENTS_STORE_DRIVER
+        value: supabase
+      - key: LEAD_AGENTS_AUTH_MODE
+        value: required_api_key
+      - key: LEAD_AGENTS_DEFAULT_SOURCE
+        value: website_chat
+      - key: LEAD_AGENTS_RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: LEAD_AGENTS_RATE_LIMIT_MAX_REQUESTS
+        value: 60
+      - key: LEAD_AGENTS_ALLOWED_ORIGINS
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: LEAD_AGENTS_API_KEYS
+        sync: false
+      - key: FOUNDER_ALERT_WEBHOOK_URL
+        sync: false
+      - key: FOUNDER_ALERT_WEBHOOK_SECRET
+        sync: false
+      - key: DEMO_WEBHOOK_URL
+        sync: false
+      - key: DEMO_WEBHOOK_SECRET
+        sync: false
