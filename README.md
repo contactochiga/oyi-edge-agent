@@ -115,3 +115,8 @@ Website widget assets:
 
 - [`public/widget/index.html`](/Users/ochigaidoko/oyi-edge-agent/public/widget/index.html): local preview page for Oma
 - [`public/widget/oma-widget.js`](/Users/ochigaidoko/oyi-edge-agent/public/widget/oma-widget.js): embeddable website widget script
+
+Dashboard assets:
+
+- [`public/dashboard/index.html`](/Users/ochigaidoko/oyi-edge-agent/public/dashboard/index.html): internal lead operations dashboard
+- [`public/dashboard/dashboard.js`](/Users/ochigaidoko/oyi-edge-agent/public/dashboard/dashboard.js): dashboard client logic for lead desk workflows

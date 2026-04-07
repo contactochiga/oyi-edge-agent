@@ -50,6 +50,18 @@ function buildServer({ config, store, runtime, rateLimiter }) {
     "widget",
     "oma-widget.js"
   );
+  const dashboardIndexPath = path.join(
+    process.cwd(),
+    "public",
+    "dashboard",
+    "index.html"
+  );
+  const dashboardScriptPath = path.join(
+    process.cwd(),
+    "public",
+    "dashboard",
+    "dashboard.js"
+  );
 
   return http.createServer(async (req, res) => {
     const ctx = createRequestContext(req);
@@ -77,8 +89,12 @@ function buildServer({ config, store, runtime, rateLimiter }) {
         pathname === "/widget/" ||
         pathname === "/widget.js" ||
         pathname === "/api/lead-agents/public/chat";
+      const isPublicDashboardPath =
+        pathname === "/dashboard" ||
+        pathname === "/dashboard/" ||
+        pathname === "/dashboard.js";
 
-      if (pathname !== "/healthz" && !isPublicWidgetPath) {
+      if (pathname !== "/healthz" && !isPublicWidgetPath && !isPublicDashboardPath) {
         enforceAuth(req, config);
         const rateLimitState = rateLimiter.check(req);
         res.setHeader("x-ratelimit-remaining", String(rateLimitState.remaining));
@@ -100,6 +116,24 @@ function buildServer({ config, store, runtime, rateLimiter }) {
           environment: config.environment,
           store_driver: config.storeDriver,
         });
+        return;
+      }
+
+      if (pathname === "/dashboard" || pathname === "/dashboard/") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, dashboardIndexPath);
+        return;
+      }
+
+      if (pathname === "/dashboard.js") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, dashboardScriptPath);
         return;
       }
 

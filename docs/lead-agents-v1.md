@@ -26,6 +26,8 @@ This v1 contains two agents:
 ## HTTP endpoints
 
 - `GET /healthz`
+- `GET /dashboard`
+- `GET /dashboard.js`
 - `GET /widget`
 - `GET /widget.js`
 - `POST /api/lead-agents/public/chat`
@@ -125,6 +127,12 @@ For the browser widget, open:
 
 - `/widget` for the preview page
 - `/widget.js` for the embeddable script
+
+For the internal dashboard, open:
+
+- `/dashboard`
+
+Paste the `LEAD_AGENTS_API_KEYS` value into the dashboard connect form to load leads and operate the desk UI.
 
 ## Agent packs
 

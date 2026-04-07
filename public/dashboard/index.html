@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ochiga Lead Desk</title>
+    <style>
+      :root {
+        --ink: #0d2019;
+        --muted: #667c73;
+        --line: rgba(10, 44, 34, 0.1);
+        --green: #0d5c46;
+        --green-deep: #07372b;
+        --sand: #efc66f;
+        --cream: #faf5ea;
+        --panel: rgba(255, 255, 255, 0.84);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top right, rgba(239, 198, 111, 0.45), transparent 24%),
+          radial-gradient(circle at left center, rgba(13, 92, 70, 0.08), transparent 22%),
+          linear-gradient(180deg, #f7f0e2 0%, #f8f4ed 45%, #ffffff 100%);
+      }
+      .shell {
+        display: grid;
+        grid-template-columns: 320px minmax(360px, 1fr) 360px;
+        min-height: 100vh;
+      }
+      .column {
+        border-right: 1px solid var(--line);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        background: rgba(255, 255, 255, 0.34);
+      }
+      .column:last-child {
+        border-right: 0;
+      }
+      .sidebar,
+      .thread,
+      .detail {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+      .section {
+        padding: 22px 22px 18px;
+      }
+      .brand {
+        padding-bottom: 12px;
+      }
+      .eyebrow {
+        margin: 0 0 10px;
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--green);
+        font-weight: 700;
+      }
+      h1, h2, h3, p {
+        margin: 0;
+      }
+      h1 {
+        font-size: 28px;
+        line-height: 1;
+      }
+      .subtext {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .auth-card,
+      .summary-card,
+      .detail-card,
+      .action-card {
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 0 18px 45px rgba(12, 34, 28, 0.08);
+        border-radius: 24px;
+      }
+      .auth-card {
+        padding: 18px;
+      }
+      .auth-card label,
+      .action-card label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--green);
+      }
+      .auth-card input,
+      .action-card input,
+      .action-card select,
+      .action-card textarea,
+      .composer textarea,
+      .search input {
+        width: 100%;
+        border: 1px solid rgba(13, 92, 70, 0.16);
+        border-radius: 18px;
+        padding: 14px 16px;
+        font: inherit;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.9);
+      }
+      .auth-card input:focus,
+      .action-card input:focus,
+      .action-card select:focus,
+      .action-card textarea:focus,
+      .composer textarea:focus,
+      .search input:focus {
+        outline: none;
+        border-color: var(--green);
+        box-shadow: 0 0 0 4px rgba(13, 92, 70, 0.08);
+      }
+      .button-row,
+      .split {
+        display: flex;
+        gap: 10px;
+      }
+      .button-row {
+        margin-top: 12px;
+      }
+      button {
+        border: 0;
+        cursor: pointer;
+        border-radius: 16px;
+        font: inherit;
+        font-weight: 700;
+        padding: 13px 16px;
+      }
+      .primary {
+        background: linear-gradient(145deg, var(--green), var(--green-deep));
+        color: #fff;
+      }
+      .ghost {
+        background: rgba(13, 92, 70, 0.08);
+        color: var(--green);
+      }
+      .sand {
+        background: var(--sand);
+        color: #193126;
+      }
+      .status {
+        margin-top: 12px;
+        min-height: 20px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .search {
+        padding-top: 6px;
+      }
+      .search input {
+        background: rgba(255, 255, 255, 0.75);
+      }
+      .list {
+        padding: 0 16px 24px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .lead-card {
+        padding: 16px;
+        border-radius: 22px;
+        border: 1px solid transparent;
+        background: rgba(255, 255, 255, 0.68);
+        box-shadow: 0 8px 22px rgba(11, 31, 25, 0.06);
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+      }
+      .lead-card:hover {
+        transform: translateY(-1px);
+        border-color: rgba(13, 92, 70, 0.14);
+      }
+      .lead-card.active {
+        border-color: rgba(13, 92, 70, 0.28);
+        box-shadow: 0 18px 34px rgba(11, 43, 34, 0.09);
+      }
+      .lead-top,
+      .thread-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .lead-name {
+        font-size: 17px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+      .pill-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .pill {
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .pill.status {
+        margin-top: 0;
+      }
+      .status-new,
+      .status-warm {
+        background: rgba(239, 198, 111, 0.22);
+        color: #6d5113;
+      }
+      .status-sales,
+      .status-hot,
+      .status-booked {
+        background: rgba(13, 92, 70, 0.14);
+        color: var(--green);
+      }
+      .status-escalated {
+        background: rgba(177, 48, 48, 0.12);
+        color: #8d1f1f;
+      }
+      .thread-header,
+      .detail-header {
+        padding: 22px;
+        border-bottom: 1px solid var(--line);
+      }
+      .thread-canvas {
+        flex: 1;
+        overflow-y: auto;
+        padding: 22px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.72)),
+          repeating-linear-gradient(
+            135deg,
+            rgba(13, 92, 70, 0.02) 0,
+            rgba(13, 92, 70, 0.02) 14px,
+            rgba(255,255,255,0.52) 14px,
+            rgba(255,255,255,0.52) 28px
+          );
+      }
+      .message {
+        max-width: 78%;
+        margin-bottom: 12px;
+        padding: 12px 14px;
+        border-radius: 18px;
+        white-space: pre-wrap;
+        line-height: 1.55;
+        font-size: 14px;
+      }
+      .message.user {
+        background: linear-gradient(145deg, var(--green), var(--green-deep));
+        color: white;
+        margin-left: auto;
+        border-top-right-radius: 8px;
+      }
+      .message.assistant {
+        background: white;
+        color: var(--ink);
+        border-top-left-radius: 8px;
+        box-shadow: 0 8px 20px rgba(10, 34, 26, 0.06);
+      }
+      .message.tool {
+        background: rgba(15, 32, 25, 0.08);
+        color: #29443b;
+        border-radius: 14px;
+        max-width: 100%;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+      }
+      .composer {
+        padding: 18px 22px 22px;
+        border-top: 1px solid var(--line);
+        background: rgba(255,255,255,0.65);
+      }
+      .composer textarea {
+        min-height: 112px;
+        resize: vertical;
+      }
+      .detail-scroll {
+        padding: 22px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .summary-grid {
+        display: grid;
+        gap: 12px;
+      }
+      .summary-card,
+      .detail-card,
+      .action-card {
+        padding: 18px;
+      }
+      .key {
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 6px;
+      }
+      .value {
+        line-height: 1.5;
+        font-size: 14px;
+      }
+      .value.empty {
+        color: #8aa096;
+      }
+      .action-card {
+        margin-top: 12px;
+      }
+      .action-card textarea {
+        min-height: 96px;
+        resize: vertical;
+      }
+      .empty-state {
+        padding: 36px 28px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+      @media (max-width: 1280px) {
+        .shell {
+          grid-template-columns: 300px 1fr 320px;
+        }
+      }
+      @media (max-width: 1080px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+        .column {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .sidebar,
+        .thread,
+        .detail {
+          min-height: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="column sidebar">
+        <div class="section brand">
+          <p class="eyebrow">Ochiga Lead Desk</p>
+          <h1>Oma + Osa</h1>
+          <p class="subtext">
+            Internal lead operations for qualification, handoff, demos, and escalation.
+          </p>
+        </div>
+        <div class="section">
+          <div class="auth-card">
+            <label for="apiKey">API Key</label>
+            <input id="apiKey" type="password" placeholder="Paste LEAD_AGENTS_API_KEYS value" />
+            <div class="button-row">
+              <button class="primary" id="saveKeyBtn">Connect</button>
+              <button class="ghost" id="refreshBtn">Refresh</button>
+            </div>
+            <div class="status" id="authStatus">Dashboard is disconnected.</div>
+          </div>
+        </div>
+        <div class="section search">
+          <input id="searchInput" type="search" placeholder="Search lead, company, role, status..." />
+        </div>
+        <div class="list" id="leadList"></div>
+      </aside>
+
+      <section class="column thread">
+        <div class="thread-header">
+          <div class="thread-top">
+            <div>
+              <p class="eyebrow">Conversation</p>
+              <h2 id="threadTitle">Select a lead</h2>
+              <p class="subtext" id="threadSubtitle">
+                Review the message history and continue the conversation as Oma or Osa.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="thread-canvas" id="threadCanvas">
+          <div class="empty-state">
+            Choose a lead from the left to review qualification, Sales handoff, or escalation.
+          </div>
+        </div>
+        <div class="composer">
+          <div class="split" style="margin-bottom: 10px;">
+            <select id="agentSelect">
+              <option value="marketing">Oma · Marketing</option>
+              <option value="sales">Osa · Sales</option>
+            </select>
+            <button class="ghost" id="reloadLeadBtn" type="button">Reload thread</button>
+          </div>
+          <textarea id="composerInput" placeholder="Write the next internal message to send through the selected agent..."></textarea>
+          <div class="button-row">
+            <button class="primary" id="sendBtn">Send through agent</button>
+          </div>
+          <div class="status" id="composerStatus"></div>
+        </div>
+      </section>
+
+      <aside class="column detail">
+        <div class="detail-header">
+          <p class="eyebrow">Lead Detail</p>
+          <h2 id="detailTitle">No lead selected</h2>
+          <p class="subtext" id="detailSubtitle">
+            Update ownership, status, score, notes, demos, and escalations.
+          </p>
+        </div>
+        <div class="detail-scroll">
+          <div class="summary-grid" id="detailSummary">
+            <div class="empty-state" style="padding: 0;">
+              Select a lead to inspect details and take action.
+            </div>
+          </div>
+          <div class="action-card">
+            <label for="statusInput">Status</label>
+            <select id="statusInput">
+              <option value="">Keep current</option>
+              <option value="new">new</option>
+              <option value="qualified">qualified</option>
+              <option value="warm">warm</option>
+              <option value="hot">hot</option>
+              <option value="sales">sales</option>
+              <option value="booked">booked</option>
+              <option value="closed">closed</option>
+              <option value="lost">lost</option>
+              <option value="escalated">escalated</option>
+            </select>
+            <div class="split" style="margin-top: 12px;">
+              <div style="flex: 1;">
+                <label for="ownerInput">Owner</label>
+                <select id="ownerInput">
+                  <option value="">Keep current</option>
+                  <option value="marketing_agent">marketing_agent</option>
+                  <option value="sales_agent">sales_agent</option>
+                  <option value="human">human</option>
+                </select>
+              </div>
+              <div style="flex: 1;">
+                <label for="scoreInput">Score</label>
+                <input id="scoreInput" type="number" min="0" max="100" placeholder="0-100" />
+              </div>
+            </div>
+            <div style="margin-top: 12px;">
+              <label for="nextActionInput">Next Action</label>
+              <input id="nextActionInput" type="text" placeholder="What happens next?" />
+            </div>
+            <div style="margin-top: 12px;">
+              <label for="summaryInput">Summary</label>
+              <textarea id="summaryInput" placeholder="Short structured summary"></textarea>
+            </div>
+            <div class="button-row">
+              <button class="primary" id="updateLeadBtn">Update lead</button>
+            </div>
+          </div>
+
+          <div class="action-card">
+            <label for="demoAtInput">Schedule Demo</label>
+            <input id="demoAtInput" type="datetime-local" />
+            <div style="margin-top: 12px;">
+              <label for="demoNotesInput">Demo Notes</label>
+              <textarea id="demoNotesInput" placeholder="Optional notes for the demo record"></textarea>
+            </div>
+            <div class="button-row">
+              <button class="sand" id="createDemoBtn">Create demo</button>
+            </div>
+          </div>
+
+          <div class="action-card">
+            <label for="escalationReasonInput">Escalate to Founder</label>
+            <input id="escalationReasonInput" type="text" placeholder="Reason for escalation" />
+            <div style="margin-top: 12px;">
+              <label for="escalationSummaryInput">Escalation Summary</label>
+              <textarea id="escalationSummaryInput" placeholder="What should the founder know immediately?"></textarea>
+            </div>
+            <div class="split" style="margin-top: 12px;">
+              <select id="escalationUrgencyInput">
+                <option value="medium">medium</option>
+                <option value="low">low</option>
+                <option value="high">high</option>
+                <option value="critical">critical</option>
+              </select>
+              <button class="ghost" id="escalateBtn">Escalate</button>
+            </div>
+          </div>
+
+          <div class="status" id="detailStatus"></div>
+        </div>
+      </aside>
+    </div>
+    <script src="/dashboard.js"></script>
+  </body>
+  </html>
