@@ -276,6 +276,37 @@
     input.style.height = Math.min(input.scrollHeight, 140) + "px";
   }
 
+  async function postMessage(text, leadIdOverride) {
+    const response = await fetch(`${apiBase}/api/lead-agents/public/chat`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        lead_id: leadIdOverride || undefined,
+        source,
+        message: text,
+        profile: {},
+      }),
+    });
+
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (error) {
+      data = {};
+    }
+
+    if (!response.ok) {
+      const err = new Error(data.error || "Unable to reach Oma right now.");
+      err.status = response.status;
+      err.payload = data;
+      throw err;
+    }
+
+    return data;
+  }
+
   async function sendMessage(text) {
     if (!text || isSending) {
       return;
@@ -287,22 +318,25 @@
     addMessage("user", text);
 
     try {
-      const response = await fetch(`${apiBase}/api/lead-agents/public/chat`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          lead_id: leadId || undefined,
-          source,
-          message: text,
-          profile: {},
-        }),
-      });
+      let data;
+      try {
+        data = await postMessage(text, leadId);
+      } catch (error) {
+        const message = String(
+          (error.payload && error.payload.error) || error.message || ""
+        ).toLowerCase();
+        const isInvalidLead =
+          error.status === 404 ||
+          message.includes("lead not found") ||
+          message.includes("not found");
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Unable to reach Oma right now.");
+        if (!leadId || !isInvalidLead) {
+          throw error;
+        }
+
+        window.localStorage.removeItem(storageKey);
+        leadId = "";
+        data = await postMessage(text, "");
       }
 
       if (data.lead && data.lead.id) {
@@ -316,7 +350,11 @@
         "bot",
         "I couldn't complete that request right now. Please try again in a moment."
       );
-      console.error("[Oma widget]", error);
+      console.error("[Oma widget]", {
+        message: error.message,
+        status: error.status,
+        payload: error.payload,
+      });
     } finally {
       typing.classList.remove("visible");
       send.disabled = false;
