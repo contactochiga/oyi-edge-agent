@@ -23,6 +23,8 @@ services:
         value: required_api_key
       - key: LEAD_AGENTS_DEFAULT_SOURCE
         value: website_chat
+      - key: LEAD_AGENTS_REQUEST_TIMEOUT_MS
+        value: 120000
       - key: LEAD_AGENTS_RATE_LIMIT_WINDOW_MS
         value: 60000
       - key: LEAD_AGENTS_RATE_LIMIT_MAX_REQUESTS

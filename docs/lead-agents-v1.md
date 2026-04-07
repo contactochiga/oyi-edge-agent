@@ -69,6 +69,7 @@ Public widget embed:
 - `OPENAI_MODEL` optional, default `gpt-5-mini`
 - `LEAD_AGENTS_PORT` optional, default `8787`
 - `LEAD_AGENTS_HOST` optional, default `0.0.0.0`
+- `LEAD_AGENTS_REQUEST_TIMEOUT_MS` optional, default `120000`
 - `LEAD_AGENTS_STORE_DRIVER` optional, `file` or `supabase`, default `file`
 - `LEAD_AGENTS_STORE_PATH` optional, default `data/lead-agents-store.json`
 - `SUPABASE_URL` required when `LEAD_AGENTS_STORE_DRIVER=supabase`
