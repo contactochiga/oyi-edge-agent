@@ -102,7 +102,9 @@ Production-ready backend modules live under [`src/lead-agents`](/Users/ochigaido
 
 - pluggable storage with file and Supabase drivers
 - API-key auth and in-memory rate limiting
+- admin session login for the internal dashboard
 - Responses API orchestration and tool execution
+- tracing, lead memory, and file-backed knowledge retrieval
 - founder and demo webhook dispatch
 
 Deployment and testing assets:
@@ -110,6 +112,7 @@ Deployment and testing assets:
 - [`render.yaml`](/Users/ochigaidoko/oyi-edge-agent/render.yaml): Render Blueprint for the lead-agents service
 - [`.env.lead-agents.example`](/Users/ochigaidoko/oyi-edge-agent/.env.lead-agents.example): env template for local or hosted setup
 - [`scripts/test-lead-agents.js`](/Users/ochigaidoko/oyi-edge-agent/scripts/test-lead-agents.js): mock-backed integration harness
+- [`scripts/run-lead-agents-evals.js`](/Users/ochigaidoko/oyi-edge-agent/scripts/run-lead-agents-evals.js): v1.5 eval runner
 
 Website widget assets:
 
@@ -120,3 +123,8 @@ Dashboard assets:
 
 - [`public/dashboard/index.html`](/Users/ochigaidoko/oyi-edge-agent/public/dashboard/index.html): internal lead operations dashboard
 - [`public/dashboard/dashboard.js`](/Users/ochigaidoko/oyi-edge-agent/public/dashboard/dashboard.js): dashboard client logic for lead desk workflows
+
+V1.5 foundation assets:
+
+- [`knowledge`](/Users/ochigaidoko/oyi-edge-agent/knowledge): file-backed knowledge base for agent retrieval
+- [`evals/lead-agents/cases.json`](/Users/ochigaidoko/oyi-edge-agent/evals/lead-agents/cases.json): baseline eval cases

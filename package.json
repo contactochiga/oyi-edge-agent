@@ -9,7 +9,8 @@
     "lead-agents:apply-schema": "node scripts/apply-supabase-schema.js",
     "check": "node --check agent.js",
     "test": "npm run check",
-    "lead-agents:test": "node scripts/test-lead-agents.js"
+    "lead-agents:test": "node scripts/test-lead-agents.js",
+    "lead-agents:eval": "node scripts/run-lead-agents-evals.js"
   },
   "keywords": [],
   "author": "",

@@ -1,8 +1,9 @@
 (function () {
-  const API_KEY_STORAGE = "ochiga_lead_desk_api_key";
+  const ADMIN_EMAIL_STORAGE = "ochiga_lead_desk_admin_email";
 
   const state = {
-    apiKey: window.localStorage.getItem(API_KEY_STORAGE) || "",
+    adminEmail: window.localStorage.getItem(ADMIN_EMAIL_STORAGE) || "",
+    session: null,
     leads: [],
     filteredLeads: [],
     selectedLeadId: "",
@@ -12,8 +13,10 @@
   };
 
   const el = {
-    apiKey: document.getElementById("apiKey"),
-    saveKeyBtn: document.getElementById("saveKeyBtn"),
+    adminEmail: document.getElementById("adminEmail"),
+    adminPassword: document.getElementById("adminPassword"),
+    loginBtn: document.getElementById("loginBtn"),
+    logoutBtn: document.getElementById("logoutBtn"),
     refreshBtn: document.getElementById("refreshBtn"),
     authStatus: document.getElementById("authStatus"),
     searchInput: document.getElementById("searchInput"),
@@ -45,7 +48,7 @@
     detailStatus: document.getElementById("detailStatus"),
   };
 
-  el.apiKey.value = state.apiKey;
+  el.adminEmail.value = state.adminEmail;
 
   function setAuthStatus(text, isError) {
     el.authStatus.textContent = text;
@@ -62,23 +65,13 @@
     el.detailStatus.style.color = isError ? "#8d1f1f" : "#667c73";
   }
 
-  function authHeaders() {
-    return {
-      "content-type": "application/json",
-      "x-api-key": state.apiKey,
-    };
-  }
-
   async function api(path, options) {
-    if (!state.apiKey) {
-      throw new Error("Paste the dashboard API key first.");
-    }
-
     const response = await fetch(path, {
       ...options,
+      credentials: "same-origin",
       headers: {
         ...(options && options.headers ? options.headers : {}),
-        ...authHeaders(),
+        "content-type": "application/json",
       },
     });
 
@@ -451,24 +444,83 @@
   }
 
   async function connect() {
-    state.apiKey = el.apiKey.value.trim();
-    if (!state.apiKey) {
-      setAuthStatus("Paste the dashboard API key first.", true);
+    const email = el.adminEmail.value.trim().toLowerCase();
+    const password = el.adminPassword.value;
+    if (!email || !password) {
+      setAuthStatus("Enter your admin email and password.", true);
       return;
     }
-    window.localStorage.setItem(API_KEY_STORAGE, state.apiKey);
-    setAuthStatus("Connecting...");
+    setAuthStatus("Signing in...");
     try {
+      const session = await api("/api/lead-agents/admin/session/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+      state.session = session.admin || null;
+      state.adminEmail = email;
+      window.localStorage.setItem(ADMIN_EMAIL_STORAGE, email);
+      el.adminPassword.value = "";
       await loadLeads();
-      setAuthStatus("Connected to lead desk.");
+      setAuthStatus(`Signed in as ${email}.`);
       setComposerStatus("");
       setDetailStatus("");
     } catch (error) {
-      setAuthStatus(error.message || "Unable to connect.", true);
+      state.session = null;
+      setAuthStatus(error.message || "Unable to sign in.", true);
     }
   }
 
-  el.saveKeyBtn.addEventListener("click", connect);
+  async function restoreSession() {
+    try {
+      const session = await api("/api/lead-agents/admin/session/me", {
+        method: "GET",
+      });
+      state.session = session.admin || null;
+      if (session.admin && session.admin.email) {
+        state.adminEmail = session.admin.email;
+        el.adminEmail.value = session.admin.email;
+        window.localStorage.setItem(ADMIN_EMAIL_STORAGE, session.admin.email);
+      }
+      return true;
+    } catch {
+      state.session = null;
+      return false;
+    }
+  }
+
+  async function logout() {
+    try {
+      await api("/api/lead-agents/admin/session/logout", {
+        method: "POST",
+      });
+    } catch (_) {
+      // Ignore logout failures and clear client state anyway.
+    }
+
+    state.session = null;
+    state.leads = [];
+    state.filteredLeads = [];
+    state.selectedLeadId = "";
+    state.selectedLead = null;
+    state.conversations = [];
+    state.demos = [];
+    el.adminPassword.value = "";
+    el.leadList.innerHTML = "";
+    renderLeadList();
+    renderThread();
+    renderDetail();
+    setAuthStatus("Signed out.");
+  }
+
+  el.loginBtn.addEventListener("click", connect);
+  el.logoutBtn.addEventListener("click", function () {
+    logout().catch(function (error) {
+      setAuthStatus(error.message || "Unable to log out.", true);
+    });
+  });
   el.refreshBtn.addEventListener("click", function () {
     loadLeads()
       .then(function () {
@@ -508,7 +560,16 @@
     });
   });
 
-  if (state.apiKey) {
-    connect();
-  }
+  restoreSession()
+    .then(function (restored) {
+      if (restored) {
+        return loadLeads().then(function () {
+          setAuthStatus(`Signed in as ${state.adminEmail}.`);
+        });
+      }
+      setAuthStatus("Log in to access the lead desk.");
+    })
+    .catch(function () {
+      setAuthStatus("Log in to access the lead desk.");
+    });
 })();

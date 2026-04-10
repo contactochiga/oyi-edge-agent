@@ -28,8 +28,19 @@ function methodNotAllowed(res, allow) {
 
 function setCorsHeaders(req, res, allowedOrigins) {
   const requestOrigin = req.headers.origin;
+  if (!requestOrigin) {
+    return true;
+  }
+  let sameHost = false;
+  try {
+    sameHost = new URL(requestOrigin).host === String(req.headers.host || "");
+  } catch {
+    sameHost = false;
+  }
   const allowAll = allowedOrigins.length === 0;
-  const allowOrigin = allowAll
+  const allowOrigin = sameHost
+    ? requestOrigin
+    : allowAll
     ? requestOrigin || "*"
     : allowedOrigins.includes(requestOrigin)
     ? requestOrigin
@@ -42,7 +53,11 @@ function setCorsHeaders(req, res, allowedOrigins) {
   res.setHeader("access-control-allow-origin", allowOrigin);
   res.setHeader("vary", "origin");
   res.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
-  res.setHeader("access-control-allow-headers", "content-type,x-request-id");
+  res.setHeader(
+    "access-control-allow-headers",
+    "authorization,content-type,x-api-key,x-request-id"
+  );
+  res.setHeader("access-control-allow-credentials", "true");
   return true;
 }
 

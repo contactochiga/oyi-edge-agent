@@ -31,11 +31,16 @@ This v1 contains two agents:
 - `GET /widget`
 - `GET /widget.js`
 - `POST /api/lead-agents/public/chat`
+- `POST /api/lead-agents/admin/session/login`
+- `POST /api/lead-agents/admin/session/logout`
+- `GET /api/lead-agents/admin/session/me`
 - `POST /api/lead-agents/chat`
 - `GET /api/lead-agents/leads`
 - `GET /api/lead-agents/leads/:leadId`
 - `GET /api/lead-agents/leads/:leadId/conversations`
 - `GET /api/lead-agents/leads/:leadId/demos`
+- `GET /api/lead-agents/leads/:leadId/memory`
+- `GET /api/lead-agents/admin/traces`
 
 Example chat request:
 
@@ -81,8 +86,15 @@ Public widget embed:
 - `LEAD_AGENTS_ALLOWED_ORIGINS` optional, comma-separated CORS allowlist
 - `LEAD_AGENTS_AUTH_MODE` optional, `off`, `optional_api_key`, or `required_api_key`
 - `LEAD_AGENTS_API_KEYS` optional, comma-separated API keys for backend access
+- `LEAD_AGENTS_ADMIN_EMAIL` optional, used for dashboard login
+- `LEAD_AGENTS_ADMIN_PASSWORD` optional, used for dashboard login
+- `LEAD_AGENTS_SESSION_SECRET` optional, used to sign dashboard session cookies
+- `LEAD_AGENTS_SESSION_TTL_MS` optional, default 7 days
 - `LEAD_AGENTS_RATE_LIMIT_WINDOW_MS` optional, default `60000`
 - `LEAD_AGENTS_RATE_LIMIT_MAX_REQUESTS` optional, default `60`
+- `LEAD_AGENTS_KNOWLEDGE_DIR` optional, default `knowledge/`
+- `LEAD_AGENTS_TRACE_PATH` optional, default `data/lead-agent-traces.jsonl`
+- `LEAD_AGENTS_MEMORY_PATH` optional, default `data/lead-memory.json`
 - `FOUNDER_ALERT_WEBHOOK_URL` optional, webhook for escalations
 - `FOUNDER_ALERT_WEBHOOK_SECRET` optional, shared secret for escalation webhook
 - `DEMO_WEBHOOK_URL` optional, webhook for demo booking events
@@ -132,7 +144,14 @@ For the internal dashboard, open:
 
 - `/dashboard`
 
-Paste the `LEAD_AGENTS_API_KEYS` value into the dashboard connect form to load leads and operate the desk UI.
+Log in with `LEAD_AGENTS_ADMIN_EMAIL` and `LEAD_AGENTS_ADMIN_PASSWORD`. If those are not set yet, the backend accepts any email plus a valid `LEAD_AGENTS_API_KEYS` value as the temporary password.
+
+## V1.5 foundation
+
+- Tracing: request and tool traces are appended to `data/lead-agent-traces.jsonl`
+- Lead memory: per-lead memory is persisted in `data/lead-memory.json`
+- File-backed knowledge: Markdown files under `knowledge/` are retrieved into runtime context
+- Eval pack: run `npm run lead-agents:eval`
 
 ## Agent packs
 

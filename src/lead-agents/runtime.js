@@ -1,4 +1,5 @@
 const fs = require("fs/promises");
+const crypto = require("crypto");
 const { loadPromptPack } = require("./prompt-packs");
 
 function toInputMessage(role, text) {
@@ -44,13 +45,25 @@ function parseToolArguments(raw) {
 }
 
 class LeadAgentRuntime {
-  constructor({ config, store, openaiClient, toolExecutor, log }) {
+  constructor({
+    config,
+    store,
+    openaiClient,
+    toolExecutor,
+    log,
+    traceStore,
+    leadMemoryStore,
+    knowledgeBase,
+  }) {
     this.config = config;
     this.store = store;
     this.openaiClient = openaiClient;
     this.toolExecutor = toolExecutor;
     this.log = log;
     this.toolsPromise = null;
+    this.traceStore = traceStore;
+    this.leadMemoryStore = leadMemoryStore;
+    this.knowledgeBase = knowledgeBase;
   }
 
   async getToolDefinitions() {
@@ -101,6 +114,7 @@ class LeadAgentRuntime {
   }
 
   async runChat(request) {
+    const traceId = request.trace_id || crypto.randomUUID();
     const agentKey = request.agent === "sales" ? "sales" : "marketing";
     const agentPack = await loadPromptPack(this.config.promptPackRoot, agentKey);
     const tools = await this.getToolDefinitions();
@@ -109,6 +123,34 @@ class LeadAgentRuntime {
       lead.id,
       this.config.maxConversationMessages
     );
+    const leadMemory = this.leadMemoryStore
+      ? await this.leadMemoryStore.get(lead.id)
+      : null;
+    const knowledgeResults = this.knowledgeBase
+      ? this.knowledgeBase.search(
+          [
+            request.message,
+            lead.company,
+            lead.role,
+            lead.location,
+            lead.summary,
+          ]
+            .filter(Boolean)
+            .join(" ")
+        )
+      : [];
+
+    if (this.traceStore) {
+      await this.traceStore.append({
+        type: "chat_started",
+        trace_id: traceId,
+        lead_id: lead.id,
+        agent: agentPack.agentName,
+        source: request.source || lead.source || this.config.defaultLeadSource,
+        request_id: request.request_id || "",
+        user_message: request.message,
+      });
+    }
 
     await this.store.appendConversation({
       lead_id: lead.id,
@@ -127,6 +169,22 @@ class LeadAgentRuntime {
       toInputMessage(
         "user",
         `Runtime context: agent=${agentPack.agentName}; lead_id=${lead.id}; source=${lead.source}. A lead record already exists for this conversation.`
+      ),
+      toInputMessage(
+        "user",
+        `Lead memory:\n${
+          this.leadMemoryStore
+            ? this.leadMemoryStore.serializeForPrompt(leadMemory)
+            : "Lead memory unavailable."
+        }`
+      ),
+      toInputMessage(
+        "user",
+        `Relevant knowledge:\n${
+          this.knowledgeBase
+            ? this.knowledgeBase.serializeForPrompt(knowledgeResults)
+            : "Knowledge base unavailable."
+        }`
       ),
       ...this.buildHistoryMessages(history),
       toInputMessage("user", request.message),
@@ -173,6 +231,18 @@ class LeadAgentRuntime {
           }),
         });
 
+        if (this.traceStore) {
+          await this.traceStore.append({
+            type: "tool_executed",
+            trace_id: traceId,
+            lead_id: context.leadId,
+            agent: agentPack.agentName,
+            tool_name: call.name,
+            arguments: args,
+            result,
+          });
+        }
+
         toolOutputs.push({
           type: "function_call_output",
           call_id: call.call_id,
@@ -198,9 +268,36 @@ class LeadAgentRuntime {
       content: assistantMessage,
     });
 
+    const updatedLead = await this.store.getLead(context.leadId);
+    const memory = this.leadMemoryStore
+      ? await this.leadMemoryStore.updateFromTurn({
+          lead: updatedLead,
+          userMessage: request.message,
+          assistantMessage,
+          toolCalls: executedTools,
+        })
+      : null;
+
+    if (this.traceStore) {
+      await this.traceStore.append({
+        type: "chat_completed",
+        trace_id: traceId,
+        lead_id: context.leadId,
+        agent: agentPack.agentName,
+        response_id: response.id || "",
+        tool_count: executedTools.length,
+        knowledge_hits: knowledgeResults.map((item) => item.id),
+        memory_updated: Boolean(memory),
+        assistant_message: assistantMessage,
+      });
+    }
+
     return {
       agent: agentPack.agentName,
-      lead: await this.store.getLead(context.leadId),
+      lead: updatedLead,
+      trace_id: traceId,
+      lead_memory: memory,
+      knowledge_hits: knowledgeResults,
       assistant_message: assistantMessage,
       tools: executedTools,
       conversations: await this.store.listConversationsForLead(

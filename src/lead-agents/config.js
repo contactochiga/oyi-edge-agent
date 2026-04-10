@@ -39,11 +39,31 @@ function createConfig() {
     environment: process.env.NODE_ENV || "development",
     toolsPath: path.join(cwd, "config", "openai", "lead-agent-tools.json"),
     promptPackRoot: path.join(cwd, "prompt-packs"),
+    knowledgeDir:
+      process.env.LEAD_AGENTS_KNOWLEDGE_DIR || path.join(cwd, "knowledge"),
+    tracePath:
+      process.env.LEAD_AGENTS_TRACE_PATH ||
+      path.join(cwd, "data", "lead-agent-traces.jsonl"),
+    leadMemoryPath:
+      process.env.LEAD_AGENTS_MEMORY_PATH ||
+      path.join(cwd, "data", "lead-memory.json"),
     storeDriver: process.env.LEAD_AGENTS_STORE_DRIVER || "file",
     supabaseUrl: process.env.SUPABASE_URL || "",
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
     authMode: process.env.LEAD_AGENTS_AUTH_MODE || "optional_api_key",
     apiKeys: stringListFromEnv(process.env.LEAD_AGENTS_API_KEYS),
+    adminEmail: process.env.LEAD_AGENTS_ADMIN_EMAIL || "",
+    adminPassword: process.env.LEAD_AGENTS_ADMIN_PASSWORD || "",
+    sessionSecret:
+      process.env.LEAD_AGENTS_SESSION_SECRET ||
+      process.env.LEAD_AGENTS_API_KEYS ||
+      "lead-agents-dev-session-secret",
+    sessionCookieName:
+      process.env.LEAD_AGENTS_SESSION_COOKIE_NAME || "lead_agents_admin",
+    sessionTtlMs: numberFromEnv(
+      process.env.LEAD_AGENTS_SESSION_TTL_MS,
+      7 * 24 * 60 * 60 * 1000
+    ),
     rateLimitWindowMs: numberFromEnv(
       process.env.LEAD_AGENTS_RATE_LIMIT_WINDOW_MS,
       60_000

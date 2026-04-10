@@ -9,8 +9,18 @@ const { OpenAIResponsesClient } = require("./openai");
 const { ToolExecutor } = require("./tools");
 const { LeadAgentRuntime } = require("./runtime");
 const { WebhookDispatcher } = require("./webhooks");
-const { enforceAuth } = require("./auth");
+const {
+  authenticateAdminCredentials,
+  clearSessionCookie,
+  createAdminSessionToken,
+  createSessionCookie,
+  enforceAuth,
+  readAdminSession,
+} = require("./auth");
 const { MemoryRateLimiter } = require("./rate-limit");
+const { FileTraceStore } = require("./tracing");
+const { FileLeadMemoryStore } = require("./lead-memory");
+const { FileKnowledgeBase } = require("./knowledge-base");
 const {
   createRequestContext,
   getPathname,
@@ -93,8 +103,17 @@ function buildServer({ config, store, runtime, rateLimiter }) {
         pathname === "/dashboard" ||
         pathname === "/dashboard/" ||
         pathname === "/dashboard.js";
+      const isPublicAdminSessionPath =
+        pathname === "/api/lead-agents/admin/session/login" ||
+        pathname === "/api/lead-agents/admin/session/logout" ||
+        pathname === "/api/lead-agents/admin/session/me";
 
-      if (pathname !== "/healthz" && !isPublicWidgetPath && !isPublicDashboardPath) {
+      if (
+        pathname !== "/healthz" &&
+        !isPublicWidgetPath &&
+        !isPublicDashboardPath &&
+        !isPublicAdminSessionPath
+      ) {
         enforceAuth(req, config);
         const rateLimitState = rateLimiter.check(req);
         res.setHeader("x-ratelimit-remaining", String(rateLimitState.remaining));
@@ -116,6 +135,78 @@ function buildServer({ config, store, runtime, rateLimiter }) {
           environment: config.environment,
           store_driver: config.storeDriver,
         });
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/session/login") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        const body = await readJsonBody(req);
+        if (
+          !authenticateAdminCredentials(body.email, body.password, config)
+        ) {
+          json(res, 401, { error: "unauthorized" });
+          return;
+        }
+
+        const token = createAdminSessionToken(body.email, config);
+        json(
+          res,
+          200,
+          {
+            ok: true,
+            admin: {
+              email: body.email,
+            },
+          },
+          {
+            "set-cookie": createSessionCookie(token, config),
+            "x-request-id": ctx.requestId,
+          }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/session/logout") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        json(
+          res,
+          200,
+          { ok: true },
+          {
+            "set-cookie": clearSessionCookie(config),
+            "x-request-id": ctx.requestId,
+          }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/session/me") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        const session = readAdminSession(req, config);
+        if (!session) {
+          json(res, 401, { error: "unauthorized" }, { "x-request-id": ctx.requestId });
+          return;
+        }
+        json(
+          res,
+          200,
+          {
+            ok: true,
+            admin: {
+              email: session.email,
+            },
+          },
+          { "x-request-id": ctx.requestId }
+        );
         return;
       }
 
@@ -259,6 +350,19 @@ function buildServer({ config, store, runtime, rateLimiter }) {
         return;
       }
 
+      const memoryMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)\/memory$/);
+      if (memoryMatch) {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        const memory = runtime.leadMemoryStore
+          ? await runtime.leadMemoryStore.get(memoryMatch[1])
+          : null;
+        json(res, 200, { memory }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
       const leadMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)$/);
       if (leadMatch) {
         if (req.method === "GET") {
@@ -387,6 +491,22 @@ function buildServer({ config, store, runtime, rateLimiter }) {
         return;
       }
 
+      if (pathname === "/api/lead-agents/admin/traces") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        json(
+          res,
+          200,
+          {
+            traces: runtime.traceStore ? await runtime.traceStore.list(200) : [],
+          },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
       notFound(res);
     } catch (err) {
       log("error", "lead_agents_server.request_failed", {
@@ -422,6 +542,12 @@ async function start() {
 
   const openaiClient = new OpenAIResponsesClient(config);
   const webhooks = new WebhookDispatcher({ config });
+  const traceStore = new FileTraceStore(config.tracePath);
+  await traceStore.init();
+  const leadMemoryStore = new FileLeadMemoryStore(config.leadMemoryPath);
+  await leadMemoryStore.init();
+  const knowledgeBase = new FileKnowledgeBase(config.knowledgeDir);
+  await knowledgeBase.init();
   const toolExecutor = new ToolExecutor({ store, config, log, webhooks });
   const runtime = new LeadAgentRuntime({
     config,
@@ -429,6 +555,9 @@ async function start() {
     openaiClient,
     toolExecutor,
     log,
+    traceStore,
+    leadMemoryStore,
+    knowledgeBase,
   });
   const rateLimiter = new MemoryRateLimiter({
     windowMs: config.rateLimitWindowMs,

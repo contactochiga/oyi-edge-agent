@@ -361,13 +361,18 @@
         </div>
         <div class="section">
           <div class="auth-card">
-            <label for="apiKey">API Key</label>
-            <input id="apiKey" type="password" placeholder="Paste LEAD_AGENTS_API_KEYS value" />
-            <div class="button-row">
-              <button class="primary" id="saveKeyBtn">Connect</button>
-              <button class="ghost" id="refreshBtn">Refresh</button>
+            <label for="adminEmail">Admin Email</label>
+            <input id="adminEmail" type="email" placeholder="admin@ochiga.com" />
+            <div style="margin-top: 12px;">
+              <label for="adminPassword">Password</label>
+              <input id="adminPassword" type="password" placeholder="Enter dashboard password" />
             </div>
-            <div class="status" id="authStatus">Dashboard is disconnected.</div>
+            <div class="button-row">
+              <button class="primary" id="loginBtn">Log in</button>
+              <button class="ghost" id="refreshBtn">Refresh</button>
+              <button class="ghost" id="logoutBtn" type="button">Log out</button>
+            </div>
+            <div class="status" id="authStatus">Lead Desk is disconnected.</div>
           </div>
         </div>
         <div class="section search">

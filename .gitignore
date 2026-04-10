@@ -4,4 +4,6 @@
 node_modules/
 data/outbox.json
 data/lead-agents-store.json
+data/lead-agent-traces.jsonl
+data/lead-memory.json
 .DS_Store
