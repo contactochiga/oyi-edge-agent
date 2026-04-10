@@ -19,7 +19,10 @@
     notifications: [],
     report: null,
     timeline: [],
+    adminUsers: [],
+    channelState: null,
     traceQuery: "",
+    notificationFilter: "open",
   };
 
   const el = {
@@ -41,6 +44,10 @@
     countOma: document.getElementById("countOma"),
     countOsa: document.getElementById("countOsa"),
     countEscalated: document.getElementById("countEscalated"),
+    metricLeads: document.getElementById("metricLeads"),
+    metricDemos: document.getElementById("metricDemos"),
+    metricEscalations: document.getElementById("metricEscalations"),
+    metricConversion: document.getElementById("metricConversion"),
     searchInput: document.getElementById("searchInput"),
     selectedCount: document.getElementById("selectedCount"),
     bulkOwnerSelect: document.getElementById("bulkOwnerSelect"),
@@ -54,7 +61,19 @@
     workspaceTabs: document.getElementById("workspaceTabs"),
     threadCanvas: document.getElementById("threadCanvas"),
     timelinePanel: document.getElementById("timelinePanel"),
+    notificationsPanel: document.getElementById("notificationsPanel"),
+    notificationFilters: document.getElementById("notificationFilters"),
     founderInbox: document.getElementById("founderInbox"),
+    reportsPanel: document.getElementById("reportsPanel"),
+    sourcesPanel: document.getElementById("sourcesPanel"),
+    statusesPanel: document.getElementById("statusesPanel"),
+    teamPanel: document.getElementById("teamPanel"),
+    newUserName: document.getElementById("newUserName"),
+    newUserEmail: document.getElementById("newUserEmail"),
+    newUserRole: document.getElementById("newUserRole"),
+    newUserPassword: document.getElementById("newUserPassword"),
+    createUserBtn: document.getElementById("createUserBtn"),
+    teamStatus: document.getElementById("teamStatus"),
     traceExplorer: document.getElementById("traceExplorer"),
     traceSearchInput: document.getElementById("traceSearchInput"),
     openFounderQueueBtn: document.getElementById("openFounderQueueBtn"),
@@ -68,6 +87,13 @@
     detailSummary: document.getElementById("detailSummary"),
     memoryPanel: document.getElementById("memoryPanel"),
     tracePanel: document.getElementById("tracePanel"),
+    channelStatePanel: document.getElementById("channelStatePanel"),
+    takeoverOwnerInput: document.getElementById("takeoverOwnerInput"),
+    takeoverReasonInput: document.getElementById("takeoverReasonInput"),
+    pauseAiBtn: document.getElementById("pauseAiBtn"),
+    resumeOmaBtn: document.getElementById("resumeOmaBtn"),
+    resumeOsaBtn: document.getElementById("resumeOsaBtn"),
+    keepHumanBtn: document.getElementById("keepHumanBtn"),
     statusInput: document.getElementById("statusInput"),
     ownerInput: document.getElementById("ownerInput"),
     scoreInput: document.getElementById("scoreInput"),
@@ -104,6 +130,11 @@
   function setBulkStatus(text, isError) {
     el.bulkStatus.textContent = text;
     el.bulkStatus.style.color = isError ? "#8d1f1f" : "#667c73";
+  }
+
+  function setTeamStatus(text, isError) {
+    el.teamStatus.textContent = text;
+    el.teamStatus.style.color = isError ? "#8d1f1f" : "#667c73";
   }
 
   async function api(path, options) {
@@ -341,6 +372,63 @@
     el.selectedCount.textContent = `${state.selectedLeadIds.size} selected`;
   }
 
+  function renderReportStrip() {
+    const totals = state.report && state.report.totals ? state.report.totals : {};
+    el.metricLeads.textContent = String(totals.leads || 0);
+    el.metricDemos.textContent = String(state.report ? state.report.demos_booked || 0 : 0);
+    el.metricEscalations.textContent = String(totals.escalations || 0);
+    el.metricConversion.textContent = `${totals.sales_handoff_conversion_pct || 0}%`;
+  }
+
+  function keyValueLines(map, emptyText) {
+    const entries = Object.entries(map || {});
+    if (!entries.length) {
+      return `<div class="value empty">${escapeHtml(emptyText)}</div>`;
+    }
+    return entries
+      .sort(function (left, right) {
+        return right[1] - left[1];
+      })
+      .map(function (entry) {
+        return `
+          <div class="trace-head">
+            <strong>${escapeHtml(displayValue(entry[0], "Not captured"))}</strong>
+            <span>${escapeHtml(String(entry[1]))}</span>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  function renderReports() {
+    renderReportStrip();
+
+    if (!state.report) {
+      el.reportsPanel.innerHTML = '<div class="value empty">No report loaded yet.</div>';
+      el.sourcesPanel.innerHTML = '<div class="value empty">No source breakdown yet.</div>';
+      el.statusesPanel.innerHTML = '<div class="value empty">No stage breakdown yet.</div>';
+      return;
+    }
+
+    const totals = state.report.totals || {};
+    el.reportsPanel.innerHTML = `
+      <div class="trace-head"><strong>Total leads</strong><span>${escapeHtml(String(totals.leads || 0))}</span></div>
+      <div class="trace-head"><strong>Total demos</strong><span>${escapeHtml(String(totals.demos || 0))}</span></div>
+      <div class="trace-head"><strong>Escalations</strong><span>${escapeHtml(String(totals.escalations || 0))}</span></div>
+      <div class="trace-head"><strong>Sales handoff conversion</strong><span>${escapeHtml(
+        `${totals.sales_handoff_conversion_pct || 0}%`
+      )}</span></div>
+    `;
+    el.sourcesPanel.innerHTML = keyValueLines(
+      state.report.by_source,
+      "No source data yet."
+    );
+    el.statusesPanel.innerHTML = keyValueLines(
+      state.report.by_status,
+      "No stage data yet."
+    );
+  }
+
   function renderLeadList() {
     filterLeads();
     updateQueueCards();
@@ -525,6 +613,171 @@
     });
   }
 
+  function notificationMatchesFilter(notification) {
+    if (state.notificationFilter === "all") return true;
+    if (state.notificationFilter === "open") return (notification.status || "open") === "open";
+    if (state.notificationFilter === "founder") return notification.type === "founder_escalation";
+    if (state.notificationFilter === "sales") return notification.type === "sales_handoff";
+    if (state.notificationFilter === "demo") return notification.type === "demo_requested";
+    return true;
+  }
+
+  function renderNotifications() {
+    Array.from(el.notificationFilters.querySelectorAll("[data-notification-filter]")).forEach(
+      function (node) {
+        node.classList.toggle(
+          "active",
+          node.getAttribute("data-notification-filter") === state.notificationFilter
+        );
+      }
+    );
+
+    const items = state.notifications.filter(notificationMatchesFilter);
+    if (!items.length) {
+      el.notificationsPanel.innerHTML =
+        '<div class="value empty">No notifications match this view right now.</div>';
+      return;
+    }
+
+    el.notificationsPanel.innerHTML = items
+      .map(function (notification) {
+        const lead = state.leads.find(function (candidate) {
+          return candidate.id === notification.lead_id;
+        });
+        return `
+          <article class="notification-card">
+            <div class="notification-head">
+              <strong>${escapeHtml(
+                notification.type === "founder_escalation"
+                  ? "Founder escalation"
+                  : notification.type === "sales_handoff"
+                  ? "Sales handoff"
+                  : notification.type === "demo_requested"
+                  ? "Demo request"
+                  : notification.type || "Notification"
+              )}</strong>
+              <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(
+                notification.status || "open"
+              )}</span>
+            </div>
+            <div class="subtext">${escapeHtml(
+              lead ? leadTitle(lead) : "Lead record"
+            )} · ${escapeHtml(notification.urgency || "medium")} · ${escapeHtml(
+              formatDate(notification.created_at)
+            )}</div>
+            <div class="value" style="margin-top:8px;">${escapeHtml(
+              notification.summary || notification.reason || "No summary recorded."
+            )}</div>
+            <div class="toolbar" style="margin-top:12px;">
+              <button class="ghost" type="button" data-notification-open="${notification.lead_id || ""}">Open lead</button>
+              <button class="outline" type="button" data-notification-status="${notification.id}" data-status-value="resolved">Mark resolved</button>
+              <button class="outline" type="button" data-notification-status="${notification.id}" data-status-value="open">Reopen</button>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+
+    Array.from(el.notificationsPanel.querySelectorAll("[data-notification-open]")).forEach(function (
+      node
+    ) {
+      node.addEventListener("click", function () {
+        const leadId = node.getAttribute("data-notification-open");
+        if (leadId) {
+          state.workspaceTab = "conversation";
+          renderWorkspaceTabs();
+          selectLead(leadId);
+        }
+      });
+    });
+
+    Array.from(el.notificationsPanel.querySelectorAll("[data-notification-status]")).forEach(
+      function (node) {
+        node.addEventListener("click", function () {
+          const notificationId = node.getAttribute("data-notification-status");
+          const statusValue = node.getAttribute("data-status-value");
+          updateNotificationStatus(notificationId, statusValue).catch(function (error) {
+            setBulkStatus(error.message || "Notification update failed.", true);
+          });
+        });
+      }
+    );
+  }
+
+  function renderTeamPanel() {
+    if (!state.adminUsers.length) {
+      el.teamPanel.innerHTML = '<div class="value empty">No admin users loaded yet.</div>';
+    } else {
+      el.teamPanel.innerHTML = state.adminUsers
+        .map(function (user) {
+          return `
+            <article class="team-card">
+              <div class="team-head">
+                <strong>${escapeHtml(user.display_name || user.email)}</strong>
+                <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(
+                  user.role || "viewer"
+                )}</span>
+              </div>
+              <div class="subtext">${escapeHtml(user.email)}</div>
+              <div class="subtext" style="margin-top:6px;">${escapeHtml(
+                user.status || "active"
+              )}</div>
+            </article>
+          `;
+        })
+        .join("");
+    }
+
+    const canManageUsers = Boolean(state.session && state.session.role === "admin");
+    el.createUserBtn.disabled = !canManageUsers;
+    el.newUserName.disabled = !canManageUsers;
+    el.newUserEmail.disabled = !canManageUsers;
+    el.newUserRole.disabled = !canManageUsers;
+    el.newUserPassword.disabled = !canManageUsers;
+    if (!canManageUsers) {
+      setTeamStatus("Your role cannot create users.", true);
+    } else {
+      setTeamStatus("", false);
+    }
+  }
+
+  function renderChannelState() {
+    if (!state.selectedLead) {
+      el.channelStatePanel.textContent = "No lead selected.";
+      el.channelStatePanel.className = "value empty";
+      return;
+    }
+
+    if (!state.channelState) {
+      el.channelStatePanel.textContent =
+        "No WhatsApp channel state recorded yet for this lead.";
+      el.channelStatePanel.className = "value empty";
+      return;
+    }
+
+    el.channelStatePanel.textContent = [
+      `AI paused: ${state.channelState.ai_paused ? "yes" : "no"}`,
+      `Human status: ${displayValue(state.channelState.human_status, "auto")}`,
+      `Human owner: ${displayValue(state.channelState.human_owner, "Not assigned")}`,
+      `Reason: ${displayValue(state.channelState.takeover_reason, "Not set")}`,
+      `Window expires: ${displayValue(
+        state.channelState.customer_service_window_expires_at
+          ? formatDate(state.channelState.customer_service_window_expires_at)
+          : "",
+        "Not available"
+      )}`,
+      `Last inbound: ${displayValue(
+        state.channelState.last_inbound_at ? formatDate(state.channelState.last_inbound_at) : "",
+        "Not available"
+      )}`,
+      `Last outbound: ${displayValue(
+        state.channelState.last_outbound_at ? formatDate(state.channelState.last_outbound_at) : "",
+        "Not available"
+      )}`,
+    ].join("\n\n");
+    el.channelStatePanel.className = "value";
+  }
+
   function renderTimeline() {
     if (!state.selectedLead) {
       el.timelinePanel.innerHTML = '<div class="value empty">Select a lead to inspect the CRM timeline.</div>';
@@ -606,6 +859,9 @@
       panel.classList.toggle("active", panel.getAttribute("data-panel") === state.workspaceTab);
     });
     renderFounderInbox();
+    renderNotifications();
+    renderReports();
+    renderTeamPanel();
     renderTraceExplorer();
     renderTimeline();
   }
@@ -614,7 +870,7 @@
     return `
       <div class="detail-card">
         <div class="key">${escapeHtml(label)}</div>
-        <div class="value ${value ? "" : "empty"}">${escapeHtml(value || "unknown")}</div>
+        <div class="value ${value ? "" : "empty"}">${escapeHtml(value || "Not captured")}</div>
       </div>
     `;
   }
@@ -627,6 +883,7 @@
       el.memoryPanel.textContent = "No lead selected.";
       el.memoryPanel.className = "value empty";
       el.tracePanel.innerHTML = '<div class="value empty">No lead selected.</div>';
+      renderChannelState();
       return;
     }
 
@@ -671,6 +928,7 @@
       ].join("\n\n");
       el.memoryPanel.className = "value";
     }
+    renderChannelState();
 
     const relatedTraces = state.traces.filter(function (trace) {
       return trace.lead_id === state.selectedLead.id;
@@ -712,6 +970,16 @@
     state.traces = traceData.traces || [];
     state.notifications = notificationData.notifications || [];
     state.report = reportData.report || null;
+    if (state.session && ["admin", "founder"].includes(state.session.role)) {
+      try {
+        const userData = await api("/api/lead-agents/admin/users", { method: "GET" });
+        state.adminUsers = userData.users || [];
+      } catch (_) {
+        state.adminUsers = [];
+      }
+    } else {
+      state.adminUsers = [];
+    }
 
     if (
       state.selectedLeadId &&
@@ -731,7 +999,10 @@
     }
 
     renderLeadList();
+    renderReports();
+    renderNotifications();
     renderFounderInbox();
+    renderTeamPanel();
     renderTraceExplorer();
     renderTimeline();
 
@@ -750,17 +1021,19 @@
         return lead.id === leadId;
       }) || null;
 
-    const [conversationData, demosData, memoryData, timelineData] = await Promise.all([
+    const [conversationData, demosData, memoryData, timelineData, channelStateData] = await Promise.all([
       api(`/api/lead-agents/leads/${leadId}/conversations`, { method: "GET" }),
       api(`/api/lead-agents/leads/${leadId}/demos`, { method: "GET" }),
       api(`/api/lead-agents/leads/${leadId}/memory`, { method: "GET" }),
       api(`/api/lead-agents/leads/${leadId}/timeline`, { method: "GET" }),
+      api(`/api/lead-agents/leads/${leadId}/channel-state/whatsapp`, { method: "GET" }),
     ]);
 
     state.conversations = conversationData.conversations || [];
     state.demos = demosData.demos || [];
     state.memory = memoryData.memory || null;
     state.timeline = timelineData.timeline || [];
+    state.channelState = channelStateData.channel_state || null;
 
     if (!skipRender) {
       renderLeadList();
@@ -787,6 +1060,66 @@
     renderFounderInbox();
     renderDetail();
     return data.lead;
+  }
+
+  async function updateNotificationStatus(notificationId, status) {
+    await api(`/api/lead-agents/admin/notifications/${notificationId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    const payload = await api("/api/lead-agents/admin/notifications", { method: "GET" });
+    state.notifications = payload.notifications || [];
+    renderNotifications();
+    renderFounderInbox();
+    setBulkStatus(`Notification marked ${status}.`);
+  }
+
+  async function updateChannelState(patch, leadOwner) {
+    if (!state.selectedLead) {
+      setDetailStatus("Select a lead first.", true);
+      return;
+    }
+    await api(`/api/lead-agents/leads/${state.selectedLead.id}/channel-state/whatsapp`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    state.channelState = await api(
+      `/api/lead-agents/leads/${state.selectedLead.id}/channel-state/whatsapp`,
+      { method: "GET" }
+    ).then(function (payload) {
+      return payload.channel_state || null;
+    });
+    if (leadOwner) {
+      await updateLeadPatch(state.selectedLead.id, leadOwner);
+    }
+    renderChannelState();
+  }
+
+  async function createAdminUser() {
+    const email = el.newUserEmail.value.trim().toLowerCase();
+    const password = el.newUserPassword.value;
+    if (!email || !password) {
+      setTeamStatus("Email and temporary password are required.", true);
+      return;
+    }
+    setTeamStatus("Creating admin user...");
+    await api("/api/lead-agents/admin/users", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        password,
+        role: el.newUserRole.value || "viewer",
+        display_name: el.newUserName.value.trim() || email,
+      }),
+    });
+    const userData = await api("/api/lead-agents/admin/users", { method: "GET" });
+    state.adminUsers = userData.users || [];
+    el.newUserName.value = "";
+    el.newUserEmail.value = "";
+    el.newUserPassword.value = "";
+    el.newUserRole.value = "viewer";
+    renderTeamPanel();
+    setTeamStatus(`Created admin user for ${email}.`);
   }
 
   async function applyBulkAction() {
@@ -855,6 +1188,11 @@
         return payload.notifications || [];
       }
     );
+    state.report = await api("/api/lead-agents/admin/reports/summary", { method: "GET" }).then(
+      function (payload) {
+        return payload.report || null;
+      }
+    );
     state.leads = state.leads.map(function (lead) {
       return lead.id === data.lead.id ? data.lead : lead;
     });
@@ -863,6 +1201,8 @@
     renderConversation();
     renderDetail();
     renderFounderInbox();
+    renderNotifications();
+    renderReports();
     renderTraceExplorer();
     if (state.selectedLeadId) {
       state.timeline = await api(`/api/lead-agents/leads/${state.selectedLeadId}/timeline`, {
@@ -870,8 +1210,15 @@
       }).then(function (payload) {
         return payload.timeline || [];
       });
+      state.channelState = await api(
+        `/api/lead-agents/leads/${state.selectedLeadId}/channel-state/whatsapp`,
+        { method: "GET" }
+      ).then(function (payload) {
+        return payload.channel_state || null;
+      });
     }
     renderTimeline();
+    renderChannelState();
     el.composerInput.value = "";
     setComposerStatus("Message sent through agent.");
   }
@@ -1024,13 +1371,19 @@
     state.notifications = [];
     state.report = null;
     state.timeline = [];
+    state.adminUsers = [];
+    state.channelState = null;
     state.traceQuery = "";
+    state.notificationFilter = "open";
     el.adminPassword.value = "";
     el.traceSearchInput.value = "";
     updateAuthUi();
     renderLeadList();
     renderConversation();
+    renderNotifications();
     renderFounderInbox();
+    renderReports();
+    renderTeamPanel();
     renderTraceExplorer();
     renderTimeline();
     renderDetail();
@@ -1083,6 +1436,14 @@
       renderWorkspaceTabs();
     });
   });
+  Array.from(el.notificationFilters.querySelectorAll("[data-notification-filter]")).forEach(
+    function (node) {
+      node.addEventListener("click", function () {
+        state.notificationFilter = node.getAttribute("data-notification-filter");
+        renderNotifications();
+      });
+    }
+  );
   el.traceSearchInput.addEventListener("input", function () {
     state.traceQuery = el.traceSearchInput.value;
     renderTraceExplorer();
@@ -1116,6 +1477,92 @@
     renderLeadList();
     setBulkStatus("Selection cleared.");
   });
+  el.createUserBtn.addEventListener("click", function () {
+    createAdminUser().catch(function (error) {
+      setTeamStatus(error.message || "Could not create admin user.", true);
+    });
+  });
+  el.pauseAiBtn.addEventListener("click", function () {
+    updateChannelState(
+      {
+        ai_paused: true,
+        human_owner: el.takeoverOwnerInput.value.trim() || state.adminEmail,
+        human_status: "human_active",
+        takeover_started_at: new Date().toISOString(),
+        takeover_reason: el.takeoverReasonInput.value.trim() || "manual_takeover",
+        resume_mode: "manual_only",
+      },
+      {
+        owner: "human",
+        status: "escalated",
+      }
+    )
+      .then(function () {
+        setDetailStatus("Human takeover enabled.");
+      })
+      .catch(function (error) {
+        setDetailStatus(error.message || "Unable to enable takeover.", true);
+      });
+  });
+  el.resumeOmaBtn.addEventListener("click", function () {
+    updateChannelState(
+      {
+        ai_paused: false,
+        human_owner: "",
+        human_status: "resume_pending",
+        resume_mode: "manual_only",
+      },
+      {
+        owner: "marketing_agent",
+      }
+    )
+      .then(function () {
+        setDetailStatus("WhatsApp will resume with Oma on the next turn.");
+      })
+      .catch(function (error) {
+        setDetailStatus(error.message || "Unable to resume Oma.", true);
+      });
+  });
+  el.resumeOsaBtn.addEventListener("click", function () {
+    updateChannelState(
+      {
+        ai_paused: false,
+        human_owner: "",
+        human_status: "resume_pending",
+        resume_mode: "manual_only",
+      },
+      {
+        owner: "sales_agent",
+        status: "sales",
+      }
+    )
+      .then(function () {
+        setDetailStatus("WhatsApp will resume with Osa on the next turn.");
+      })
+      .catch(function (error) {
+        setDetailStatus(error.message || "Unable to resume Osa.", true);
+      });
+  });
+  el.keepHumanBtn.addEventListener("click", function () {
+    updateChannelState(
+      {
+        ai_paused: true,
+        human_owner: el.takeoverOwnerInput.value.trim() || state.adminEmail,
+        human_status: "human_active",
+        takeover_reason: el.takeoverReasonInput.value.trim() || "human_only",
+        resume_mode: "manual_only",
+      },
+      {
+        owner: "human",
+      }
+    )
+      .then(function () {
+        setDetailStatus("Lead remains in human-only mode.");
+      })
+      .catch(function (error) {
+        setDetailStatus(error.message || "Unable to keep human-only mode.", true);
+      });
+  });
   el.updateLeadBtn.addEventListener("click", function () {
     updateLead().catch(function (error) {
       setDetailStatus(error.message || "Lead update failed.", true);
@@ -1142,7 +1589,10 @@
   updateAuthUi();
   renderLeadList();
   renderConversation();
+  renderNotifications();
   renderFounderInbox();
+  renderReports();
+  renderTeamPanel();
   renderTraceExplorer();
   renderDetail();
   renderWorkspaceTabs();

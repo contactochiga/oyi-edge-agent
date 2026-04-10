@@ -222,9 +222,23 @@
         gap: 12px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+      .report-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
       .queue-card {
         padding: 14px;
         text-align: left;
+      }
+      .metric-card {
+        padding: 14px;
+      }
+      .metric-card strong {
+        display: block;
+        font-size: 26px;
+        line-height: 1;
+        margin-top: 10px;
       }
       .queue-card.active {
         outline: 2px solid rgba(13, 92, 70, 0.2);
@@ -426,12 +440,16 @@
         color: var(--muted);
       }
       .trace-list,
-      .founder-list {
+      .founder-list,
+      .team-list,
+      .notification-list {
         display: grid;
         gap: 12px;
       }
       .trace-item,
-      .founder-card {
+      .founder-card,
+      .team-card,
+      .notification-card {
         padding: 14px;
         border-radius: 20px;
         background: rgba(255, 255, 255, 0.8);
@@ -439,7 +457,9 @@
         box-shadow: var(--shadow);
       }
       .trace-head,
-      .founder-head {
+      .founder-head,
+      .notification-head,
+      .team-head {
         display: flex;
         justify-content: space-between;
         gap: 12px;
@@ -487,6 +507,20 @@
         min-height: 20px;
         color: var(--muted);
         font-size: 13px;
+      }
+      .divider {
+        height: 1px;
+        background: var(--line);
+        margin: 8px 0 0;
+      }
+      .notification-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .small-note {
+        font-size: 12px;
+        color: var(--muted);
       }
       .overlay {
         position: fixed;
@@ -627,6 +661,30 @@
               </div>
             </div>
             <div class="section" style="padding-top: 0;">
+              <div class="report-grid">
+                <div class="card metric-card">
+                  <div class="queue-label">Lead Volume</div>
+                  <strong id="metricLeads">0</strong>
+                  <div class="queue-subtext">Total active leads</div>
+                </div>
+                <div class="card metric-card">
+                  <div class="queue-label">Demo Pipeline</div>
+                  <strong id="metricDemos">0</strong>
+                  <div class="queue-subtext">Booked or pending</div>
+                </div>
+                <div class="card metric-card">
+                  <div class="queue-label">Escalations</div>
+                  <strong id="metricEscalations">0</strong>
+                  <div class="queue-subtext">Human attention required</div>
+                </div>
+                <div class="card metric-card">
+                  <div class="queue-label">Sales Conversion</div>
+                  <strong id="metricConversion">0%</strong>
+                  <div class="queue-subtext">Sales-ready movement</div>
+                </div>
+              </div>
+            </div>
+            <div class="section" style="padding-top: 0;">
               <div class="filter-row" id="filterRow">
                 <button class="filter-chip active" data-filter="all" type="button">All</button>
                 <button class="filter-chip" data-filter="hot" type="button">Hot</button>
@@ -675,7 +733,10 @@
             <div class="tabbar" id="workspaceTabs">
               <button class="tab-btn active" data-tab="conversation" type="button">Conversation</button>
               <button class="tab-btn" data-tab="timeline" type="button">Timeline</button>
+              <button class="tab-btn" data-tab="notifications" type="button">Inbox</button>
               <button class="tab-btn" data-tab="founder" type="button">Founder Inbox</button>
+              <button class="tab-btn" data-tab="reports" type="button">Reports</button>
+              <button class="tab-btn" data-tab="team" type="button">Team</button>
               <button class="tab-btn" data-tab="traces" type="button">Trace Explorer</button>
             </div>
           </div>
@@ -700,12 +761,64 @@
             <div class="tab-panel" data-panel="timeline">
               <div class="trace-list" id="timelinePanel"></div>
             </div>
+            <div class="tab-panel" data-panel="notifications">
+              <div class="toolbar" style="margin-bottom: 12px;">
+                <strong>Notification Inbox</strong>
+                <div class="notification-filters" id="notificationFilters">
+                  <button class="filter-chip active" data-notification-filter="open" type="button">Open</button>
+                  <button class="filter-chip" data-notification-filter="all" type="button">All</button>
+                  <button class="filter-chip" data-notification-filter="founder" type="button">Founder</button>
+                  <button class="filter-chip" data-notification-filter="sales" type="button">Sales</button>
+                  <button class="filter-chip" data-notification-filter="demo" type="button">Demos</button>
+                </div>
+              </div>
+              <div class="notification-list" id="notificationsPanel"></div>
+            </div>
             <div class="tab-panel" data-panel="founder">
               <div class="toolbar" style="margin-bottom: 12px;">
                 <strong>Founder escalation inbox</strong>
                 <button class="ghost" id="openFounderQueueBtn" type="button">Filter founder queue</button>
               </div>
               <div class="founder-list" id="founderInbox"></div>
+            </div>
+            <div class="tab-panel" data-panel="reports">
+              <div class="stack-16">
+                <div class="card detail-card">
+                  <div class="key">Pipeline Report</div>
+                  <div id="reportsPanel" class="value empty">No report loaded yet.</div>
+                </div>
+                <div class="card detail-card">
+                  <div class="key">Source Breakdown</div>
+                  <div id="sourcesPanel" class="value empty">No source breakdown yet.</div>
+                </div>
+                <div class="card detail-card">
+                  <div class="key">Stage Breakdown</div>
+                  <div id="statusesPanel" class="value empty">No stage breakdown yet.</div>
+                </div>
+              </div>
+            </div>
+            <div class="tab-panel" data-panel="team">
+              <div class="stack-16">
+                <div class="card detail-card">
+                  <div class="key">Admin Team</div>
+                  <div id="teamPanel" class="team-list"></div>
+                </div>
+                <div class="card detail-card">
+                  <div class="key">Create Admin User</div>
+                  <div class="stack-12">
+                    <input id="newUserName" class="text-input" type="text" placeholder="Display name" />
+                    <input id="newUserEmail" class="text-input" type="email" placeholder="Email address" />
+                    <select id="newUserRole" class="select-input">
+                      <option value="viewer">viewer</option>
+                      <option value="admin">admin</option>
+                      <option value="founder">founder</option>
+                    </select>
+                    <input id="newUserPassword" class="text-input" type="password" placeholder="Temporary password" />
+                    <button class="primary" id="createUserBtn" type="button">Create admin user</button>
+                    <div class="status-line" id="teamStatus"></div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="tab-panel" data-panel="traces">
               <div class="toolbar" style="margin-bottom: 12px;">
@@ -733,6 +846,23 @@
                 <div class="key">Recent Trace</div>
                 <div id="tracePanel" class="trace-list">
                   <div class="value empty">No lead selected.</div>
+                </div>
+              </div>
+            </div>
+            <div class="action-card">
+              <div class="stack-12">
+                <div class="key">WhatsApp Channel State</div>
+                <div id="channelStatePanel" class="value empty">No channel state loaded yet.</div>
+                <input id="takeoverOwnerInput" class="text-input" type="text" placeholder="Human owner email or name" />
+                <input id="takeoverReasonInput" class="text-input" type="text" placeholder="Takeover reason" />
+                <div class="toolbar">
+                  <button class="ghost" id="pauseAiBtn" type="button">Take over</button>
+                  <button class="outline" id="resumeOmaBtn" type="button">Resume Oma</button>
+                  <button class="outline" id="resumeOsaBtn" type="button">Resume Osa</button>
+                  <button class="sand" id="keepHumanBtn" type="button">Keep human-only</button>
+                </div>
+                <div class="small-note">
+                  Human takeover pauses automatic WhatsApp replies while still recording inbound messages.
                 </div>
               </div>
             </div>

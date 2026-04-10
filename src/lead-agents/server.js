@@ -773,6 +773,40 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
         return;
       }
 
+      const notificationMatch = pathname.match(
+        /^\/api\/lead-agents\/admin\/notifications\/([^/]+)$/
+      );
+      if (notificationMatch) {
+        if (req.method !== "PATCH") {
+          methodNotAllowed(res, "PATCH");
+          return;
+        }
+        authorizeRole(authContext, ["admin", "founder"]);
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        const notification = await store.updateNotification(notificationMatch[1], {
+          status: body.status,
+          delivered:
+            body.delivered === undefined ? undefined : parseBoolean(body.delivered, false),
+          response_code: body.response_code,
+          metadata: body.metadata,
+          summary: body.summary,
+        });
+        if (!notification) {
+          notFound(res);
+          return;
+        }
+        json(
+          res,
+          200,
+          {
+            notification,
+          },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
       if (pathname === "/api/lead-agents/admin/reports/summary") {
         if (req.method !== "GET") {
           methodNotAllowed(res, "GET");
