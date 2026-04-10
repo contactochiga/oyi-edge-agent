@@ -6,10 +6,14 @@
     session: null,
     leads: [],
     filteredLeads: [],
+    activeQueue: "all",
+    activeFilter: "all",
     selectedLeadId: "",
     selectedLead: null,
     conversations: [],
     demos: [],
+    memory: null,
+    traces: [],
   };
 
   const el = {
@@ -19,6 +23,12 @@
     logoutBtn: document.getElementById("logoutBtn"),
     refreshBtn: document.getElementById("refreshBtn"),
     authStatus: document.getElementById("authStatus"),
+    queueGrid: document.getElementById("queueGrid"),
+    filterRow: document.getElementById("filterRow"),
+    countAll: document.getElementById("countAll"),
+    countOma: document.getElementById("countOma"),
+    countOsa: document.getElementById("countOsa"),
+    countEscalated: document.getElementById("countEscalated"),
     searchInput: document.getElementById("searchInput"),
     leadList: document.getElementById("leadList"),
     threadTitle: document.getElementById("threadTitle"),
@@ -46,6 +56,8 @@
     escalationUrgencyInput: document.getElementById("escalationUrgencyInput"),
     escalateBtn: document.getElementById("escalateBtn"),
     detailStatus: document.getElementById("detailStatus"),
+    memoryPanel: document.getElementById("memoryPanel"),
+    tracePanel: document.getElementById("tracePanel"),
   };
 
   el.adminEmail.value = state.adminEmail;
@@ -105,13 +117,75 @@
     return `status-${String(status || "new").toLowerCase()}`;
   }
 
+  function ownerLabel(owner) {
+    if (owner === "marketing_agent") return "Oma";
+    if (owner === "sales_agent") return "Osa";
+    if (owner === "human") return "Human";
+    return owner || "unknown";
+  }
+
+  function queueMatch(lead) {
+    if (state.activeQueue === "all") return true;
+    if (state.activeQueue === "oma") {
+      return lead.owner === "marketing_agent";
+    }
+    if (state.activeQueue === "osa") {
+      return lead.owner === "sales_agent" || lead.status === "sales" || lead.status === "booked";
+    }
+    if (state.activeQueue === "escalated") {
+      return lead.status === "escalated" || lead.owner === "human";
+    }
+    return true;
+  }
+
+  function chipMatch(lead) {
+    if (state.activeFilter === "all") return true;
+    if (state.activeFilter === "hot") {
+      return ["hot", "sales"].includes(String(lead.status || "").toLowerCase()) || Number(lead.score || 0) >= 70;
+    }
+    if (state.activeFilter === "booked") {
+      return String(lead.status || "").toLowerCase() === "booked";
+    }
+    if (state.activeFilter === "unscored") {
+      return !Number(lead.score || 0);
+    }
+    return true;
+  }
+
+  function updateQueueCards() {
+    const all = state.leads.length;
+    const oma = state.leads.filter(function (lead) {
+      return lead.owner === "marketing_agent";
+    }).length;
+    const osa = state.leads.filter(function (lead) {
+      return lead.owner === "sales_agent" || lead.status === "sales" || lead.status === "booked";
+    }).length;
+    const escalated = state.leads.filter(function (lead) {
+      return lead.status === "escalated" || lead.owner === "human";
+    }).length;
+
+    el.countAll.textContent = String(all);
+    el.countOma.textContent = String(oma);
+    el.countOsa.textContent = String(osa);
+    el.countEscalated.textContent = String(escalated);
+
+    Array.from(el.queueGrid.querySelectorAll("[data-queue]")).forEach(function (node) {
+      node.classList.toggle("active", node.getAttribute("data-queue") === state.activeQueue);
+    });
+    Array.from(el.filterRow.querySelectorAll("[data-filter]")).forEach(function (node) {
+      node.classList.toggle("active", node.getAttribute("data-filter") === state.activeFilter);
+    });
+  }
+
   function filterLeads() {
     const query = el.searchInput.value.trim().toLowerCase();
-    if (!query) {
-      state.filteredLeads = [...state.leads];
-      return;
-    }
     state.filteredLeads = state.leads.filter(function (lead) {
+      if (!queueMatch(lead) || !chipMatch(lead)) {
+        return false;
+      }
+      if (!query) {
+        return true;
+      }
       const haystack = [
         lead.name,
         lead.company,
@@ -160,7 +234,7 @@
                 lead.status || "new"
               )}</span>
               <span class="pill" style="background:rgba(10,44,34,0.08);color:#214238;">${escapeHtml(
-                lead.owner || "unknown"
+                ownerLabel(lead.owner)
               )}</span>
             </div>
             <div class="subtext" style="margin-top:10px;">${escapeHtml(
@@ -242,6 +316,9 @@
         "Update ownership, status, score, notes, demos, and escalations.";
       el.detailSummary.innerHTML =
         '<div class="empty-state" style="padding:0;">Select a lead to inspect details and take action.</div>';
+      el.memoryPanel.textContent = "No lead selected.";
+      el.memoryPanel.className = "value empty";
+      el.tracePanel.innerHTML = '<div class="value empty">No lead selected.</div>';
       return;
     }
 
@@ -263,12 +340,55 @@
       summaryField("Source", state.selectedLead.source),
       summaryField("Location", state.selectedLead.location),
       summaryField("Status", state.selectedLead.status),
-      summaryField("Owner", state.selectedLead.owner),
+      summaryField("Owner", ownerLabel(state.selectedLead.owner)),
       summaryField("Score", String(state.selectedLead.score || 0)),
       summaryField("Next Action", state.selectedLead.next_action),
       summaryField("Summary", state.selectedLead.summary),
       summaryField("Demo Pipeline", demos),
     ].join("");
+
+    if (!state.memory) {
+      el.memoryPanel.textContent = "No memory stored yet.";
+      el.memoryPanel.className = "value empty";
+    } else {
+      el.memoryPanel.textContent = [
+        `Known: ${JSON.stringify(state.memory.known_fields || {}, null, 2)}`,
+        `Need signals: ${(state.memory.need_signals || []).join(", ") || "none"}`,
+        `Open questions: ${(state.memory.open_questions || []).join(", ") || "none"}`,
+        `Keywords: ${(state.memory.keywords || []).join(", ") || "none"}`,
+        `Last status: ${state.memory.last_status || "unknown"}`,
+        `Last owner: ${ownerLabel(state.memory.last_owner)}`,
+      ].join("\n\n");
+      el.memoryPanel.className = "value";
+    }
+
+    const relatedTraces = state.traces.filter(function (trace) {
+      return trace.lead_id === state.selectedLead.id;
+    }).slice(0, 8);
+
+    if (!relatedTraces.length) {
+      el.tracePanel.innerHTML = '<div class="value empty">No traces for this lead yet.</div>';
+    } else {
+      el.tracePanel.innerHTML = relatedTraces
+        .map(function (trace) {
+          return `
+            <div class="trace-item">
+              <div class="trace-head">
+                <strong>${escapeHtml(trace.type || "trace")}</strong>
+                <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(formatDate(trace.ts))}</span>
+              </div>
+              <div class="value">${escapeHtml(
+                trace.tool_name ||
+                  trace.agent ||
+                  trace.assistant_message ||
+                  trace.user_message ||
+                  ""
+              )}</div>
+            </div>
+          `;
+        })
+        .join("");
+    }
 
     el.statusInput.value = "";
     el.ownerInput.value = "";
@@ -278,8 +398,13 @@
   }
 
   async function loadLeads() {
-    const data = await api("/api/lead-agents/leads", { method: "GET" });
+    const [data, traceData] = await Promise.all([
+      api("/api/lead-agents/leads", { method: "GET" }),
+      api("/api/lead-agents/admin/traces", { method: "GET" }),
+    ]);
     state.leads = data.leads || [];
+    state.traces = traceData.traces || [];
+    updateQueueCards();
     if (
       state.selectedLeadId &&
       !state.leads.find(function (lead) {
@@ -308,13 +433,15 @@
         return lead.id === leadId;
       }) || null;
 
-    const [conversationData, demosData] = await Promise.all([
+    const [conversationData, demosData, memoryData] = await Promise.all([
       api(`/api/lead-agents/leads/${leadId}/conversations`, { method: "GET" }),
       api(`/api/lead-agents/leads/${leadId}/demos`, { method: "GET" }),
+      api(`/api/lead-agents/leads/${leadId}/memory`, { method: "GET" }),
     ]);
 
     state.conversations = conversationData.conversations || [];
     state.demos = demosData.demos || [];
+    state.memory = memoryData.memory || null;
 
     if (!skipListRender) {
       renderLeadList();
@@ -350,10 +477,15 @@
     });
 
     state.selectedLead = data.lead;
+    state.memory = data.lead_memory || state.memory;
     state.conversations = data.conversations || [];
+    state.traces = await api("/api/lead-agents/admin/traces", { method: "GET" }).then(function (payload) {
+      return payload.traces || [];
+    });
     state.leads = state.leads.map(function (lead) {
       return lead.id === data.lead.id ? data.lead : lead;
     });
+    updateQueueCards();
     renderLeadList();
     renderThread();
     renderDetail();
@@ -383,6 +515,7 @@
     state.leads = state.leads.map(function (lead) {
       return lead.id === data.lead.id ? data.lead : lead;
     });
+    updateQueueCards();
     renderLeadList();
     renderDetail();
     setDetailStatus("Lead updated.");
@@ -507,8 +640,11 @@
     state.selectedLead = null;
     state.conversations = [];
     state.demos = [];
+    state.memory = null;
+    state.traces = [];
     el.adminPassword.value = "";
     el.leadList.innerHTML = "";
+    updateQueueCards();
     renderLeadList();
     renderThread();
     renderDetail();
@@ -531,6 +667,20 @@
       });
   });
   el.searchInput.addEventListener("input", renderLeadList);
+  Array.from(el.queueGrid.querySelectorAll("[data-queue]")).forEach(function (node) {
+    node.addEventListener("click", function () {
+      state.activeQueue = node.getAttribute("data-queue");
+      renderLeadList();
+      updateQueueCards();
+    });
+  });
+  Array.from(el.filterRow.querySelectorAll("[data-filter]")).forEach(function (node) {
+    node.addEventListener("click", function () {
+      state.activeFilter = node.getAttribute("data-filter");
+      renderLeadList();
+      updateQueueCards();
+    });
+  });
   el.reloadLeadBtn.addEventListener("click", function () {
     if (!state.selectedLeadId) {
       return;
