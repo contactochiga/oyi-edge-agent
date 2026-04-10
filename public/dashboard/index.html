@@ -63,6 +63,18 @@
         align-items: center;
         gap: 16px;
       }
+      .brand-logo {
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        background: linear-gradient(145deg, rgba(13, 92, 70, 0.14), rgba(13, 92, 70, 0.03));
+        border: 1px solid rgba(13, 92, 70, 0.12);
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        font-weight: 900;
+        letter-spacing: 0.04em;
+      }
       .brand-copy p,
       .brand-copy h1,
       .brand-copy h2 {
@@ -556,10 +568,11 @@
     <div class="page">
       <header class="topbar">
         <div class="brand-mark">
+          <div class="brand-logo" id="brandLogoSlot">O</div>
           <div class="brand-copy">
             <p class="eyebrow">Ochiga Lead Desk</p>
-            <h1>Oma + Osa</h1>
-            <p>Internal lead operations for qualification, routing, demos, and founder escalation.</p>
+            <h1>Lead Operations</h1>
+            <p>Qualification, routing, demos, founder escalation, and agent-led CRM workflows.</p>
           </div>
         </div>
         <div class="account" id="accountMenuWrap">

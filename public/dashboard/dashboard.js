@@ -155,13 +155,87 @@
     if (owner === "marketing_agent") return "Oma";
     if (owner === "sales_agent") return "Osa";
     if (owner === "human") return "Human";
-    return owner || "unknown";
+    return owner || "Unassigned";
+  }
+
+  function displayValue(value, fallback) {
+    const normalized = String(value || "").trim();
+    if (!normalized || normalized.toLowerCase() === "unknown") {
+      return fallback || "Not captured";
+    }
+    return normalized;
+  }
+
+  function leadTitle(lead) {
+    const name = displayValue(lead.name, "");
+    if (name) {
+      return name;
+    }
+    const company = displayValue(lead.company, "");
+    if (company) {
+      return company;
+    }
+    return "Unidentified lead";
+  }
+
+  function leadMetaLine(lead) {
+    const parts = [
+      displayValue(lead.company, ""),
+      displayValue(lead.role, ""),
+      displayValue(lead.location, ""),
+    ].filter(Boolean);
+    return parts.join(" · ") || "Company, role, or location not captured yet";
   }
 
   function toolSummary(content) {
     try {
       const parsed = JSON.parse(content);
-      return `${parsed.tool || "tool"} · ${parsed.arguments ? Object.keys(parsed.arguments).join(", ") : ""}`;
+      const toolName = parsed.tool || "tool";
+      const args = parsed.arguments || {};
+      const result = parsed.result || {};
+
+      if (toolName === "update_lead_status") {
+        return [
+          "Updated lead",
+          args.status ? `status: ${args.status}` : "",
+          args.owner ? `owner: ${ownerLabel(args.owner)}` : "",
+          Number.isFinite(Number(args.score)) ? `score: ${args.score}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+      }
+
+      if (toolName === "schedule_demo") {
+        return [
+          "Scheduled demo",
+          args.preferred_time ? `time: ${args.preferred_time}` : "",
+          args.timezone ? `timezone: ${args.timezone}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+      }
+
+      if (toolName === "notify_founder") {
+        return [
+          "Escalated to founder",
+          args.urgency ? `urgency: ${args.urgency}` : "",
+          args.reason ? `reason: ${args.reason}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+      }
+
+      if (toolName === "create_lead") {
+        return [
+          "Updated lead record",
+          args.company ? `company: ${args.company}` : "",
+          args.role ? `role: ${args.role}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+      }
+
+      return `${toolName} · ${Object.keys(args).join(", ") || Object.keys(result).join(", ") || "completed"}`;
     } catch {
       return content;
     }
@@ -282,11 +356,9 @@
               <input class="lead-check" type="checkbox" data-lead-check="${lead.id}" ${selected ? "checked" : ""} />
               <div class="lead-main" data-lead-open="${lead.id}">
                 <div class="lead-title">${escapeHtml(
-                  lead.name && lead.name !== "unknown" ? lead.name : lead.company || "Unknown lead"
+                  leadTitle(lead)
                 )}</div>
-                <div class="subtext" style="margin-top: 6px;">${escapeHtml(
-                  [lead.company, lead.role, lead.location].filter(Boolean).join(" · ") || "No company details"
-                )}</div>
+                <div class="subtext" style="margin-top: 6px;">${escapeHtml(leadMetaLine(lead))}</div>
                 <div class="pill-row">
                   <span class="pill ${statusClass(lead.status)}">${escapeHtml(lead.status || "new")}</span>
                   <span class="pill" style="background:rgba(10,44,34,0.08);color:#214238;">${escapeHtml(ownerLabel(lead.owner))}</span>
@@ -358,14 +430,8 @@
     }
 
     el.threadTitle.textContent =
-      state.selectedLead.name !== "unknown" ? state.selectedLead.name : state.selectedLead.company;
-    el.threadSubtitle.textContent = [
-      state.selectedLead.company,
-      state.selectedLead.role,
-      state.selectedLead.location,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+      leadTitle(state.selectedLead);
+    el.threadSubtitle.textContent = leadMetaLine(state.selectedLead);
 
     if (!state.conversations.length) {
       el.threadCanvas.innerHTML = '<div class="value empty">No conversation history yet for this lead.</div>';
@@ -385,7 +451,7 @@
           <div class="message ${role}">
             ${escapeHtml(body)}
             <div class="meta">${escapeHtml(
-              `${item.agent_name || "agent"} · ${formatDate(item.created_at)}`
+              `${ownerLabel(item.agent_name)} · ${formatDate(item.created_at)}`
             )}</div>
           </div>
         `;
@@ -409,15 +475,13 @@
           <article class="founder-card">
             <div class="founder-head">
               <strong>${escapeHtml(
-                lead.name && lead.name !== "unknown" ? lead.name : lead.company || "Unknown lead"
+                leadTitle(lead)
               )}</strong>
               <span class="mono" style="font-size:12px;color:#667c73;">${escapeHtml(
                 String(lead.score || 0)
               )}</span>
             </div>
-            <div class="subtext">${escapeHtml(
-              [lead.company, lead.role, lead.location].filter(Boolean).join(" · ")
-            )}</div>
+            <div class="subtext">${escapeHtml(leadMetaLine(lead))}</div>
             <div class="subtext" style="margin-top: 8px;">${escapeHtml(
               lead.summary || lead.next_action || "Escalated for review"
             )}</div>
@@ -526,7 +590,7 @@
     }
 
     el.detailTitle.textContent =
-      state.selectedLead.name !== "unknown" ? state.selectedLead.name : state.selectedLead.company;
+      leadTitle(state.selectedLead);
     el.detailSubtitle.textContent = `Lead ID: ${state.selectedLead.id}`;
 
     const demos = state.demos.length
@@ -538,17 +602,17 @@
       : "No demos yet";
 
     el.detailSummary.innerHTML = [
-      summaryField("Company", state.selectedLead.company),
-      summaryField("Role", state.selectedLead.role),
-      summaryField("Email", state.selectedLead.email),
-      summaryField("Phone", state.selectedLead.phone),
-      summaryField("Source", state.selectedLead.source),
-      summaryField("Location", state.selectedLead.location),
-      summaryField("Status", state.selectedLead.status),
+      summaryField("Company", displayValue(state.selectedLead.company, "Not captured")),
+      summaryField("Role", displayValue(state.selectedLead.role, "Not captured")),
+      summaryField("Email", displayValue(state.selectedLead.email, "Not captured")),
+      summaryField("Phone", displayValue(state.selectedLead.phone, "Not captured")),
+      summaryField("Source", displayValue(state.selectedLead.source, "Not captured")),
+      summaryField("Location", displayValue(state.selectedLead.location, "Not captured")),
+      summaryField("Status", displayValue(state.selectedLead.status, "new")),
       summaryField("Owner", ownerLabel(state.selectedLead.owner)),
       summaryField("Score", String(state.selectedLead.score || 0)),
-      summaryField("Next Action", state.selectedLead.next_action),
-      summaryField("Summary", state.selectedLead.summary),
+      summaryField("Next Action", displayValue(state.selectedLead.next_action, "No next action yet")),
+      summaryField("Summary", displayValue(state.selectedLead.summary, "No summary yet")),
       summaryField("Demo Pipeline", demos),
     ].join("");
 
