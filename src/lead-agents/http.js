@@ -111,6 +111,8 @@ function contentTypeForFile(filePath) {
       return "text/css; charset=utf-8";
     case ".json":
       return "application/json; charset=utf-8";
+    case ".png":
+      return "image/png";
     default:
       return "application/octet-stream";
   }

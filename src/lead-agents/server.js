@@ -72,6 +72,12 @@ function buildServer({ config, store, runtime, rateLimiter }) {
     "dashboard",
     "dashboard.js"
   );
+  const dashboardLogoPath = path.join(
+    process.cwd(),
+    "public",
+    "assets",
+    "ochiga-logo.png"
+  );
 
   return http.createServer(async (req, res) => {
     const ctx = createRequestContext(req);
@@ -102,7 +108,8 @@ function buildServer({ config, store, runtime, rateLimiter }) {
       const isPublicDashboardPath =
         pathname === "/dashboard" ||
         pathname === "/dashboard/" ||
-        pathname === "/dashboard.js";
+        pathname === "/dashboard.js" ||
+        pathname === "/assets/ochiga-logo.png";
       const isPublicAdminSessionPath =
         pathname === "/api/lead-agents/admin/session/login" ||
         pathname === "/api/lead-agents/admin/session/logout" ||
@@ -225,6 +232,15 @@ function buildServer({ config, store, runtime, rateLimiter }) {
           return;
         }
         await serveFile(res, dashboardScriptPath);
+        return;
+      }
+
+      if (pathname === "/assets/ochiga-logo.png") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, dashboardLogoPath);
         return;
       }
 
