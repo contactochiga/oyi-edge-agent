@@ -40,7 +40,12 @@ This v1 contains two agents:
 - `GET /api/lead-agents/leads/:leadId/conversations`
 - `GET /api/lead-agents/leads/:leadId/demos`
 - `GET /api/lead-agents/leads/:leadId/memory`
+- `GET /api/lead-agents/leads/:leadId/timeline`
 - `GET /api/lead-agents/admin/traces`
+- `GET /api/lead-agents/admin/notifications`
+- `GET /api/lead-agents/admin/reports/summary`
+- `GET /api/lead-agents/admin/users`
+- `POST /api/lead-agents/admin/users`
 
 Example chat request:
 
@@ -88,6 +93,7 @@ Public widget embed:
 - `LEAD_AGENTS_API_KEYS` optional, comma-separated API keys for backend access
 - `LEAD_AGENTS_ADMIN_EMAIL` optional, used for dashboard login
 - `LEAD_AGENTS_ADMIN_PASSWORD` optional, used for dashboard login
+- `LEAD_AGENTS_ADMIN_ROLE` optional, default `admin`
 - `LEAD_AGENTS_SESSION_SECRET` optional, used to sign dashboard session cookies
 - `LEAD_AGENTS_SESSION_TTL_MS` optional, default 7 days
 - `LEAD_AGENTS_RATE_LIMIT_WINDOW_MS` optional, default `60000`
@@ -97,6 +103,8 @@ Public widget embed:
 - `LEAD_AGENTS_MEMORY_PATH` optional, default `data/lead-memory.json`
 - `FOUNDER_ALERT_WEBHOOK_URL` optional, webhook for escalations
 - `FOUNDER_ALERT_WEBHOOK_SECRET` optional, shared secret for escalation webhook
+- `SALES_ALERT_WEBHOOK_URL` optional, webhook for sales handoff alerts
+- `SALES_ALERT_WEBHOOK_SECRET` optional, shared secret for sales alerts
 - `DEMO_WEBHOOK_URL` optional, webhook for demo booking events
 - `DEMO_WEBHOOK_SECRET` optional, shared secret for demo webhook
 
@@ -144,14 +152,17 @@ For the internal dashboard, open:
 
 - `/dashboard`
 
-Log in with `LEAD_AGENTS_ADMIN_EMAIL` and `LEAD_AGENTS_ADMIN_PASSWORD`. If those are not set yet, the backend accepts any email plus a valid `LEAD_AGENTS_API_KEYS` value as the temporary password.
+Log in with an admin user stored in the backend. On startup, the service bootstraps one admin user from `LEAD_AGENTS_ADMIN_EMAIL`, `LEAD_AGENTS_ADMIN_PASSWORD`, and `LEAD_AGENTS_ADMIN_ROLE`. If those are not set yet, the backend still accepts any email plus a valid `LEAD_AGENTS_API_KEYS` value as the temporary password and creates a default admin user.
 
-## V1.5 foundation
+## V1.5+ foundation
 
-- Tracing: request and tool traces are appended to `data/lead-agent-traces.jsonl`
-- Lead memory: per-lead memory is persisted in `data/lead-memory.json`
+- Tracing: request and tool traces are persisted in the store and exposed through `/api/lead-agents/admin/traces`
+- Lead memory: per-lead memory is persisted in the store and exposed through `/api/lead-agents/leads/:leadId/memory`
 - File-backed knowledge: Markdown files under `knowledge/` are retrieved into runtime context
 - Eval pack: run `npm run lead-agents:eval`
+- Reporting: source, stage, demo, escalation, and sales handoff metrics are exposed through `/api/lead-agents/admin/reports/summary`
+- Notifications: founder escalations, sales handoffs, and demo alerts are stored in `notifications`
+- CRM timeline: lead activity is aggregated into `timeline_events` and exposed through `/api/lead-agents/leads/:leadId/timeline`
 
 ## Agent packs
 
@@ -175,6 +186,11 @@ Tables:
 - `leads`
 - `conversations`
 - `demos`
+- `lead_memories`
+- `traces`
+- `notifications`
+- `admin_users`
+- `timeline_events`
 
 ## Suggested routing
 

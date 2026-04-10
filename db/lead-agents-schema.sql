@@ -58,3 +58,96 @@ create trigger leads_set_updated_at
 before update on leads
 for each row
 execute function set_updated_at();
+
+create table if not exists lead_memories (
+  lead_id uuid primary key references leads(id) on delete cascade,
+  known_fields jsonb not null default '{}'::jsonb,
+  need_signals text[] not null default '{}'::text[],
+  open_questions text[] not null default '{}'::text[],
+  keywords text[] not null default '{}'::text[],
+  last_user_message text,
+  last_agent_message text,
+  last_status text,
+  last_owner text,
+  last_summary text,
+  tool_calls text[] not null default '{}'::text[],
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists traces (
+  id uuid primary key default gen_random_uuid(),
+  trace_id text,
+  lead_id uuid references leads(id) on delete cascade,
+  type text not null,
+  agent text,
+  tool_name text,
+  request_id text,
+  source text,
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists traces_lead_id_created_at_idx
+on traces (lead_id, created_at desc);
+
+create index if not exists traces_trace_id_idx
+on traces (trace_id);
+
+create table if not exists notifications (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references leads(id) on delete set null,
+  type text not null default 'internal',
+  urgency text,
+  reason text,
+  summary text,
+  delivered boolean not null default false,
+  channel text,
+  response_code integer,
+  status text not null default 'open',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists notifications_lead_id_created_at_idx
+on notifications (lead_id, created_at desc);
+
+create index if not exists notifications_status_idx
+on notifications (status, type);
+
+drop trigger if exists notifications_set_updated_at on notifications;
+create trigger notifications_set_updated_at
+before update on notifications
+for each row
+execute function set_updated_at();
+
+create table if not exists admin_users (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  password_hash text not null,
+  role text not null default 'admin',
+  status text not null default 'active',
+  display_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists admin_users_set_updated_at on admin_users;
+create trigger admin_users_set_updated_at
+before update on admin_users
+for each row
+execute function set_updated_at();
+
+create table if not exists timeline_events (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null references leads(id) on delete cascade,
+  event_type text not null,
+  actor text,
+  title text,
+  body text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists timeline_events_lead_id_created_at_idx
+on timeline_events (lead_id, created_at desc);

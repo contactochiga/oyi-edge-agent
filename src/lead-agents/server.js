@@ -10,17 +10,18 @@ const { ToolExecutor } = require("./tools");
 const { LeadAgentRuntime } = require("./runtime");
 const { WebhookDispatcher } = require("./webhooks");
 const {
-  authenticateAdminCredentials,
+  authorizeRole,
   clearSessionCookie,
   createAdminSessionToken,
   createSessionCookie,
   enforceAuth,
+  hashPassword,
   readAdminSession,
+  verifyPassword,
 } = require("./auth");
 const { MemoryRateLimiter } = require("./rate-limit");
-const { FileTraceStore } = require("./tracing");
-const { FileLeadMemoryStore } = require("./lead-memory");
 const { FileKnowledgeBase } = require("./knowledge-base");
+const { normalizeEmail, normalizeLeadInput, normalizeLeadPatch } = require("./normalize-lead");
 const {
   createRequestContext,
   getPathname,
@@ -49,6 +50,19 @@ function requireObject(body, name) {
     error.statusCode = 400;
     throw error;
   }
+}
+
+async function bootstrapAdminUser(store, config) {
+  if (!config.adminEmail || !config.adminPassword) {
+    return null;
+  }
+  return store.ensureAdminUser({
+    email: normalizeEmail(config.adminEmail),
+    password_hash: hashPassword(config.adminPassword),
+    role: config.adminRole || "admin",
+    display_name: config.adminEmail,
+    status: "active",
+  });
 }
 
 function buildServer({ config, store, runtime, rateLimiter }) {
@@ -83,6 +97,7 @@ function buildServer({ config, store, runtime, rateLimiter }) {
     const ctx = createRequestContext(req);
     const pathname = getPathname(req);
     const corsAccepted = setCorsHeaders(req, res, config.allowedOrigins);
+    let authContext = null;
 
     if (req.method === "OPTIONS") {
       if (!corsAccepted && config.allowedOrigins.length > 0) {
@@ -121,7 +136,7 @@ function buildServer({ config, store, runtime, rateLimiter }) {
         !isPublicDashboardPath &&
         !isPublicAdminSessionPath
       ) {
-        enforceAuth(req, config);
+        authContext = enforceAuth(req, config);
         const rateLimitState = rateLimiter.check(req);
         res.setHeader("x-ratelimit-remaining", String(rateLimitState.remaining));
         res.setHeader(
@@ -151,21 +166,35 @@ function buildServer({ config, store, runtime, rateLimiter }) {
           return;
         }
         const body = await readJsonBody(req);
-        if (
-          !authenticateAdminCredentials(body.email, body.password, config)
-        ) {
+        const adminUser = await store.getAdminUserByEmail(body.email);
+        const fallbackAllowed =
+          !adminUser &&
+          normalizeEmail(body.email) &&
+          config.apiKeys.includes(String(body.password || ""));
+
+        if ((!adminUser || !verifyPassword(body.password, adminUser.password_hash)) && !fallbackAllowed) {
           json(res, 401, { error: "unauthorized" });
           return;
         }
 
-        const token = createAdminSessionToken(body.email, config);
+        const sessionUser =
+          adminUser ||
+          (await store.ensureAdminUser({
+            email: normalizeEmail(body.email),
+            password_hash: hashPassword(body.password),
+            role: config.adminRole || "admin",
+            display_name: body.email,
+            status: "active",
+          }));
+        const token = createAdminSessionToken(sessionUser, config);
         json(
           res,
           200,
           {
             ok: true,
             admin: {
-              email: body.email,
+              email: sessionUser.email,
+              role: sessionUser.role,
             },
           },
           {
@@ -210,6 +239,7 @@ function buildServer({ config, store, runtime, rateLimiter }) {
             ok: true,
             admin: {
               email: session.email,
+              role: session.role,
             },
           },
           { "x-request-id": ctx.requestId }
@@ -332,21 +362,16 @@ function buildServer({ config, store, runtime, rateLimiter }) {
           return;
         }
 
-        const lead = await store.createLead({
-          name: body.name,
-          company: body.company,
-          role: body.role,
-          email: body.email,
-          phone: body.phone,
-          source: body.source,
-          location: body.location,
-          status: body.status || "new",
-          owner: body.owner || "marketing_agent",
-          score: body.score,
-          summary: body.summary || "",
-          next_action: body.next_action || "",
-          notes: body.notes || "",
-        });
+        const lead = await store.createLead(
+          normalizeLeadInput(
+            {
+              ...body,
+              status: body.status || "new",
+              owner: body.owner || "marketing_agent",
+            },
+            body.source
+          )
+        );
 
         json(res, 201, { lead }, { "x-request-id": ctx.requestId });
         return;
@@ -372,10 +397,25 @@ function buildServer({ config, store, runtime, rateLimiter }) {
           methodNotAllowed(res, "GET");
           return;
         }
-        const memory = runtime.leadMemoryStore
-          ? await runtime.leadMemoryStore.get(memoryMatch[1])
-          : null;
+        const memory = await store.getLeadMemory(memoryMatch[1]);
         json(res, 200, { memory }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      const timelineMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)\/timeline$/);
+      if (timelineMatch) {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        json(
+          res,
+          200,
+          {
+            timeline: await store.listTimelineForLead(timelineMatch[1]),
+          },
+          { "x-request-id": ctx.requestId }
+        );
         return;
       }
 
@@ -393,20 +433,23 @@ function buildServer({ config, store, runtime, rateLimiter }) {
         if (req.method === "PATCH") {
           const body = await readJsonBody(req);
           requireObject(body, "body");
-          const updated = await store.updateLead(leadMatch[1], {
-            name: body.name,
-            company: body.company,
-            role: body.role,
-            email: body.email,
-            phone: body.phone,
-            source: body.source,
-            location: body.location,
-            status: body.status,
-            owner: body.owner,
-            score: body.score,
-            summary: body.summary,
-            next_action: body.next_action,
-          });
+          const updated = await store.updateLead(
+            leadMatch[1],
+            normalizeLeadPatch({
+              name: body.name,
+              company: body.company,
+              role: body.role,
+              email: body.email,
+              phone: body.phone,
+              source: body.source,
+              location: body.location,
+              status: body.status,
+              owner: body.owner,
+              score: body.score,
+              summary: body.summary,
+              next_action: body.next_action,
+            })
+          );
           if (!updated) {
             notFound(res);
             return;
@@ -483,6 +526,7 @@ function buildServer({ config, store, runtime, rateLimiter }) {
           methodNotAllowed(res, "POST");
           return;
         }
+        authorizeRole(authContext, ["admin", "founder"]);
         const body = await readJsonBody(req);
         requireObject(body, "body");
         if (!body.reason || !body.summary) {
@@ -516,10 +560,79 @@ function buildServer({ config, store, runtime, rateLimiter }) {
           res,
           200,
           {
-            traces: runtime.traceStore ? await runtime.traceStore.list(200) : [],
+            traces: await store.listTraces(200, {
+              lead_id: req.headers["x-lead-id"] || "",
+            }),
           },
           { "x-request-id": ctx.requestId }
         );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/notifications") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        json(
+          res,
+          200,
+          {
+            notifications: await store.listNotifications(200),
+          },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/reports/summary") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        json(
+          res,
+          200,
+          {
+            report: await store.getReportingSummary(),
+          },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/users") {
+        if (req.method === "GET") {
+          authorizeRole(authContext, ["admin", "founder"]);
+          json(
+            res,
+            200,
+            {
+              users: await store.listAdminUsers(),
+            },
+            { "x-request-id": ctx.requestId }
+          );
+          return;
+        }
+        if (req.method === "POST") {
+          authorizeRole(authContext, ["admin"]);
+          const body = await readJsonBody(req);
+          requireObject(body, "body");
+          if (!body.email || !body.password) {
+            json(res, 400, { error: "email and password are required" });
+            return;
+          }
+          const user = await store.ensureAdminUser({
+            email: normalizeEmail(body.email),
+            password_hash: hashPassword(body.password),
+            role: body.role || "viewer",
+            display_name: body.display_name || body.email,
+            status: body.status || "active",
+          });
+          json(res, 201, { user }, { "x-request-id": ctx.requestId });
+          return;
+        }
+        methodNotAllowed(res, "GET,POST");
         return;
       }
 
@@ -555,13 +668,10 @@ async function start() {
 
   const store = createStore(config);
   await store.init();
+  await bootstrapAdminUser(store, config);
 
   const openaiClient = new OpenAIResponsesClient(config);
   const webhooks = new WebhookDispatcher({ config });
-  const traceStore = new FileTraceStore(config.tracePath);
-  await traceStore.init();
-  const leadMemoryStore = new FileLeadMemoryStore(config.leadMemoryPath);
-  await leadMemoryStore.init();
   const knowledgeBase = new FileKnowledgeBase(config.knowledgeDir);
   await knowledgeBase.init();
   const toolExecutor = new ToolExecutor({ store, config, log, webhooks });
@@ -571,8 +681,6 @@ async function start() {
     openaiClient,
     toolExecutor,
     log,
-    traceStore,
-    leadMemoryStore,
     knowledgeBase,
   });
   const rateLimiter = new MemoryRateLimiter({

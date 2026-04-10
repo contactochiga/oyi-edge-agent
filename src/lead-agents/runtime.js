@@ -51,8 +51,6 @@ class LeadAgentRuntime {
     openaiClient,
     toolExecutor,
     log,
-    traceStore,
-    leadMemoryStore,
     knowledgeBase,
   }) {
     this.config = config;
@@ -61,9 +59,98 @@ class LeadAgentRuntime {
     this.toolExecutor = toolExecutor;
     this.log = log;
     this.toolsPromise = null;
-    this.traceStore = traceStore;
-    this.leadMemoryStore = leadMemoryStore;
     this.knowledgeBase = knowledgeBase;
+  }
+
+  serializeLeadMemory(memory) {
+    if (!memory) {
+      return "No lead memory stored yet.";
+    }
+
+    return [
+      `Known fields: ${JSON.stringify(memory.known_fields || {})}`,
+      `Need signals: ${(memory.need_signals || []).join(", ") || "none"}`,
+      `Open questions: ${(memory.open_questions || []).join(", ") || "none"}`,
+      `Keywords: ${(memory.keywords || []).join(", ") || "none"}`,
+      `Last status: ${memory.last_status || "unknown"}`,
+      `Last owner: ${memory.last_owner || "unknown"}`,
+      `Last summary: ${memory.last_summary || "none"}`,
+      `Last user message: ${memory.last_user_message || "none"}`,
+      `Last agent message: ${memory.last_agent_message || "none"}`,
+    ].join("\n");
+  }
+
+  tokenize(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((token) => token.length > 2);
+  }
+
+  detectNeeds(text) {
+    const value = String(text || "").toLowerCase();
+    const pairs = [
+      ["demo", ["demo", "call", "discovery"]],
+      ["pricing", ["pricing", "price", "cost", "quote"]],
+      ["proposal", ["proposal", "scope", "rfp"]],
+      ["deployment", ["deployment", "implementation", "rollout"]],
+      ["access control", ["access", "gate", "visitor"]],
+      ["monitoring", ["monitoring", "surveillance", "cctv"]],
+      ["facility management", ["facility", "maintenance", "operations"]],
+      ["resident experience", ["resident", "tenant", "community"]],
+    ];
+    return pairs
+      .filter(([, keywords]) => keywords.some((keyword) => value.includes(keyword)))
+      .map(([label]) => label);
+  }
+
+  buildOpenQuestions(lead) {
+    const questions = [];
+    if (!lead.company) questions.push("Confirm company");
+    if (!lead.role) questions.push("Confirm role");
+    if (!lead.location) questions.push("Confirm location");
+    if (!lead.next_action) questions.push("Define next action");
+    return questions;
+  }
+
+  async updateLeadMemory(lead, userMessage, assistantMessage, toolCalls) {
+    const current = (await this.store.getLeadMemory(lead.id)) || {
+      known_fields: {},
+      need_signals: [],
+      open_questions: [],
+      keywords: [],
+    };
+
+    const unique = (values) => Array.from(new Set(values.filter(Boolean)));
+    const memory = {
+      known_fields: {
+        name: lead.name || current.known_fields.name || "",
+        company: lead.company || current.known_fields.company || "",
+        role: lead.role || current.known_fields.role || "",
+        email: lead.email || current.known_fields.email || "",
+        phone: lead.phone || current.known_fields.phone || "",
+        location: lead.location || current.known_fields.location || "",
+        source: lead.source || current.known_fields.source || "",
+      },
+      need_signals: unique([
+        ...(current.need_signals || []),
+        ...this.detectNeeds(userMessage),
+      ]),
+      open_questions: this.buildOpenQuestions(lead),
+      keywords: unique([
+        ...(current.keywords || []),
+        ...this.tokenize(userMessage).slice(0, 12),
+      ]).slice(-20),
+      last_user_message: userMessage || current.last_user_message || "",
+      last_agent_message: assistantMessage || current.last_agent_message || "",
+      last_status: lead.status || current.last_status || "",
+      last_owner: lead.owner || current.last_owner || "",
+      last_summary: lead.summary || current.last_summary || "",
+      tool_calls: (toolCalls || []).map((item) => item.name),
+    };
+
+    return this.store.upsertLeadMemory(lead.id, memory);
   }
 
   async getToolDefinitions() {
@@ -88,12 +175,12 @@ class LeadAgentRuntime {
 
     return this.store.createLead({
       source: request.source || this.config.defaultLeadSource,
-      name: request.profile?.name || "unknown",
-      company: request.profile?.company || "unknown",
-      role: request.profile?.role || "unknown",
+      name: request.profile?.name || "",
+      company: request.profile?.company || "",
+      role: request.profile?.role || "",
       email: request.profile?.email || "",
       phone: request.profile?.phone || "",
-      location: request.profile?.location || "unknown",
+      location: request.profile?.location || "",
       owner: request.agent === "sales" ? "sales_agent" : "marketing_agent",
       status: "new",
       summary: "Lead shell created before first model turn.",
@@ -123,9 +210,7 @@ class LeadAgentRuntime {
       lead.id,
       this.config.maxConversationMessages
     );
-    const leadMemory = this.leadMemoryStore
-      ? await this.leadMemoryStore.get(lead.id)
-      : null;
+    const leadMemory = await this.store.getLeadMemory(lead.id);
     const knowledgeResults = this.knowledgeBase
       ? this.knowledgeBase.search(
           [
@@ -140,17 +225,17 @@ class LeadAgentRuntime {
         )
       : [];
 
-    if (this.traceStore) {
-      await this.traceStore.append({
+    await this.store.appendTrace({
         type: "chat_started",
         trace_id: traceId,
         lead_id: lead.id,
         agent: agentPack.agentName,
         source: request.source || lead.source || this.config.defaultLeadSource,
         request_id: request.request_id || "",
-        user_message: request.message,
+        payload: {
+          user_message: request.message,
+        },
       });
-    }
 
     await this.store.appendConversation({
       lead_id: lead.id,
@@ -173,9 +258,7 @@ class LeadAgentRuntime {
       toInputMessage(
         "user",
         `Lead memory:\n${
-          this.leadMemoryStore
-            ? this.leadMemoryStore.serializeForPrompt(leadMemory)
-            : "Lead memory unavailable."
+          this.serializeLeadMemory(leadMemory)
         }`
       ),
       toInputMessage(
@@ -231,17 +314,17 @@ class LeadAgentRuntime {
           }),
         });
 
-        if (this.traceStore) {
-          await this.traceStore.append({
+        await this.store.appendTrace({
             type: "tool_executed",
             trace_id: traceId,
             lead_id: context.leadId,
             agent: agentPack.agentName,
             tool_name: call.name,
-            arguments: args,
-            result,
+            payload: {
+              arguments: args,
+              result,
+            },
           });
-        }
 
         toolOutputs.push({
           type: "function_call_output",
@@ -269,28 +352,26 @@ class LeadAgentRuntime {
     });
 
     const updatedLead = await this.store.getLead(context.leadId);
-    const memory = this.leadMemoryStore
-      ? await this.leadMemoryStore.updateFromTurn({
-          lead: updatedLead,
-          userMessage: request.message,
-          assistantMessage,
-          toolCalls: executedTools,
-        })
-      : null;
+    const memory = await this.updateLeadMemory(
+      updatedLead,
+      request.message,
+      assistantMessage,
+      executedTools
+    );
 
-    if (this.traceStore) {
-      await this.traceStore.append({
+    await this.store.appendTrace({
         type: "chat_completed",
         trace_id: traceId,
         lead_id: context.leadId,
         agent: agentPack.agentName,
-        response_id: response.id || "",
-        tool_count: executedTools.length,
-        knowledge_hits: knowledgeResults.map((item) => item.id),
-        memory_updated: Boolean(memory),
-        assistant_message: assistantMessage,
+        payload: {
+          response_id: response.id || "",
+          tool_count: executedTools.length,
+          knowledge_hits: knowledgeResults.map((item) => item.id),
+          memory_updated: Boolean(memory),
+          assistant_message: assistantMessage,
+        },
       });
-    }
 
     return {
       agent: agentPack.agentName,

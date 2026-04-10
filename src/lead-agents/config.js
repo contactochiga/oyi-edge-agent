@@ -54,6 +54,7 @@ function createConfig() {
     apiKeys: stringListFromEnv(process.env.LEAD_AGENTS_API_KEYS),
     adminEmail: process.env.LEAD_AGENTS_ADMIN_EMAIL || "",
     adminPassword: process.env.LEAD_AGENTS_ADMIN_PASSWORD || "",
+    adminRole: process.env.LEAD_AGENTS_ADMIN_ROLE || "admin",
     sessionSecret:
       process.env.LEAD_AGENTS_SESSION_SECRET ||
       process.env.LEAD_AGENTS_API_KEYS ||
@@ -72,6 +73,8 @@ function createConfig() {
       process.env.LEAD_AGENTS_RATE_LIMIT_MAX_REQUESTS,
       60
     ),
+    salesWebhookUrl: process.env.SALES_ALERT_WEBHOOK_URL || "",
+    salesWebhookSecret: process.env.SALES_ALERT_WEBHOOK_SECRET || "",
   };
 }
 

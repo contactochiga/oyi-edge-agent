@@ -674,6 +674,7 @@
             <p class="subtext" id="threadSubtitle">Review conversations, founder escalations, and trace activity.</p>
             <div class="tabbar" id="workspaceTabs">
               <button class="tab-btn active" data-tab="conversation" type="button">Conversation</button>
+              <button class="tab-btn" data-tab="timeline" type="button">Timeline</button>
               <button class="tab-btn" data-tab="founder" type="button">Founder Inbox</button>
               <button class="tab-btn" data-tab="traces" type="button">Trace Explorer</button>
             </div>
@@ -695,6 +696,9 @@
                 </div>
                 <div class="status-line" id="composerStatus"></div>
               </div>
+            </div>
+            <div class="tab-panel" data-panel="timeline">
+              <div class="trace-list" id="timelinePanel"></div>
             </div>
             <div class="tab-panel" data-panel="founder">
               <div class="toolbar" style="margin-bottom: 12px;">

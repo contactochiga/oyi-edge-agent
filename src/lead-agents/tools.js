@@ -73,9 +73,41 @@ class ToolExecutor {
     }
 
     context.leadId = leadId;
+
+    let salesNotification = null;
+    if (
+      updated &&
+      (updated.owner === "sales_agent" ||
+        updated.status === "sales" ||
+        updated.status === "booked")
+    ) {
+      const webhookResult = await this.webhooks.notifySales({
+        lead_id: leadId,
+        owner: updated.owner,
+        status: updated.status,
+        summary: updated.summary,
+        next_action: updated.next_action,
+      });
+      salesNotification = await this.store.createNotification({
+        lead_id: leadId,
+        type: "sales_handoff",
+        urgency: updated.status === "booked" ? "high" : "medium",
+        reason: "Lead routed to sales",
+        summary: updated.summary || updated.next_action || "Lead routed to sales.",
+        delivered: webhookResult.delivered,
+        channel: "sales_webhook",
+        response_code: webhookResult.response_code,
+        metadata: {
+          owner: updated.owner,
+          status: updated.status,
+        },
+      });
+    }
+
     return {
       ok: true,
       lead: updated,
+      notification: salesNotification,
     };
   }
 
@@ -121,10 +153,28 @@ class ToolExecutor {
     });
 
     context.leadId = leadId;
+    const notification = await this.store.createNotification({
+      lead_id: leadId,
+      type: "demo_requested",
+      urgency: args.preferred_time ? "high" : "medium",
+      reason: "Demo requested",
+      summary: args.preferred_time
+        ? `Demo requested for ${args.preferred_time}`
+        : "Demo requested without preferred time.",
+      delivered: webhookResult.delivered,
+      channel: "demo_webhook",
+      response_code: webhookResult.response_code,
+      metadata: {
+        demo_id: demo.id,
+        preferred_time: args.preferred_time || null,
+        timezone: args.timezone || "unknown",
+      },
+    });
     return {
       ok: true,
       demo,
       lead,
+      notification,
       webhook: webhookResult,
     };
   }
@@ -141,9 +191,11 @@ class ToolExecutor {
 
     const notification = await this.store.createNotification({
       ...payload,
+      type: "founder_escalation",
       delivered: webhookResult.delivered,
       channel: "founder_webhook",
       response_code: webhookResult.response_code,
+      metadata: {},
     });
 
     if (payload.lead_id) {

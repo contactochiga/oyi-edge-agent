@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { normalizeEmail } = require("./normalize-lead");
 
 function secureEqual(a, b) {
   const left = Buffer.from(String(a || ""));
@@ -30,10 +31,12 @@ function sessionSignature(payload, secret) {
   return crypto.createHmac("sha256", String(secret || "")).update(payload).digest("hex");
 }
 
-function createAdminSessionToken(email, config) {
+function createAdminSessionToken(adminUser, config) {
   const payload = Buffer.from(
     JSON.stringify({
-      email,
+      email: normalizeEmail(adminUser.email),
+      role: adminUser.role || "admin",
+      user_id: adminUser.id || "",
       exp: Date.now() + config.sessionTtlMs,
     })
   ).toString("base64url");
@@ -70,7 +73,9 @@ function readAdminSession(req, config) {
   }
 
   return {
-    email: decoded.email,
+    email: normalizeEmail(decoded.email),
+    role: decoded.role || "admin",
+    userId: decoded.user_id || "",
     expiresAt: decoded.exp,
   };
 }
@@ -94,18 +99,36 @@ function getApiKey(req) {
   return String(req.headers["x-api-key"] || "").trim();
 }
 
-function authenticateAdminCredentials(email, password, config) {
-  const normalizedEmail = String(email || "").trim().toLowerCase();
-  if (!normalizedEmail) {
+function hashPassword(password, salt) {
+  const actualSalt = salt || crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(String(password || ""), actualSalt, 64).toString("hex");
+  return `${actualSalt}:${hash}`;
+}
+
+function verifyPassword(password, storedHash) {
+  const [salt, expectedHash] = String(storedHash || "").split(":");
+  if (!salt || !expectedHash) {
     return false;
   }
-  if (!config.adminEmail || !config.adminPassword) {
-    return config.apiKeys.some((candidate) => secureEqual(candidate, String(password || "")));
+  const actualHash = crypto.scryptSync(String(password || ""), salt, 64).toString("hex");
+  return secureEqual(actualHash, expectedHash);
+}
+
+function authorizeRole(session, allowedRoles) {
+  if (!session) {
+    const error = new Error("unauthorized");
+    error.statusCode = 401;
+    throw error;
   }
-  return (
-    secureEqual(normalizedEmail, config.adminEmail.toLowerCase()) &&
-    secureEqual(String(password || ""), config.adminPassword)
-  );
+  if (!Array.isArray(allowedRoles) || allowedRoles.length === 0) {
+    return session;
+  }
+  if (allowedRoles.includes(session.role)) {
+    return session;
+  }
+  const error = new Error("forbidden");
+  error.statusCode = 403;
+  throw error;
 }
 
 function enforceAuth(req, config) {
@@ -118,6 +141,8 @@ function enforceAuth(req, config) {
     return {
       type: "session",
       email: session.email,
+      role: session.role,
+      userId: session.userId,
     };
   }
 
@@ -150,10 +175,12 @@ function enforceAuth(req, config) {
 }
 
 module.exports = {
-  authenticateAdminCredentials,
+  authorizeRole,
   clearSessionCookie,
   createAdminSessionToken,
   createSessionCookie,
   enforceAuth,
+  hashPassword,
   readAdminSession,
+  verifyPassword,
 };

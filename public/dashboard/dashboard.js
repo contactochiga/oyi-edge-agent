@@ -16,6 +16,9 @@
     demos: [],
     memory: null,
     traces: [],
+    notifications: [],
+    report: null,
+    timeline: [],
     traceQuery: "",
   };
 
@@ -50,6 +53,7 @@
     threadSubtitle: document.getElementById("threadSubtitle"),
     workspaceTabs: document.getElementById("workspaceTabs"),
     threadCanvas: document.getElementById("threadCanvas"),
+    timelinePanel: document.getElementById("timelinePanel"),
     founderInbox: document.getElementById("founderInbox"),
     traceExplorer: document.getElementById("traceExplorer"),
     traceSearchInput: document.getElementById("traceSearchInput"),
@@ -460,8 +464,8 @@
   }
 
   function renderFounderInbox() {
-    const items = state.leads.filter(function (lead) {
-      return lead.status === "escalated" || lead.owner === "human";
+    const items = state.notifications.filter(function (notification) {
+      return notification.type === "founder_escalation";
     });
 
     if (!items.length) {
@@ -470,24 +474,29 @@
     }
 
     el.founderInbox.innerHTML = items
-      .map(function (lead) {
+      .map(function (notification) {
+        const lead = state.leads.find(function (candidate) {
+          return candidate.id === notification.lead_id;
+        });
         return `
           <article class="founder-card">
             <div class="founder-head">
               <strong>${escapeHtml(
-                leadTitle(lead)
+                lead ? leadTitle(lead) : "Escalated lead"
               )}</strong>
               <span class="mono" style="font-size:12px;color:#667c73;">${escapeHtml(
-                String(lead.score || 0)
+                notification.urgency || "medium"
               )}</span>
             </div>
-            <div class="subtext">${escapeHtml(leadMetaLine(lead))}</div>
+            <div class="subtext">${escapeHtml(
+              lead ? leadMetaLine(lead) : "Lead details unavailable"
+            )}</div>
             <div class="subtext" style="margin-top: 8px;">${escapeHtml(
-              lead.summary || lead.next_action || "Escalated for review"
+              notification.summary || notification.reason || "Escalated for review"
             )}</div>
             <div class="toolbar" style="margin-top: 12px;">
-              <button class="ghost" type="button" data-founder-open="${lead.id}">Open lead</button>
-              <button class="outline" type="button" data-founder-assign="${lead.id}">Assign to human</button>
+              <button class="ghost" type="button" data-founder-open="${notification.lead_id || ""}">Open lead</button>
+              <button class="outline" type="button" data-founder-assign="${notification.lead_id || ""}">Assign to human</button>
             </div>
           </article>
         `;
@@ -516,6 +525,37 @@
     });
   }
 
+  function renderTimeline() {
+    if (!state.selectedLead) {
+      el.timelinePanel.innerHTML = '<div class="value empty">Select a lead to inspect the CRM timeline.</div>';
+      return;
+    }
+
+    if (!state.timeline.length) {
+      el.timelinePanel.innerHTML = '<div class="value empty">No timeline events yet for this lead.</div>';
+      return;
+    }
+
+    el.timelinePanel.innerHTML = state.timeline
+      .map(function (event) {
+        return `
+          <article class="trace-item">
+            <div class="trace-head">
+              <strong>${escapeHtml(event.title || event.event_type || "event")}</strong>
+              <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(
+                formatDate(event.created_at)
+              )}</span>
+            </div>
+            <div class="subtext">${escapeHtml(
+              [event.event_type, event.actor].filter(Boolean).join(" · ")
+            )}</div>
+            <div class="value" style="margin-top: 8px;">${escapeHtml(event.body || "")}</div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
   function renderTraceExplorer() {
     const query = state.traceQuery.trim().toLowerCase();
     const traces = state.traces.filter(function (trace) {
@@ -536,7 +576,7 @@
             <div class="trace-head">
               <strong>${escapeHtml(trace.type || "trace")}</strong>
               <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(
-                formatDate(trace.ts)
+                formatDate(trace.created_at || trace.ts)
               )}</span>
             </div>
             <div class="subtext">${escapeHtml(
@@ -550,7 +590,7 @@
                 .join(" · ")
             )}</div>
             <div class="value" style="margin-top: 8px;">${escapeHtml(
-              trace.assistant_message || trace.user_message || JSON.stringify(trace.arguments || trace.result || {})
+              JSON.stringify(trace.payload || {})
             )}</div>
           </article>
         `;
@@ -567,6 +607,7 @@
     });
     renderFounderInbox();
     renderTraceExplorer();
+    renderTimeline();
   }
 
   function summaryField(label, value) {
@@ -644,7 +685,7 @@
             <div class="trace-item">
               <div class="trace-head">
                 <strong>${escapeHtml(trace.type || "trace")}</strong>
-                <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(formatDate(trace.ts))}</span>
+                <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(formatDate(trace.created_at || trace.ts))}</span>
               </div>
               <div class="subtext">${escapeHtml(trace.tool_name || trace.agent || "")}</div>
             </div>
@@ -661,12 +702,16 @@
   }
 
   async function loadLeads() {
-    const [leadData, traceData] = await Promise.all([
+    const [leadData, traceData, notificationData, reportData] = await Promise.all([
       api("/api/lead-agents/leads", { method: "GET" }),
       api("/api/lead-agents/admin/traces", { method: "GET" }),
+      api("/api/lead-agents/admin/notifications", { method: "GET" }),
+      api("/api/lead-agents/admin/reports/summary", { method: "GET" }),
     ]);
     state.leads = leadData.leads || [];
     state.traces = traceData.traces || [];
+    state.notifications = notificationData.notifications || [];
+    state.report = reportData.report || null;
 
     if (
       state.selectedLeadId &&
@@ -688,6 +733,7 @@
     renderLeadList();
     renderFounderInbox();
     renderTraceExplorer();
+    renderTimeline();
 
     if (state.selectedLeadId) {
       await selectLead(state.selectedLeadId, true);
@@ -704,15 +750,17 @@
         return lead.id === leadId;
       }) || null;
 
-    const [conversationData, demosData, memoryData] = await Promise.all([
+    const [conversationData, demosData, memoryData, timelineData] = await Promise.all([
       api(`/api/lead-agents/leads/${leadId}/conversations`, { method: "GET" }),
       api(`/api/lead-agents/leads/${leadId}/demos`, { method: "GET" }),
       api(`/api/lead-agents/leads/${leadId}/memory`, { method: "GET" }),
+      api(`/api/lead-agents/leads/${leadId}/timeline`, { method: "GET" }),
     ]);
 
     state.conversations = conversationData.conversations || [];
     state.demos = demosData.demos || [];
     state.memory = memoryData.memory || null;
+    state.timeline = timelineData.timeline || [];
 
     if (!skipRender) {
       renderLeadList();
@@ -721,6 +769,7 @@
     }
     renderConversation();
     renderDetail();
+    renderTimeline();
   }
 
   async function updateLeadPatch(leadId, patch) {
@@ -801,6 +850,11 @@
         return payload.traces || [];
       }
     );
+    state.notifications = await api("/api/lead-agents/admin/notifications", { method: "GET" }).then(
+      function (payload) {
+        return payload.notifications || [];
+      }
+    );
     state.leads = state.leads.map(function (lead) {
       return lead.id === data.lead.id ? data.lead : lead;
     });
@@ -810,6 +864,14 @@
     renderDetail();
     renderFounderInbox();
     renderTraceExplorer();
+    if (state.selectedLeadId) {
+      state.timeline = await api(`/api/lead-agents/leads/${state.selectedLeadId}/timeline`, {
+        method: "GET",
+      }).then(function (payload) {
+        return payload.timeline || [];
+      });
+    }
+    renderTimeline();
     el.composerInput.value = "";
     setComposerStatus("Message sent through agent.");
   }
@@ -959,6 +1021,9 @@
     state.demos = [];
     state.memory = null;
     state.traces = [];
+    state.notifications = [];
+    state.report = null;
+    state.timeline = [];
     state.traceQuery = "";
     el.adminPassword.value = "";
     el.traceSearchInput.value = "";
@@ -967,6 +1032,7 @@
     renderConversation();
     renderFounderInbox();
     renderTraceExplorer();
+    renderTimeline();
     renderDetail();
     setAuthStatus("Signed out.");
   }

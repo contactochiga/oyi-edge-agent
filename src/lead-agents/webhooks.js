@@ -43,6 +43,14 @@ class WebhookDispatcher {
       payload
     );
   }
+
+  async notifySales(payload) {
+    return this.post(
+      this.config.salesWebhookUrl,
+      this.config.salesWebhookSecret,
+      payload
+    );
+  }
 }
 
 module.exports = {
