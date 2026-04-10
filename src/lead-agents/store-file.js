@@ -15,6 +15,8 @@ class FileLeadAgentsStore {
       lead_memories: [],
       admin_users: [],
       timeline_events: [],
+      lead_channel_states: [],
+      inbound_events: [],
     };
     this.pendingWrite = Promise.resolve();
   }
@@ -33,6 +35,10 @@ class FileLeadAgentsStore {
         lead_memories: Array.isArray(parsed.lead_memories) ? parsed.lead_memories : [],
         admin_users: Array.isArray(parsed.admin_users) ? parsed.admin_users : [],
         timeline_events: Array.isArray(parsed.timeline_events) ? parsed.timeline_events : [],
+        lead_channel_states: Array.isArray(parsed.lead_channel_states)
+          ? parsed.lead_channel_states
+          : [],
+        inbound_events: Array.isArray(parsed.inbound_events) ? parsed.inbound_events : [],
       };
     } catch (err) {
       if (err.code !== "ENOENT") {
@@ -60,6 +66,9 @@ class FileLeadAgentsStore {
       role: input.role || "",
       email: input.email || "",
       phone: input.phone || "",
+      whatsapp_phone: input.whatsapp_phone || "",
+      primary_channel: input.primary_channel || "",
+      channel_last_seen_at: input.channel_last_seen_at || "",
       source: input.source || "",
       location: input.location || "",
       status: input.status || "new",
@@ -105,6 +114,7 @@ class FileLeadAgentsStore {
       body: lead.summary || "New lead record created.",
       metadata: {
         source: lead.source,
+        primary_channel: lead.primary_channel,
       },
     });
     await this.persist();
@@ -144,6 +154,16 @@ class FileLeadAgentsStore {
     return this.state.leads.find((lead) => lead.id === leadId) || null;
   }
 
+  async findLeadByPhone(phone) {
+    const normalized = normalizeText(phone);
+    if (!normalized) return null;
+    return (
+      this.state.leads.find(
+        (lead) => lead.phone === normalized || lead.whatsapp_phone === normalized
+      ) || null
+    );
+  }
+
   async listLeads() {
     return [...this.state.leads].sort((a, b) =>
       String(b.updated_at).localeCompare(String(a.updated_at))
@@ -156,6 +176,9 @@ class FileLeadAgentsStore {
       lead_id: input.lead_id,
       agent_name: input.agent_name,
       message_role: input.message_role,
+      channel: input.channel || "website",
+      external_message_id: input.external_message_id || "",
+      parent_external_message_id: input.parent_external_message_id || "",
       content: input.content,
       created_at: this.nowIso(),
     };
@@ -169,6 +192,8 @@ class FileLeadAgentsStore {
       body: input.content,
       metadata: {
         message_role: input.message_role,
+        channel: input.channel || "website",
+        external_message_id: input.external_message_id || "",
       },
     });
     await this.persist();
@@ -209,6 +234,73 @@ class FileLeadAgentsStore {
     return this.state.demos
       .filter((item) => item.lead_id === leadId)
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  }
+
+  async getLeadChannelState(leadId, channel) {
+    return (
+      this.state.lead_channel_states.find(
+        (item) => item.lead_id === leadId && item.channel === channel
+      ) || null
+    );
+  }
+
+  async upsertLeadChannelState(leadId, channel, patch) {
+    const index = this.state.lead_channel_states.findIndex(
+      (item) => item.lead_id === leadId && item.channel === channel
+    );
+    const value = {
+      id:
+        index === -1
+          ? crypto.randomUUID()
+          : this.state.lead_channel_states[index].id,
+      lead_id: leadId,
+      channel,
+      ai_paused: patch.ai_paused ?? (index === -1 ? false : this.state.lead_channel_states[index].ai_paused),
+      human_owner: patch.human_owner ?? (index === -1 ? "" : this.state.lead_channel_states[index].human_owner),
+      human_status: patch.human_status || (index === -1 ? "auto" : this.state.lead_channel_states[index].human_status),
+      takeover_started_at:
+        patch.takeover_started_at ?? (index === -1 ? null : this.state.lead_channel_states[index].takeover_started_at),
+      takeover_reason:
+        patch.takeover_reason ?? (index === -1 ? "" : this.state.lead_channel_states[index].takeover_reason),
+      resume_mode: patch.resume_mode || (index === -1 ? "manual_only" : this.state.lead_channel_states[index].resume_mode),
+      customer_service_window_expires_at:
+        patch.customer_service_window_expires_at ??
+        (index === -1
+          ? null
+          : this.state.lead_channel_states[index].customer_service_window_expires_at),
+      last_external_message_id:
+        patch.last_external_message_id ??
+        (index === -1 ? "" : this.state.lead_channel_states[index].last_external_message_id),
+      last_inbound_at:
+        patch.last_inbound_at ?? (index === -1 ? null : this.state.lead_channel_states[index].last_inbound_at),
+      last_outbound_at:
+        patch.last_outbound_at ?? (index === -1 ? null : this.state.lead_channel_states[index].last_outbound_at),
+      created_at: index === -1 ? this.nowIso() : this.state.lead_channel_states[index].created_at,
+      updated_at: this.nowIso(),
+    };
+    if (index === -1) {
+      this.state.lead_channel_states.push(value);
+    } else {
+      this.state.lead_channel_states[index] = value;
+    }
+    await this.persist();
+    return value;
+  }
+
+  async appendInboundEvent(input) {
+    const event = {
+      id: crypto.randomUUID(),
+      channel: input.channel,
+      provider: input.provider,
+      event_type: input.event_type,
+      lead_id: input.lead_id || null,
+      external_event_id: input.external_event_id || "",
+      payload: input.payload || {},
+      created_at: this.nowIso(),
+    };
+    this.state.inbound_events.push(event);
+    await this.persist();
+    return event;
   }
 
   async createNotification(input) {

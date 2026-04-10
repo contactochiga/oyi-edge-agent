@@ -202,6 +202,7 @@ class LeadAgentRuntime {
 
   async runChat(request) {
     const traceId = request.trace_id || crypto.randomUUID();
+    const channel = request.channel || "website";
     const agentKey = request.agent === "sales" ? "sales" : "marketing";
     const agentPack = await loadPromptPack(this.config.promptPackRoot, agentKey);
     const tools = await this.getToolDefinitions();
@@ -241,6 +242,9 @@ class LeadAgentRuntime {
       lead_id: lead.id,
       agent_name: agentPack.agentName,
       message_role: "user",
+      channel,
+      external_message_id: request.external_message_id || "",
+      parent_external_message_id: request.parent_external_message_id || "",
       content: request.message,
     });
 
@@ -307,6 +311,7 @@ class LeadAgentRuntime {
           lead_id: context.leadId,
           agent_name: agentPack.agentName,
           message_role: "tool",
+          channel,
           content: JSON.stringify({
             tool: call.name,
             arguments: args,
@@ -348,6 +353,8 @@ class LeadAgentRuntime {
       lead_id: context.leadId,
       agent_name: agentPack.agentName,
       message_role: "assistant",
+      channel,
+      parent_external_message_id: request.external_message_id || "",
       content: assistantMessage,
     });
 

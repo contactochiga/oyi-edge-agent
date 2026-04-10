@@ -22,6 +22,7 @@ const {
 const { MemoryRateLimiter } = require("./rate-limit");
 const { FileKnowledgeBase } = require("./knowledge-base");
 const { normalizeEmail, normalizeLeadInput, normalizeLeadPatch } = require("./normalize-lead");
+const { WhatsAppCloudAdapter } = require("./whatsapp");
 const {
   createRequestContext,
   getPathname,
@@ -52,6 +53,105 @@ function requireObject(body, name) {
   }
 }
 
+function customerServiceWindowExpiry(timestampSeconds) {
+  const baseMs = Number(timestampSeconds || 0) * 1000 || Date.now();
+  return new Date(baseMs + 24 * 60 * 60 * 1000).toISOString();
+}
+
+async function resolveLeadForChannel(store, phone, source) {
+  const existing = await store.findLeadByPhone(phone);
+  if (existing) {
+    return existing;
+  }
+  return store.createLead({
+    phone,
+    whatsapp_phone: phone,
+    primary_channel: "whatsapp",
+    channel_last_seen_at: new Date().toISOString(),
+    source,
+    owner: "marketing_agent",
+    status: "new",
+    summary: "Lead created from WhatsApp inbound message.",
+  });
+}
+
+async function processWhatsAppEvent({ event, runtime, store, adapter, config, requestId }) {
+  if (event.kind === "status") {
+    await store.appendInboundEvent({
+      channel: "whatsapp",
+      provider: "meta",
+      event_type: `status:${event.status}`,
+      external_event_id: event.message_id,
+      payload: event.raw,
+    });
+    return {
+      kind: "status",
+      message_id: event.message_id,
+      status: event.status,
+    };
+  }
+
+  const lead = await resolveLeadForChannel(store, event.from, "whatsapp");
+  await store.updateLead(lead.id, {
+    whatsapp_phone: event.from,
+    primary_channel: "whatsapp",
+    channel_last_seen_at: new Date().toISOString(),
+  });
+  await store.appendInboundEvent({
+    channel: "whatsapp",
+    provider: "meta",
+    event_type: "message",
+    lead_id: lead.id,
+    external_event_id: event.message_id,
+    payload: event.raw,
+  });
+
+  const channelState = await store.upsertLeadChannelState(lead.id, "whatsapp", {
+    customer_service_window_expires_at: customerServiceWindowExpiry(event.timestamp),
+    last_external_message_id: event.message_id,
+    last_inbound_at: new Date(Number(event.timestamp || 0) * 1000 || Date.now()).toISOString(),
+    human_status: "auto",
+  });
+
+  if (channelState.ai_paused || ["human_active", "human_review"].includes(channelState.human_status)) {
+    return {
+      kind: "message",
+      lead_id: lead.id,
+      paused: true,
+    };
+  }
+
+  const result = await runtime.runChat({
+    agent: lead.owner === "sales_agent" || lead.status === "sales" ? "sales" : "marketing",
+    lead_id: lead.id,
+    source: "whatsapp",
+    channel: "whatsapp",
+    message: event.text || "",
+    external_message_id: event.message_id,
+    profile: {
+      phone: event.from,
+    },
+    request_id: requestId,
+  });
+
+  const sendResult = await adapter.sendTextMessage({
+    to: event.from,
+    body: result.assistant_message,
+    contextMessageId: event.message_id,
+  });
+
+  await store.upsertLeadChannelState(lead.id, "whatsapp", {
+    last_outbound_at: new Date().toISOString(),
+    last_external_message_id: sendResult.external_message_id || event.message_id,
+  });
+
+  return {
+    kind: "message",
+    lead_id: lead.id,
+    outbound: sendResult,
+  };
+}
+
 async function bootstrapAdminUser(store, config) {
   if (!config.adminEmail || !config.adminPassword) {
     return null;
@@ -65,7 +165,7 @@ async function bootstrapAdminUser(store, config) {
   });
 }
 
-function buildServer({ config, store, runtime, rateLimiter }) {
+function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
   const startedAt = Date.now();
   const widgetIndexPath = path.join(process.cwd(), "public", "widget", "index.html");
   const widgetScriptPath = path.join(
@@ -129,12 +229,14 @@ function buildServer({ config, store, runtime, rateLimiter }) {
         pathname === "/api/lead-agents/admin/session/login" ||
         pathname === "/api/lead-agents/admin/session/logout" ||
         pathname === "/api/lead-agents/admin/session/me";
+      const isPublicWhatsappPath = pathname === "/webhooks/whatsapp";
 
       if (
         pathname !== "/healthz" &&
         !isPublicWidgetPath &&
         !isPublicDashboardPath &&
-        !isPublicAdminSessionPath
+        !isPublicAdminSessionPath &&
+        !isPublicWhatsappPath
       ) {
         authContext = enforceAuth(req, config);
         const rateLimitState = rateLimiter.check(req);
@@ -157,6 +259,45 @@ function buildServer({ config, store, runtime, rateLimiter }) {
           environment: config.environment,
           store_driver: config.storeDriver,
         });
+        return;
+      }
+
+      if (pathname === "/webhooks/whatsapp") {
+        if (req.method === "GET") {
+          const url = new URL(req.url, "http://localhost");
+          const challenge = whatsappAdapter.verifyWebhook(
+            url.searchParams.get("hub.mode"),
+            url.searchParams.get("hub.verify_token"),
+            url.searchParams.get("hub.challenge")
+          );
+          if (!challenge) {
+            json(res, 403, { error: "forbidden" });
+            return;
+          }
+          res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+          res.end(String(challenge));
+          return;
+        }
+        if (req.method === "POST") {
+          const body = await readJsonBody(req);
+          const events = whatsappAdapter.extractEvents(body);
+          const results = [];
+          for (const event of events) {
+            results.push(
+              await processWhatsAppEvent({
+                event,
+                runtime,
+                store,
+                adapter: whatsappAdapter,
+                config,
+                requestId: ctx.requestId,
+              })
+            );
+          }
+          json(res, 200, { ok: true, results }, { "x-request-id": ctx.requestId });
+          return;
+        }
+        methodNotAllowed(res, "GET,POST");
         return;
       }
 
@@ -419,6 +560,53 @@ function buildServer({ config, store, runtime, rateLimiter }) {
         return;
       }
 
+      const channelStateMatch = pathname.match(
+        /^\/api\/lead-agents\/leads\/([^/]+)\/channel-state\/([^/]+)$/
+      );
+      if (channelStateMatch) {
+        const leadId = channelStateMatch[1];
+        const channel = channelStateMatch[2];
+        if (req.method === "GET") {
+          json(
+            res,
+            200,
+            {
+              channel_state: await store.getLeadChannelState(leadId, channel),
+            },
+            { "x-request-id": ctx.requestId }
+          );
+          return;
+        }
+        if (req.method === "PATCH") {
+          const body = await readJsonBody(req);
+          requireObject(body, "body");
+          const updated = await store.upsertLeadChannelState(leadId, channel, {
+            ai_paused: body.ai_paused,
+            human_owner: body.human_owner,
+            human_status: body.human_status,
+            takeover_started_at: body.takeover_started_at,
+            takeover_reason: body.takeover_reason,
+            resume_mode: body.resume_mode,
+            customer_service_window_expires_at:
+              body.customer_service_window_expires_at,
+            last_external_message_id: body.last_external_message_id,
+            last_inbound_at: body.last_inbound_at,
+            last_outbound_at: body.last_outbound_at,
+          });
+          json(
+            res,
+            200,
+            {
+              channel_state: updated,
+            },
+            { "x-request-id": ctx.requestId }
+          );
+          return;
+        }
+        methodNotAllowed(res, "GET,PATCH");
+        return;
+      }
+
       const leadMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)$/);
       if (leadMatch) {
         if (req.method === "GET") {
@@ -674,6 +862,7 @@ async function start() {
   const webhooks = new WebhookDispatcher({ config });
   const knowledgeBase = new FileKnowledgeBase(config.knowledgeDir);
   await knowledgeBase.init();
+  const whatsappAdapter = new WhatsAppCloudAdapter(config);
   const toolExecutor = new ToolExecutor({ store, config, log, webhooks });
   const runtime = new LeadAgentRuntime({
     config,
@@ -688,7 +877,7 @@ async function start() {
     maxRequests: config.rateLimitMaxRequests,
   });
 
-  const server = buildServer({ config, store, runtime, rateLimiter });
+  const server = buildServer({ config, store, runtime, rateLimiter, whatsappAdapter });
 
   await new Promise((resolve, reject) => {
     server.once("error", reject);

@@ -75,6 +75,11 @@ function createConfig() {
     ),
     salesWebhookUrl: process.env.SALES_ALERT_WEBHOOK_URL || "",
     salesWebhookSecret: process.env.SALES_ALERT_WEBHOOK_SECRET || "",
+    whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
+    whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN || "",
+    whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || "",
+    whatsappBusinessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "",
+    whatsappApiVersion: process.env.WHATSAPP_API_VERSION || "v22.0",
   };
 }
 

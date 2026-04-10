@@ -34,6 +34,9 @@ class SupabaseLeadAgentsStore {
       role: row.role || "",
       email: row.email || "",
       phone: row.phone || "",
+      whatsapp_phone: row.whatsapp_phone || "",
+      primary_channel: row.primary_channel || "",
+      channel_last_seen_at: row.channel_last_seen_at || "",
       location: row.location || "",
       summary: row.summary || "",
       next_action: row.next_action || "",
@@ -78,6 +81,7 @@ class SupabaseLeadAgentsStore {
       body: lead.summary || "New lead record created.",
       metadata: {
         source: lead.source,
+        primary_channel: lead.primary_channel || "",
       },
     });
     return lead;
@@ -111,6 +115,15 @@ class SupabaseLeadAgentsStore {
     return this.normalizeLead(response.data[0] || null);
   }
 
+  async findLeadByPhone(phone) {
+    const normalized = normalizeText(phone);
+    if (!normalized) return null;
+    const response = await this.client.get(
+      `/leads?or=(phone.eq.${encodeURIComponent(normalized)},whatsapp_phone.eq.${encodeURIComponent(normalized)})&limit=1`
+    );
+    return this.normalizeLead(response.data[0] || null);
+  }
+
   async listLeads() {
     const response = await this.client.get("/leads?order=updated_at.desc");
     return response.data.map((row) => this.normalizeLead(row));
@@ -123,6 +136,9 @@ class SupabaseLeadAgentsStore {
         lead_id: input.lead_id,
         agent_name: input.agent_name,
         message_role: input.message_role,
+        channel: input.channel || "website",
+        external_message_id: input.external_message_id || null,
+        parent_external_message_id: input.parent_external_message_id || null,
         content: input.content,
       },
       {
@@ -137,6 +153,8 @@ class SupabaseLeadAgentsStore {
       body: input.content,
       metadata: {
         message_role: input.message_role,
+        channel: input.channel || "website",
+        external_message_id: input.external_message_id || "",
       },
     });
     return response.data[0];
@@ -178,6 +196,49 @@ class SupabaseLeadAgentsStore {
       `/demos?lead_id=eq.${leadId}&order=created_at.desc`
     );
     return response.data;
+  }
+
+  async getLeadChannelState(leadId, channel) {
+    const response = await this.client.get(
+      `/lead_channel_states?lead_id=eq.${leadId}&channel=eq.${channel}&limit=1`
+    );
+    return response.data[0] || null;
+  }
+
+  async upsertLeadChannelState(leadId, channel, patch) {
+    const response = await this.client.post(
+      "/lead_channel_states",
+      {
+        lead_id: leadId,
+        channel,
+        ...patch,
+      },
+      {
+        headers: {
+          ...this.selectHeaders(),
+          Prefer: "resolution=merge-duplicates,return=representation",
+        },
+      }
+    );
+    return response.data[0];
+  }
+
+  async appendInboundEvent(input) {
+    const response = await this.client.post(
+      "/inbound_events",
+      {
+        channel: input.channel,
+        provider: input.provider,
+        event_type: input.event_type,
+        lead_id: input.lead_id || null,
+        external_event_id: input.external_event_id || null,
+        payload: input.payload || {},
+      },
+      {
+        headers: this.selectHeaders(),
+      }
+    );
+    return response.data[0];
   }
 
   async createNotification(input) {

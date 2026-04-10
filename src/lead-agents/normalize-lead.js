@@ -40,6 +40,8 @@ function normalizeLeadInput(input, fallbackSource) {
     role: normalizeText(input.role),
     email: normalizeEmail(input.email),
     phone: normalizePhone(input.phone),
+    whatsapp_phone: normalizePhone(input.whatsapp_phone),
+    primary_channel: normalizeText(input.primary_channel),
     source: normalizeSource(input.source, fallbackSource),
     location: normalizeText(input.location),
     status: normalizeText(input.status),

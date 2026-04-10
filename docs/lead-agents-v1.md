@@ -34,6 +34,8 @@ This v1 contains two agents:
 - `POST /api/lead-agents/admin/session/login`
 - `POST /api/lead-agents/admin/session/logout`
 - `GET /api/lead-agents/admin/session/me`
+- `GET /webhooks/whatsapp`
+- `POST /webhooks/whatsapp`
 - `POST /api/lead-agents/chat`
 - `GET /api/lead-agents/leads`
 - `GET /api/lead-agents/leads/:leadId`
@@ -41,6 +43,8 @@ This v1 contains two agents:
 - `GET /api/lead-agents/leads/:leadId/demos`
 - `GET /api/lead-agents/leads/:leadId/memory`
 - `GET /api/lead-agents/leads/:leadId/timeline`
+- `GET /api/lead-agents/leads/:leadId/channel-state/:channel`
+- `PATCH /api/lead-agents/leads/:leadId/channel-state/:channel`
 - `GET /api/lead-agents/admin/traces`
 - `GET /api/lead-agents/admin/notifications`
 - `GET /api/lead-agents/admin/reports/summary`
@@ -107,6 +111,11 @@ Public widget embed:
 - `SALES_ALERT_WEBHOOK_SECRET` optional, shared secret for sales alerts
 - `DEMO_WEBHOOK_URL` optional, webhook for demo booking events
 - `DEMO_WEBHOOK_SECRET` optional, shared secret for demo webhook
+- `WHATSAPP_VERIFY_TOKEN` required for Meta webhook verification
+- `WHATSAPP_ACCESS_TOKEN` required for WhatsApp Cloud API sends
+- `WHATSAPP_PHONE_NUMBER_ID` required for WhatsApp Cloud API sends
+- `WHATSAPP_BUSINESS_ACCOUNT_ID` optional for future account-scoped operations
+- `WHATSAPP_API_VERSION` optional, default `v22.0`
 
 ## Run
 
@@ -163,6 +172,7 @@ Log in with an admin user stored in the backend. On startup, the service bootstr
 - Reporting: source, stage, demo, escalation, and sales handoff metrics are exposed through `/api/lead-agents/admin/reports/summary`
 - Notifications: founder escalations, sales handoffs, and demo alerts are stored in `notifications`
 - CRM timeline: lead activity is aggregated into `timeline_events` and exposed through `/api/lead-agents/leads/:leadId/timeline`
+- WhatsApp channel adapter: Meta webhook verification, inbound normalization, lead resolution by phone, per-channel AI pause state, and Cloud API outbound replies through `/webhooks/whatsapp`
 
 ## Agent packs
 
@@ -191,6 +201,8 @@ Tables:
 - `notifications`
 - `admin_users`
 - `timeline_events`
+- `lead_channel_states`
+- `inbound_events`
 
 ## Suggested routing
 

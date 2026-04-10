@@ -5,6 +5,9 @@ create table if not exists leads (
   role text,
   email text,
   phone text,
+  whatsapp_phone text,
+  primary_channel text,
+  channel_last_seen_at timestamptz,
   source text not null,
   location text,
   status text,
@@ -24,12 +27,54 @@ create table if not exists conversations (
   lead_id uuid not null references leads(id) on delete cascade,
   agent_name text not null,
   message_role text not null,
+  channel text not null default 'website',
+  external_message_id text,
+  parent_external_message_id text,
   content text not null,
   created_at timestamptz not null default now()
 );
 
 create index if not exists conversations_lead_id_created_at_idx
 on conversations (lead_id, created_at);
+
+create table if not exists lead_channel_states (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null references leads(id) on delete cascade,
+  channel text not null,
+  ai_paused boolean not null default false,
+  human_owner text,
+  human_status text not null default 'auto',
+  takeover_started_at timestamptz,
+  takeover_reason text,
+  resume_mode text not null default 'manual_only',
+  customer_service_window_expires_at timestamptz,
+  last_external_message_id text,
+  last_inbound_at timestamptz,
+  last_outbound_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (lead_id, channel)
+);
+
+drop trigger if exists lead_channel_states_set_updated_at on lead_channel_states;
+create trigger lead_channel_states_set_updated_at
+before update on lead_channel_states
+for each row
+execute function set_updated_at();
+
+create table if not exists inbound_events (
+  id uuid primary key default gen_random_uuid(),
+  channel text not null,
+  provider text not null,
+  event_type text not null,
+  lead_id uuid references leads(id) on delete set null,
+  external_event_id text,
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists inbound_events_channel_created_at_idx
+on inbound_events (channel, created_at desc);
 
 create table if not exists demos (
   id uuid primary key default gen_random_uuid(),
