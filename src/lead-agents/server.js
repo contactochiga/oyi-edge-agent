@@ -58,6 +58,32 @@ function customerServiceWindowExpiry(timestampSeconds) {
   return new Date(baseMs + 24 * 60 * 60 * 1000).toISOString();
 }
 
+function publicFallbackReply(message) {
+  const text = String(message || "").toLowerCase();
+  const asksAboutCompany =
+    text.includes("what do you do") ||
+    text.includes("what does ochiga do") ||
+    text.includes("brief") ||
+    text.includes("company does") ||
+    text.includes("tell me about") ||
+    text.includes("what is oyi");
+
+  if (asksAboutCompany) {
+    return [
+      "Hi, I'm Oma.",
+      "Ochiga builds infrastructure technology for estates, buildings, and connected communities.",
+      "Oyi is Ochiga's operating system for estate operations, access workflows, monitoring, resident services, and facility coordination.",
+      "If you're working on a live project, share the location, number of units or buildings, and what you need most right now, and I'll guide the next step.",
+    ].join(" ");
+  }
+
+  return [
+    "Hi, I'm Oma.",
+    "I can help with Ochiga and Oyi for estates, buildings, access workflows, monitoring, resident experience, and facility operations.",
+    "Tell me your project location, approximate scale, and what you need most right now, and I'll point you correctly.",
+  ].join(" ");
+}
+
 async function resolveLeadForChannel(store, phone, source) {
   const existing = await store.findLeadByPhone(phone);
   if (existing) {
@@ -452,13 +478,32 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           return;
         }
 
-        const result = await runtime.runChat({
-          agent: "marketing",
-          lead_id: body.lead_id,
-          source: body.source || config.defaultLeadSource,
-          message: body.message,
-          profile: body.profile || {},
-        });
+        let result;
+        try {
+          result = await runtime.runChat({
+            agent: "marketing",
+            lead_id: body.lead_id,
+            source: body.source || config.defaultLeadSource,
+            message: body.message,
+            profile: body.profile || {},
+          });
+        } catch (err) {
+          log("error", "lead_agents_server.public_chat_fallback", {
+            request_id: ctx.requestId,
+            error: err?.stack || err?.message || String(err),
+          });
+          result = {
+            agent: "marketing_agent",
+            lead: null,
+            trace_id: "",
+            lead_memory: null,
+            knowledge_hits: [],
+            assistant_message: publicFallbackReply(body.message),
+            tools: [],
+            conversations: [],
+            degraded: true,
+          };
+        }
 
         json(res, 200, result, {
           "x-request-id": ctx.requestId,
