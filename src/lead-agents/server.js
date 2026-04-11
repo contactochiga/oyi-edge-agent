@@ -58,7 +58,86 @@ function customerServiceWindowExpiry(timestampSeconds) {
   return new Date(baseMs + 24 * 60 * 60 * 1000).toISOString();
 }
 
-function publicFallbackReply(message) {
+function extractPublicLeadPatch(message) {
+  const text = String(message || "").trim();
+  const lower = text.toLowerCase();
+  const patch = {};
+
+  const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  if (emailMatch) {
+    patch.email = emailMatch[0];
+  }
+
+  const phoneMatch = text.match(/(?:\+?\d[\d\s().-]{7,}\d)/);
+  if (phoneMatch) {
+    patch.phone = phoneMatch[0];
+  }
+
+  const locationPatterns = [
+    /location\s+(?:is\s+)?(?:at|in)\s+([a-z0-9&,\- ]{4,})/i,
+    /project\s+(?:is\s+)?(?:at|in)\s+([a-z0-9&,\- ]{4,})/i,
+    /(?:at|in)\s+([a-z0-9&,\- ]{4,})/i,
+  ];
+  for (const pattern of locationPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      patch.location = match[1].trim().replace(/\s+/g, " ");
+      break;
+    }
+  }
+
+  const unitMatch = lower.match(/(\d{1,5})\s+units?/);
+  const bedroomMatch = lower.match(/(\d(?:\s*&\s*\d)?)\s*bed/);
+  const fragments = [];
+  if (unitMatch) {
+    fragments.push(`${unitMatch[1]} units`);
+  }
+  if (bedroomMatch) {
+    fragments.push(`${bedroomMatch[1]} bedroom mix`);
+  }
+  if (patch.location) {
+    fragments.push(`location ${patch.location}`);
+  }
+
+  if (fragments.length) {
+    patch.summary = `Fallback project signals: ${fragments.join(", ")}.`;
+  }
+
+  return patch;
+}
+
+async function ensurePublicFallbackLead(store, body) {
+  const existing =
+    body.lead_id && typeof body.lead_id === "string"
+      ? await store.getLead(body.lead_id)
+      : null;
+  const patch = extractPublicLeadPatch(body.message);
+
+  if (existing) {
+    return store.updateLead(existing.id, {
+      ...patch,
+      source: body.source || existing.source || "website_chat",
+    });
+  }
+
+  return store.createLead(
+    normalizeLeadInput(
+      {
+        ...body.profile,
+        ...patch,
+        source: body.source || "website_chat",
+        owner: "marketing_agent",
+        status: "new",
+        primary_channel: "website",
+        summary:
+          patch.summary || "Lead captured through public fallback response path.",
+      },
+      body.source || "website_chat"
+    )
+  );
+}
+
+function publicFallbackReply(message, lead) {
   const text = String(message || "").toLowerCase();
   const asksAboutCompany =
     text.includes("what do you do") ||
@@ -74,6 +153,22 @@ function publicFallbackReply(message) {
       "Ochiga builds infrastructure technology for estates, buildings, and connected communities.",
       "Oyi is Ochiga's operating system for estate operations, access workflows, monitoring, resident services, and facility coordination.",
       "If you're working on a live project, share the location, number of units or buildings, and what you need most right now, and I'll guide the next step.",
+    ].join(" ");
+  }
+
+  const location = lead && lead.location ? lead.location : "";
+  const summary = lead && lead.summary ? lead.summary.toLowerCase() : "";
+  const hasScale = /\b\d+\s+units?\b/i.test(summary);
+  const hasContact = Boolean((lead && lead.email) || (lead && lead.phone));
+
+  if (location || hasScale) {
+    return [
+      "Thanks.",
+      `${location ? `I noted the project location as ${location}.` : "I noted the project scale details."}`,
+      "What do you need most right now: access control, monitoring, resident services, facility operations, or a broader estate operating system?",
+      hasContact
+        ? "Once I have that, I can route the next step properly."
+        : "If useful, you can also share the best contact email or phone for follow-up.",
     ].join(" ");
   }
 
@@ -492,15 +587,34 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
             request_id: ctx.requestId,
             error: err?.stack || err?.message || String(err),
           });
+          const fallbackLead = await ensurePublicFallbackLead(store, body);
+          const fallbackAssistant = publicFallbackReply(body.message, fallbackLead);
+          await store.appendConversation({
+            lead_id: fallbackLead.id,
+            agent_name: "marketing_agent",
+            message_role: "user",
+            channel: "website",
+            content: body.message,
+          });
+          await store.appendConversation({
+            lead_id: fallbackLead.id,
+            agent_name: "marketing_agent",
+            message_role: "assistant",
+            channel: "website",
+            content: fallbackAssistant,
+          });
           result = {
             agent: "marketing_agent",
-            lead: null,
+            lead: fallbackLead,
             trace_id: "",
             lead_memory: null,
             knowledge_hits: [],
-            assistant_message: publicFallbackReply(body.message),
+            assistant_message: fallbackAssistant,
             tools: [],
-            conversations: [],
+            conversations: await store.listConversationsForLead(
+              fallbackLead.id,
+              config.maxConversationMessages
+            ),
             degraded: true,
           };
         }
