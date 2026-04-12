@@ -18,6 +18,8 @@ Suggested structure:
 - discovery and demo playbooks
 - objections and commercial guardrails
 - approved claims and boundaries
+- system surfaces and implementation status
+- commercial packaging and current maturity notes
 
 Content rules:
 - Keep statements factual and high level unless explicitly verified.

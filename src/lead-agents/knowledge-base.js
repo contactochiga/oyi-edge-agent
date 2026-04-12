@@ -43,7 +43,7 @@ class FileKnowledgeBase {
       }));
   }
 
-  search(query, limit = 4) {
+  search(query, limit = 6) {
     const terms = tokenize(query);
     if (terms.length === 0) {
       return [];
