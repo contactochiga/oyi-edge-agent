@@ -446,6 +446,8 @@ class FileLeadAgentsStore {
         role: input.role || "admin",
         status: input.status || "active",
         display_name: input.display_name || "",
+        last_login_at: input.last_login_at || null,
+        password_changed_at: input.password_changed_at || null,
         created_at: this.nowIso(),
         updated_at: this.nowIso(),
       };
@@ -461,8 +463,26 @@ class FileLeadAgentsStore {
     return this.state.admin_users.find((item) => item.email === normalizedEmail) || null;
   }
 
+  async getAdminUserById(userId) {
+    return this.state.admin_users.find((item) => item.id === userId) || null;
+  }
+
   async listAdminUsers() {
     return [...this.state.admin_users].sort((a, b) => a.email.localeCompare(b.email));
+  }
+
+  async updateAdminUser(userId, patch) {
+    const index = this.state.admin_users.findIndex((item) => item.id === userId);
+    if (index === -1) {
+      return null;
+    }
+    this.state.admin_users[index] = {
+      ...this.state.admin_users[index],
+      ...patch,
+      updated_at: this.nowIso(),
+    };
+    await this.persist();
+    return this.state.admin_users[index];
   }
 
   async getReportingSummary() {
@@ -471,6 +491,12 @@ class FileLeadAgentsStore {
     const notifications = this.state.notifications;
     const totalLeads = leads.length || 1;
     const salesReady = leads.filter((lead) => ["sales", "booked", "closed"].includes(lead.status)).length;
+    const scoredLeads = leads.filter((lead) => Number.isFinite(Number(lead.score)) && Number(lead.score) > 0);
+    const hotLeads = leads.filter((lead) => Number(lead.score || 0) >= 70).length;
+    const upcomingDemos = demos
+      .filter((demo) => demo.scheduled_for)
+      .sort((a, b) => String(a.scheduled_for).localeCompare(String(b.scheduled_for)))
+      .slice(0, 5);
 
     return {
       totals: {
@@ -478,6 +504,13 @@ class FileLeadAgentsStore {
         demos: demos.length,
         escalations: notifications.filter((item) => item.type === "founder_escalation").length,
         sales_handoff_conversion_pct: Math.round((salesReady / totalLeads) * 100),
+        hot_leads: hotLeads,
+        average_score: scoredLeads.length
+          ? Math.round(
+              scoredLeads.reduce((sum, lead) => sum + Number(lead.score || 0), 0) /
+                scoredLeads.length
+            )
+          : 0,
       },
       by_source: leads.reduce((acc, lead) => {
         const key = lead.source || "unknown";
@@ -489,7 +522,14 @@ class FileLeadAgentsStore {
         acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {}),
+      by_owner: leads.reduce((acc, lead) => {
+        const key = lead.owner || "unassigned";
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {}),
       demos_booked: demos.filter((demo) => ["requested", "pending", "confirmed"].includes(demo.status)).length,
+      demos_confirmed: demos.filter((demo) => demo.status === "confirmed").length,
+      upcoming_demos: upcomingDemos,
     };
   }
 

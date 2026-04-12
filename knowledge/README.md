@@ -10,6 +10,15 @@ Current status:
 - It is intentionally conservative.
 - It should be edited as the company refines product, commercial packaging, implementation process, and proof points.
 
+Suggested structure:
+- company overview and positioning
+- product and capability map
+- ideal customer profiles and fit
+- qualification and routing rules
+- discovery and demo playbooks
+- objections and commercial guardrails
+- approved claims and boundaries
+
 Content rules:
 - Keep statements factual and high level unless explicitly verified.
 - Do not add invented pricing, timelines, integrations, customer names, or technical claims.

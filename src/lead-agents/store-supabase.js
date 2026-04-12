@@ -392,6 +392,11 @@ class SupabaseLeadAgentsStore {
     return response.data[0];
   }
 
+  async getAdminUserById(userId) {
+    const response = await this.client.get(`/admin_users?id=eq.${userId}&limit=1`);
+    return response.data[0] || null;
+  }
+
   async getAdminUserByEmail(email) {
     const response = await this.client.get(
       `/admin_users?email=eq.${encodeURIComponent(normalizeEmail(email))}&limit=1`
@@ -404,14 +409,27 @@ class SupabaseLeadAgentsStore {
     return response.data;
   }
 
+  async updateAdminUser(userId, patch) {
+    const response = await this.client.patch(`/admin_users?id=eq.${userId}`, patch, {
+      headers: this.selectHeaders(),
+    });
+    return response.data[0] || null;
+  }
+
   async getReportingSummary() {
     const [leads, demos, notifications] = await Promise.all([
       this.listLeads(),
-      this.client.get("/demos?select=id,status"),
+      this.client.get("/demos?select=id,status,scheduled_for"),
       this.client.get("/notifications?select=id,type"),
     ]);
     const totalLeads = leads.length || 1;
     const salesReady = leads.filter((lead) => ["sales", "booked", "closed"].includes(lead.status)).length;
+    const scoredLeads = leads.filter((lead) => Number.isFinite(Number(lead.score)) && Number(lead.score) > 0);
+    const hotLeads = leads.filter((lead) => Number(lead.score || 0) >= 70).length;
+    const upcomingDemos = demos.data
+      .filter((demo) => demo.scheduled_for)
+      .sort((a, b) => String(a.scheduled_for).localeCompare(String(b.scheduled_for)))
+      .slice(0, 5);
 
     return {
       totals: {
@@ -419,6 +437,13 @@ class SupabaseLeadAgentsStore {
         demos: demos.data.length,
         escalations: notifications.data.filter((item) => item.type === "founder_escalation").length,
         sales_handoff_conversion_pct: Math.round((salesReady / totalLeads) * 100),
+        hot_leads: hotLeads,
+        average_score: scoredLeads.length
+          ? Math.round(
+              scoredLeads.reduce((sum, lead) => sum + Number(lead.score || 0), 0) /
+                scoredLeads.length
+            )
+          : 0,
       },
       by_source: leads.reduce((acc, lead) => {
         const key = lead.source || "unknown";
@@ -430,7 +455,14 @@ class SupabaseLeadAgentsStore {
         acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {}),
+      by_owner: leads.reduce((acc, lead) => {
+        const key = lead.owner || "unassigned";
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {}),
       demos_booked: demos.data.filter((demo) => ["requested", "pending", "confirmed"].includes(demo.status)).length,
+      demos_confirmed: demos.data.filter((demo) => demo.status === "confirmed").length,
+      upcoming_demos: upcomingDemos,
     };
   }
 

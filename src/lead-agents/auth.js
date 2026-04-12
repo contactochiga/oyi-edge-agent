@@ -114,6 +114,57 @@ function verifyPassword(password, storedHash) {
   return secureEqual(actualHash, expectedHash);
 }
 
+const ROLE_PERMISSIONS = {
+  admin: [
+    "view_dashboard",
+    "view_reports",
+    "view_traces",
+    "view_users",
+    "manage_users",
+    "manage_leads",
+    "manage_demos",
+    "manage_takeover",
+    "manage_notifications",
+    "escalate_founder",
+    "change_password",
+  ],
+  founder: [
+    "view_dashboard",
+    "view_reports",
+    "view_traces",
+    "view_users",
+    "manage_leads",
+    "manage_demos",
+    "manage_takeover",
+    "manage_notifications",
+    "escalate_founder",
+    "change_password",
+  ],
+  operator: [
+    "view_dashboard",
+    "view_reports",
+    "manage_leads",
+    "manage_demos",
+    "manage_takeover",
+    "manage_notifications",
+    "escalate_founder",
+    "change_password",
+  ],
+  sales: [
+    "view_dashboard",
+    "view_reports",
+    "manage_leads",
+    "manage_demos",
+    "manage_notifications",
+    "change_password",
+  ],
+  viewer: ["view_dashboard", "view_reports", "change_password"],
+};
+
+function permissionsForRole(role) {
+  return ROLE_PERMISSIONS[String(role || "viewer")] || ROLE_PERMISSIONS.viewer;
+}
+
 function authorizeRole(session, allowedRoles) {
   if (!session) {
     const error = new Error("unauthorized");
@@ -124,6 +175,23 @@ function authorizeRole(session, allowedRoles) {
     return session;
   }
   if (allowedRoles.includes(session.role)) {
+    return session;
+  }
+  const error = new Error("forbidden");
+  error.statusCode = 403;
+  throw error;
+}
+
+function authorizePermission(session, permission) {
+  if (!session) {
+    const error = new Error("unauthorized");
+    error.statusCode = 401;
+    throw error;
+  }
+  if (session.type === "api_key") {
+    return session;
+  }
+  if (permissionsForRole(session.role).includes(permission)) {
     return session;
   }
   const error = new Error("forbidden");
@@ -143,6 +211,7 @@ function enforceAuth(req, config) {
       email: session.email,
       role: session.role,
       userId: session.userId,
+      permissions: permissionsForRole(session.role),
     };
   }
 
@@ -156,6 +225,8 @@ function enforceAuth(req, config) {
     }
     return {
       type: "api_key",
+      role: "admin",
+      permissions: permissionsForRole("admin"),
     };
   }
 
@@ -168,6 +239,8 @@ function enforceAuth(req, config) {
     }
     return {
       type: "api_key",
+      role: "admin",
+      permissions: permissionsForRole("admin"),
     };
   }
 
@@ -176,11 +249,13 @@ function enforceAuth(req, config) {
 
 module.exports = {
   authorizeRole,
+  authorizePermission,
   clearSessionCookie,
   createAdminSessionToken,
   createSessionCookie,
   enforceAuth,
   hashPassword,
+  permissionsForRole,
   readAdminSession,
   verifyPassword,
 };

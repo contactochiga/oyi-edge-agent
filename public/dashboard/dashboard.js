@@ -48,6 +48,8 @@
     metricDemos: document.getElementById("metricDemos"),
     metricEscalations: document.getElementById("metricEscalations"),
     metricConversion: document.getElementById("metricConversion"),
+    metricHotLeads: document.getElementById("metricHotLeads"),
+    metricAverageScore: document.getElementById("metricAverageScore"),
     searchInput: document.getElementById("searchInput"),
     selectedCount: document.getElementById("selectedCount"),
     bulkOwnerSelect: document.getElementById("bulkOwnerSelect"),
@@ -67,6 +69,8 @@
     reportsPanel: document.getElementById("reportsPanel"),
     sourcesPanel: document.getElementById("sourcesPanel"),
     statusesPanel: document.getElementById("statusesPanel"),
+    ownersPanel: document.getElementById("ownersPanel"),
+    upcomingDemosPanel: document.getElementById("upcomingDemosPanel"),
     teamPanel: document.getElementById("teamPanel"),
     newUserName: document.getElementById("newUserName"),
     newUserEmail: document.getElementById("newUserEmail"),
@@ -74,6 +78,10 @@
     newUserPassword: document.getElementById("newUserPassword"),
     createUserBtn: document.getElementById("createUserBtn"),
     teamStatus: document.getElementById("teamStatus"),
+    currentPasswordInput: document.getElementById("currentPasswordInput"),
+    newPasswordInput: document.getElementById("newPasswordInput"),
+    changePasswordBtn: document.getElementById("changePasswordBtn"),
+    passwordStatus: document.getElementById("passwordStatus"),
     traceExplorer: document.getElementById("traceExplorer"),
     traceSearchInput: document.getElementById("traceSearchInput"),
     openFounderQueueBtn: document.getElementById("openFounderQueueBtn"),
@@ -137,6 +145,11 @@
     el.teamStatus.style.color = isError ? "#8d1f1f" : "#667c73";
   }
 
+  function setPasswordStatus(text, isError) {
+    el.passwordStatus.textContent = text;
+    el.passwordStatus.style.color = isError ? "#8d1f1f" : "#667c73";
+  }
+
   async function api(path, options) {
     const response = await fetch(path, {
       ...options,
@@ -191,6 +204,35 @@
     if (owner === "sales_agent") return "Osa";
     if (owner === "human") return "Human";
     return owner || "Unassigned";
+  }
+
+  function roleLabel(role) {
+    if (role === "admin") return "Admin";
+    if (role === "founder") return "Founder";
+    if (role === "operator") return "Operator";
+    if (role === "sales") return "Sales";
+    if (role === "viewer") return "Viewer";
+    return role || "Unknown";
+  }
+
+  function hasPermission(permission) {
+    return Boolean(
+      state.session &&
+        Array.isArray(state.session.permissions) &&
+        state.session.permissions.includes(permission)
+    );
+  }
+
+  function canAccessTab(tab) {
+    if (tab === "reports") return hasPermission("view_reports");
+    if (tab === "notifications" || tab === "founder") {
+      return hasPermission("manage_notifications");
+    }
+    if (tab === "team") {
+      return hasPermission("view_users") || hasPermission("change_password");
+    }
+    if (tab === "traces") return hasPermission("view_traces");
+    return true;
   }
 
   function displayValue(value, fallback) {
@@ -282,8 +324,9 @@
     if (loggedIn) {
       const initials = initialsFromEmail(state.adminEmail);
       el.accountAvatar.textContent = initials;
-      el.accountName.textContent = initials;
-      el.accountSubtitle.textContent = state.adminEmail;
+      el.accountName.textContent =
+        state.session.display_name || roleLabel(state.session.role) || initials;
+      el.accountSubtitle.textContent = `${roleLabel(state.session.role)} · ${state.adminEmail}`;
       el.accountEmailMenu.textContent = state.adminEmail;
     } else {
       el.accountAvatar.textContent = "OA";
@@ -370,6 +413,10 @@
       node.classList.toggle("active", node.getAttribute("data-filter") === state.activeFilter);
     });
     el.selectedCount.textContent = `${state.selectedLeadIds.size} selected`;
+    const canManageLeads = hasPermission("manage_leads");
+    el.bulkOwnerSelect.disabled = !canManageLeads;
+    el.bulkStatusSelect.disabled = !canManageLeads;
+    el.applyBulkBtn.disabled = !canManageLeads;
   }
 
   function renderReportStrip() {
@@ -378,6 +425,8 @@
     el.metricDemos.textContent = String(state.report ? state.report.demos_booked || 0 : 0);
     el.metricEscalations.textContent = String(totals.escalations || 0);
     el.metricConversion.textContent = `${totals.sales_handoff_conversion_pct || 0}%`;
+    el.metricHotLeads.textContent = String(totals.hot_leads || 0);
+    el.metricAverageScore.textContent = String(totals.average_score || 0);
   }
 
   function keyValueLines(map, emptyText) {
@@ -401,12 +450,24 @@
   }
 
   function renderReports() {
+    if (!hasPermission("view_reports")) {
+      renderReportStrip();
+      el.reportsPanel.innerHTML = '<div class="value empty">Your role cannot access reporting.</div>';
+      el.sourcesPanel.innerHTML = '<div class="value empty">Reporting access is restricted.</div>';
+      el.statusesPanel.innerHTML = '<div class="value empty">Reporting access is restricted.</div>';
+      el.ownersPanel.innerHTML = '<div class="value empty">Reporting access is restricted.</div>';
+      el.upcomingDemosPanel.innerHTML = '<div class="value empty">Reporting access is restricted.</div>';
+      return;
+    }
+
     renderReportStrip();
 
     if (!state.report) {
       el.reportsPanel.innerHTML = '<div class="value empty">No report loaded yet.</div>';
       el.sourcesPanel.innerHTML = '<div class="value empty">No source breakdown yet.</div>';
       el.statusesPanel.innerHTML = '<div class="value empty">No stage breakdown yet.</div>';
+      el.ownersPanel.innerHTML = '<div class="value empty">No owner breakdown yet.</div>';
+      el.upcomingDemosPanel.innerHTML = '<div class="value empty">No upcoming demos yet.</div>';
       return;
     }
 
@@ -418,6 +479,8 @@
       <div class="trace-head"><strong>Sales handoff conversion</strong><span>${escapeHtml(
         `${totals.sales_handoff_conversion_pct || 0}%`
       )}</span></div>
+      <div class="trace-head"><strong>Hot leads</strong><span>${escapeHtml(String(totals.hot_leads || 0))}</span></div>
+      <div class="trace-head"><strong>Average score</strong><span>${escapeHtml(String(totals.average_score || 0))}</span></div>
     `;
     el.sourcesPanel.innerHTML = keyValueLines(
       state.report.by_source,
@@ -427,11 +490,29 @@
       state.report.by_status,
       "No stage data yet."
     );
+    el.ownersPanel.innerHTML = keyValueLines(
+      state.report.by_owner,
+      "No owner data yet."
+    );
+    const upcoming = state.report.upcoming_demos || [];
+    el.upcomingDemosPanel.innerHTML = upcoming.length
+      ? upcoming
+          .map(function (demo) {
+            return `
+              <div class="trace-head">
+                <strong>${escapeHtml(formatDate(demo.scheduled_for))}</strong>
+                <span>${escapeHtml(demo.status || "pending")}</span>
+              </div>
+            `;
+          })
+          .join("")
+      : '<div class="value empty">No upcoming demos yet.</div>';
   }
 
   function renderLeadList() {
     filterLeads();
     updateQueueCards();
+    const canManageLeads = hasPermission("manage_leads");
 
     if (!state.filteredLeads.length) {
       el.leadList.innerHTML = '<div class="value empty">No leads match this view yet.</div>';
@@ -462,7 +543,7 @@
               </div>
             </div>
             <div class="lead-quick-row" style="margin-top: 12px;">
-              <select class="mini-select" data-inline-owner="${lead.id}">
+              <select class="mini-select" data-inline-owner="${lead.id}" ${canManageLeads ? "" : "disabled"}>
                 <option value="">Assign owner</option>
                 <option value="marketing_agent" ${lead.owner === "marketing_agent" ? "selected" : ""}>Oma</option>
                 <option value="sales_agent" ${lead.owner === "sales_agent" ? "selected" : ""}>Osa</option>
@@ -552,6 +633,12 @@
   }
 
   function renderFounderInbox() {
+    if (!hasPermission("manage_notifications")) {
+      el.founderInbox.innerHTML =
+        '<div class="value empty">Your role cannot access founder escalation workflows.</div>';
+      return;
+    }
+
     const items = state.notifications.filter(function (notification) {
       return notification.type === "founder_escalation";
     });
@@ -623,6 +710,12 @@
   }
 
   function renderNotifications() {
+    if (!hasPermission("manage_notifications")) {
+      el.notificationsPanel.innerHTML =
+        '<div class="value empty">Your role cannot access the notification inbox.</div>';
+      return;
+    }
+
     Array.from(el.notificationFilters.querySelectorAll("[data-notification-filter]")).forEach(
       function (node) {
         node.classList.toggle(
@@ -705,30 +798,74 @@
   }
 
   function renderTeamPanel() {
+    if (!hasPermission("view_users")) {
+      el.teamPanel.innerHTML =
+        '<div class="value empty">Your role cannot view admin users.</div>';
+      el.createUserBtn.disabled = true;
+      el.newUserName.disabled = true;
+      el.newUserEmail.disabled = true;
+      el.newUserRole.disabled = true;
+      el.newUserPassword.disabled = true;
+      setTeamStatus("Your role cannot access team administration.", true);
+      return;
+    }
+
     if (!state.adminUsers.length) {
       el.teamPanel.innerHTML = '<div class="value empty">No admin users loaded yet.</div>';
     } else {
       el.teamPanel.innerHTML = state.adminUsers
         .map(function (user) {
+          const canManageUsers = hasPermission("manage_users");
           return `
             <article class="team-card">
               <div class="team-head">
                 <strong>${escapeHtml(user.display_name || user.email)}</strong>
                 <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(
-                  user.role || "viewer"
+                  roleLabel(user.role || "viewer")
                 )}</span>
               </div>
               <div class="subtext">${escapeHtml(user.email)}</div>
-              <div class="subtext" style="margin-top:6px;">${escapeHtml(
+              <div class="subtext" style="margin-top:6px;">Status: ${escapeHtml(
                 user.status || "active"
               )}</div>
+              <div class="subtext" style="margin-top:6px;">Last login: ${escapeHtml(
+                user.last_login_at ? formatDate(user.last_login_at) : "Never"
+              )}</div>
+              <div class="toolbar" style="margin-top:12px;">
+                <select class="mini-select" data-user-role="${user.id}" ${
+                  canManageUsers ? "" : "disabled"
+                }>
+                  <option value="viewer" ${user.role === "viewer" ? "selected" : ""}>viewer</option>
+                  <option value="operator" ${user.role === "operator" ? "selected" : ""}>operator</option>
+                  <option value="sales" ${user.role === "sales" ? "selected" : ""}>sales</option>
+                  <option value="founder" ${user.role === "founder" ? "selected" : ""}>founder</option>
+                  <option value="admin" ${user.role === "admin" ? "selected" : ""}>admin</option>
+                </select>
+                <select class="mini-select" data-user-status="${user.id}" ${
+                  canManageUsers ? "" : "disabled"
+                }>
+                  <option value="active" ${user.status === "active" ? "selected" : ""}>active</option>
+                  <option value="inactive" ${user.status === "inactive" ? "selected" : ""}>inactive</option>
+                </select>
+                <button class="ghost" type="button" data-user-save="${user.id}" ${
+                  canManageUsers ? "" : "disabled"
+                }>Save</button>
+              </div>
+              <div class="toolbar" style="margin-top:10px;">
+                <input class="text-input" style="padding:10px 12px;" type="password" placeholder="Temporary reset password" data-user-password="${user.id}" ${
+                  canManageUsers ? "" : "disabled"
+                } />
+                <button class="outline" type="button" data-user-reset="${user.id}" ${
+                  canManageUsers ? "" : "disabled"
+                }>Reset password</button>
+              </div>
             </article>
           `;
         })
         .join("");
     }
 
-    const canManageUsers = Boolean(state.session && state.session.role === "admin");
+    const canManageUsers = hasPermission("manage_users");
     el.createUserBtn.disabled = !canManageUsers;
     el.newUserName.disabled = !canManageUsers;
     el.newUserEmail.disabled = !canManageUsers;
@@ -739,6 +876,27 @@
     } else {
       setTeamStatus("", false);
     }
+
+    Array.from(el.teamPanel.querySelectorAll("[data-user-save]")).forEach(function (node) {
+      node.addEventListener("click", function () {
+        const userId = node.getAttribute("data-user-save");
+        const role = el.teamPanel.querySelector(`[data-user-role="${userId}"]`).value;
+        const status = el.teamPanel.querySelector(`[data-user-status="${userId}"]`).value;
+        updateAdminUser(userId, { role, status }).catch(function (error) {
+          setTeamStatus(error.message || "Could not update admin user.", true);
+        });
+      });
+    });
+
+    Array.from(el.teamPanel.querySelectorAll("[data-user-reset]")).forEach(function (node) {
+      node.addEventListener("click", function () {
+        const userId = node.getAttribute("data-user-reset");
+        const passwordInput = el.teamPanel.querySelector(`[data-user-password="${userId}"]`);
+        updateAdminUser(userId, { password: passwordInput.value || "" }).catch(function (error) {
+          setTeamStatus(error.message || "Could not reset password.", true);
+        });
+      });
+    });
   }
 
   function renderChannelState() {
@@ -810,6 +968,12 @@
   }
 
   function renderTraceExplorer() {
+    if (!hasPermission("view_traces")) {
+      el.traceExplorer.innerHTML =
+        '<div class="value empty">Your role cannot access traces.</div>';
+      return;
+    }
+
     const query = state.traceQuery.trim().toLowerCase();
     const traces = state.traces.filter(function (trace) {
       if (!query) return true;
@@ -853,8 +1017,14 @@
 
   function renderWorkspaceTabs() {
     Array.from(el.workspaceTabs.querySelectorAll("[data-tab]")).forEach(function (node) {
-      node.classList.toggle("active", node.getAttribute("data-tab") === state.workspaceTab);
+      const tab = node.getAttribute("data-tab");
+      const allowed = canAccessTab(tab);
+      node.hidden = !allowed;
+      node.classList.toggle("active", allowed && tab === state.workspaceTab);
     });
+    if (!canAccessTab(state.workspaceTab)) {
+      state.workspaceTab = "conversation";
+    }
     Array.from(document.querySelectorAll("[data-panel]")).forEach(function (panel) {
       panel.classList.toggle("active", panel.getAttribute("data-panel") === state.workspaceTab);
     });
@@ -930,26 +1100,31 @@
     }
     renderChannelState();
 
-    const relatedTraces = state.traces.filter(function (trace) {
-      return trace.lead_id === state.selectedLead.id;
-    }).slice(0, 8);
-
-    if (!relatedTraces.length) {
-      el.tracePanel.innerHTML = '<div class="value empty">No traces for this lead yet.</div>';
+    if (!hasPermission("view_traces")) {
+      el.tracePanel.innerHTML =
+        '<div class="value empty">Trace access is restricted for your role.</div>';
     } else {
-      el.tracePanel.innerHTML = relatedTraces
-        .map(function (trace) {
-          return `
-            <div class="trace-item">
-              <div class="trace-head">
-                <strong>${escapeHtml(trace.type || "trace")}</strong>
-                <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(formatDate(trace.created_at || trace.ts))}</span>
+      const relatedTraces = state.traces.filter(function (trace) {
+        return trace.lead_id === state.selectedLead.id;
+      }).slice(0, 8);
+
+      if (!relatedTraces.length) {
+        el.tracePanel.innerHTML = '<div class="value empty">No traces for this lead yet.</div>';
+      } else {
+        el.tracePanel.innerHTML = relatedTraces
+          .map(function (trace) {
+            return `
+              <div class="trace-item">
+                <div class="trace-head">
+                  <strong>${escapeHtml(trace.type || "trace")}</strong>
+                  <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(formatDate(trace.created_at || trace.ts))}</span>
+                </div>
+                <div class="subtext">${escapeHtml(trace.tool_name || trace.agent || "")}</div>
               </div>
-              <div class="subtext">${escapeHtml(trace.tool_name || trace.agent || "")}</div>
-            </div>
-          `;
-        })
-        .join("");
+            `;
+          })
+          .join("");
+      }
     }
 
     el.statusInput.value = "";
@@ -957,29 +1132,57 @@
     el.scoreInput.value = state.selectedLead.score || "";
     el.nextActionInput.value = state.selectedLead.next_action || "";
     el.summaryInput.value = state.selectedLead.summary || "";
+
+    const canManageLeads = hasPermission("manage_leads");
+    const canManageDemos = hasPermission("manage_demos");
+    const canEscalateFounder = hasPermission("escalate_founder");
+    const canManageTakeover = hasPermission("manage_takeover");
+
+    el.statusInput.disabled = !canManageLeads;
+    el.ownerInput.disabled = !canManageLeads;
+    el.scoreInput.disabled = !canManageLeads;
+    el.nextActionInput.disabled = !canManageLeads;
+    el.summaryInput.disabled = !canManageLeads;
+    el.updateLeadBtn.disabled = !canManageLeads;
+    el.demoAtInput.disabled = !canManageDemos;
+    el.demoNotesInput.disabled = !canManageDemos;
+    el.createDemoBtn.disabled = !canManageDemos;
+    el.escalationReasonInput.disabled = !canEscalateFounder;
+    el.escalationSummaryInput.disabled = !canEscalateFounder;
+    el.escalationUrgencyInput.disabled = !canEscalateFounder;
+    el.escalateBtn.disabled = !canEscalateFounder;
+    el.takeoverOwnerInput.disabled = !canManageTakeover;
+    el.takeoverReasonInput.disabled = !canManageTakeover;
+    el.pauseAiBtn.disabled = !canManageTakeover;
+    el.resumeOmaBtn.disabled = !canManageTakeover;
+    el.resumeOsaBtn.disabled = !canManageTakeover;
+    el.keepHumanBtn.disabled = !canManageTakeover;
+    el.agentSelect.disabled = !canManageLeads;
+    el.composerInput.disabled = !canManageLeads;
+    el.sendBtn.disabled = !canManageLeads;
   }
 
   async function loadLeads() {
-    const [leadData, traceData, notificationData, reportData] = await Promise.all([
+    const [leadData, traceData, notificationData, reportData, userData] = await Promise.all([
       api("/api/lead-agents/leads", { method: "GET" }),
-      api("/api/lead-agents/admin/traces", { method: "GET" }),
-      api("/api/lead-agents/admin/notifications", { method: "GET" }),
-      api("/api/lead-agents/admin/reports/summary", { method: "GET" }),
+      hasPermission("view_traces")
+        ? api("/api/lead-agents/admin/traces", { method: "GET" })
+        : Promise.resolve({ traces: [] }),
+      hasPermission("manage_notifications")
+        ? api("/api/lead-agents/admin/notifications", { method: "GET" })
+        : Promise.resolve({ notifications: [] }),
+      hasPermission("view_reports")
+        ? api("/api/lead-agents/admin/reports/summary", { method: "GET" })
+        : Promise.resolve({ report: null }),
+      hasPermission("view_users")
+        ? api("/api/lead-agents/admin/users", { method: "GET" })
+        : Promise.resolve({ users: [] }),
     ]);
     state.leads = leadData.leads || [];
     state.traces = traceData.traces || [];
     state.notifications = notificationData.notifications || [];
     state.report = reportData.report || null;
-    if (state.session && ["admin", "founder"].includes(state.session.role)) {
-      try {
-        const userData = await api("/api/lead-agents/admin/users", { method: "GET" });
-        state.adminUsers = userData.users || [];
-      } catch (_) {
-        state.adminUsers = [];
-      }
-    } else {
-      state.adminUsers = [];
-    }
+    state.adminUsers = userData.users || [];
 
     if (
       state.selectedLeadId &&
@@ -1063,6 +1266,9 @@
   }
 
   async function updateNotificationStatus(notificationId, status) {
+    if (!hasPermission("manage_notifications")) {
+      throw new Error("Your role cannot update notifications.");
+    }
     await api(`/api/lead-agents/admin/notifications/${notificationId}`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
@@ -1077,6 +1283,10 @@
   async function updateChannelState(patch, leadOwner) {
     if (!state.selectedLead) {
       setDetailStatus("Select a lead first.", true);
+      return;
+    }
+    if (!hasPermission("manage_takeover")) {
+      setDetailStatus("Your role cannot manage human takeover.", true);
       return;
     }
     await api(`/api/lead-agents/leads/${state.selectedLead.id}/channel-state/whatsapp`, {
@@ -1096,6 +1306,10 @@
   }
 
   async function createAdminUser() {
+    if (!hasPermission("manage_users")) {
+      setTeamStatus("Your role cannot create users.", true);
+      return;
+    }
     const email = el.newUserEmail.value.trim().toLowerCase();
     const password = el.newUserPassword.value;
     if (!email || !password) {
@@ -1122,7 +1336,46 @@
     setTeamStatus(`Created admin user for ${email}.`);
   }
 
+  async function updateAdminUser(userId, patch) {
+    if (!hasPermission("manage_users")) {
+      throw new Error("Your role cannot update admin users.");
+    }
+    setTeamStatus("Updating admin user...");
+    await api(`/api/lead-agents/admin/users/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    const userData = await api("/api/lead-agents/admin/users", { method: "GET" });
+    state.adminUsers = userData.users || [];
+    renderTeamPanel();
+    setTeamStatus("Admin user updated.");
+  }
+
+  async function changeOwnPassword() {
+    const currentPassword = el.currentPasswordInput.value;
+    const newPassword = el.newPasswordInput.value;
+    if (!currentPassword || !newPassword) {
+      setPasswordStatus("Current and new password are required.", true);
+      return;
+    }
+    setPasswordStatus("Updating password...");
+    await api("/api/lead-agents/admin/session/password", {
+      method: "POST",
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
+    });
+    el.currentPasswordInput.value = "";
+    el.newPasswordInput.value = "";
+    setPasswordStatus("Password changed.");
+  }
+
   async function applyBulkAction() {
+    if (!hasPermission("manage_leads")) {
+      setBulkStatus("Your role cannot update leads in bulk.", true);
+      return;
+    }
     const leadIds = Array.from(state.selectedLeadIds);
     if (!leadIds.length) {
       setBulkStatus("Select at least one lead first.", true);
@@ -1156,6 +1409,10 @@
       setComposerStatus("Select a lead first.", true);
       return;
     }
+    if (!hasPermission("manage_leads")) {
+      setComposerStatus("Your role cannot send agent messages.", true);
+      return;
+    }
 
     const message = el.composerInput.value.trim();
     if (!message) {
@@ -1178,21 +1435,25 @@
     state.selectedLead = data.lead;
     state.memory = data.lead_memory || state.memory;
     state.conversations = data.conversations || [];
-    state.traces = await api("/api/lead-agents/admin/traces", { method: "GET" }).then(
-      function (payload) {
-        return payload.traces || [];
-      }
-    );
-    state.notifications = await api("/api/lead-agents/admin/notifications", { method: "GET" }).then(
-      function (payload) {
-        return payload.notifications || [];
-      }
-    );
-    state.report = await api("/api/lead-agents/admin/reports/summary", { method: "GET" }).then(
-      function (payload) {
-        return payload.report || null;
-      }
-    );
+    state.traces = hasPermission("view_traces")
+      ? await api("/api/lead-agents/admin/traces", { method: "GET" }).then(function (payload) {
+          return payload.traces || [];
+        })
+      : [];
+    state.notifications = hasPermission("manage_notifications")
+      ? await api("/api/lead-agents/admin/notifications", { method: "GET" }).then(function (
+          payload
+        ) {
+          return payload.notifications || [];
+        })
+      : [];
+    state.report = hasPermission("view_reports")
+      ? await api("/api/lead-agents/admin/reports/summary", { method: "GET" }).then(function (
+          payload
+        ) {
+          return payload.report || null;
+        })
+      : null;
     state.leads = state.leads.map(function (lead) {
       return lead.id === data.lead.id ? data.lead : lead;
     });
@@ -1228,6 +1489,10 @@
       setDetailStatus("Select a lead first.", true);
       return;
     }
+    if (!hasPermission("manage_leads")) {
+      setDetailStatus("Your role cannot update leads.", true);
+      return;
+    }
 
     setDetailStatus("Updating lead...");
     await updateLeadPatch(state.selectedLead.id, {
@@ -1243,6 +1508,10 @@
   async function createDemo() {
     if (!state.selectedLead) {
       setDetailStatus("Select a lead first.", true);
+      return;
+    }
+    if (!hasPermission("manage_demos")) {
+      setDetailStatus("Your role cannot create demos.", true);
       return;
     }
 
@@ -1270,6 +1539,10 @@
   async function escalate() {
     if (!state.selectedLead) {
       setDetailStatus("Select a lead first.", true);
+      return;
+    }
+    if (!hasPermission("escalate_founder")) {
+      setDetailStatus("Your role cannot escalate to founder.", true);
       return;
     }
 
@@ -1326,6 +1599,8 @@
       setComposerStatus("");
       setDetailStatus("");
       setBulkStatus("");
+      setTeamStatus("");
+      setPasswordStatus("");
     } catch (error) {
       state.session = null;
       updateAuthUi();
@@ -1377,6 +1652,8 @@
     state.notificationFilter = "open";
     el.adminPassword.value = "";
     el.traceSearchInput.value = "";
+    el.currentPasswordInput.value = "";
+    el.newPasswordInput.value = "";
     updateAuthUi();
     renderLeadList();
     renderConversation();
@@ -1388,6 +1665,8 @@
     renderTimeline();
     renderDetail();
     setAuthStatus("Signed out.");
+    setTeamStatus("");
+    setPasswordStatus("");
   }
 
   el.loginBtn.addEventListener("click", function () {
@@ -1480,6 +1759,11 @@
   el.createUserBtn.addEventListener("click", function () {
     createAdminUser().catch(function (error) {
       setTeamStatus(error.message || "Could not create admin user.", true);
+    });
+  });
+  el.changePasswordBtn.addEventListener("click", function () {
+    changeOwnPassword().catch(function (error) {
+      setPasswordStatus(error.message || "Could not change password.", true);
     });
   });
   el.pauseAiBtn.addEventListener("click", function () {

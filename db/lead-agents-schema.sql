@@ -181,9 +181,14 @@ create table if not exists admin_users (
   role text not null default 'admin',
   status text not null default 'active',
   display_name text,
+  last_login_at timestamptz,
+  password_changed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table admin_users add column if not exists last_login_at timestamptz;
+alter table admin_users add column if not exists password_changed_at timestamptz;
 
 drop trigger if exists admin_users_set_updated_at on admin_users;
 create trigger admin_users_set_updated_at

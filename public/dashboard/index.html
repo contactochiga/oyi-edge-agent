@@ -682,6 +682,16 @@
                   <strong id="metricConversion">0%</strong>
                   <div class="queue-subtext">Sales-ready movement</div>
                 </div>
+                <div class="card metric-card">
+                  <div class="queue-label">Hot Leads</div>
+                  <strong id="metricHotLeads">0</strong>
+                  <div class="queue-subtext">Score 70 and above</div>
+                </div>
+                <div class="card metric-card">
+                  <div class="queue-label">Average Score</div>
+                  <strong id="metricAverageScore">0</strong>
+                  <div class="queue-subtext">Across scored leads</div>
+                </div>
               </div>
             </div>
             <div class="section" style="padding-top: 0;">
@@ -795,6 +805,14 @@
                   <div class="key">Stage Breakdown</div>
                   <div id="statusesPanel" class="value empty">No stage breakdown yet.</div>
                 </div>
+                <div class="card detail-card">
+                  <div class="key">Owner Breakdown</div>
+                  <div id="ownersPanel" class="value empty">No owner breakdown yet.</div>
+                </div>
+                <div class="card detail-card">
+                  <div class="key">Upcoming Demos</div>
+                  <div id="upcomingDemosPanel" class="value empty">No upcoming demos yet.</div>
+                </div>
               </div>
             </div>
             <div class="tab-panel" data-panel="team">
@@ -812,10 +830,21 @@
                       <option value="viewer">viewer</option>
                       <option value="admin">admin</option>
                       <option value="founder">founder</option>
+                      <option value="operator">operator</option>
+                      <option value="sales">sales</option>
                     </select>
                     <input id="newUserPassword" class="text-input" type="password" placeholder="Temporary password" />
                     <button class="primary" id="createUserBtn" type="button">Create admin user</button>
                     <div class="status-line" id="teamStatus"></div>
+                  </div>
+                </div>
+                <div class="card detail-card">
+                  <div class="key">Change Your Password</div>
+                  <div class="stack-12">
+                    <input id="currentPasswordInput" class="text-input" type="password" placeholder="Current password" />
+                    <input id="newPasswordInput" class="text-input" type="password" placeholder="New password" />
+                    <button class="ghost" id="changePasswordBtn" type="button">Change password</button>
+                    <div class="status-line" id="passwordStatus"></div>
                   </div>
                 </div>
               </div>

@@ -10,12 +10,13 @@ const { ToolExecutor } = require("./tools");
 const { LeadAgentRuntime } = require("./runtime");
 const { WebhookDispatcher } = require("./webhooks");
 const {
-  authorizeRole,
+  authorizePermission,
   clearSessionCookie,
   createAdminSessionToken,
   createSessionCookie,
   enforceAuth,
   hashPassword,
+  permissionsForRole,
   readAdminSession,
   verifyPassword,
 } = require("./auth");
@@ -286,6 +287,24 @@ async function bootstrapAdminUser(store, config) {
   });
 }
 
+async function enrichAuthContext(authContext, store) {
+  if (!authContext || authContext.type !== "session") {
+    return authContext;
+  }
+  const user = await store.getAdminUserByEmail(authContext.email);
+  if (!user || user.status !== "active") {
+    const error = new Error("unauthorized");
+    error.statusCode = 401;
+    throw error;
+  }
+  return {
+    ...authContext,
+    user,
+    role: user.role || authContext.role,
+    permissions: permissionsForRole(user.role || authContext.role),
+  };
+}
+
 function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
   const startedAt = Date.now();
   const widgetIndexPath = path.join(process.cwd(), "public", "widget", "index.html");
@@ -360,6 +379,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
         !isPublicWhatsappPath
       ) {
         authContext = enforceAuth(req, config);
+        authContext = await enrichAuthContext(authContext, store);
         const rateLimitState = rateLimiter.check(req);
         res.setHeader("x-ratelimit-remaining", String(rateLimitState.remaining));
         res.setHeader(
@@ -434,6 +454,10 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           normalizeEmail(body.email) &&
           config.apiKeys.includes(String(body.password || ""));
 
+        if (adminUser && adminUser.status !== "active") {
+          json(res, 403, { error: "account_inactive" });
+          return;
+        }
         if ((!adminUser || !verifyPassword(body.password, adminUser.password_hash)) && !fallbackAllowed) {
           json(res, 401, { error: "unauthorized" });
           return;
@@ -447,7 +471,11 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
             role: config.adminRole || "admin",
             display_name: body.email,
             status: "active",
+            last_login_at: new Date().toISOString(),
           }));
+        await store.updateAdminUser(sessionUser.id, {
+          last_login_at: new Date().toISOString(),
+        });
         const token = createAdminSessionToken(sessionUser, config);
         json(
           res,
@@ -455,8 +483,12 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           {
             ok: true,
             admin: {
+              id: sessionUser.id,
               email: sessionUser.email,
               role: sessionUser.role,
+              display_name: sessionUser.display_name || sessionUser.email,
+              status: sessionUser.status || "active",
+              permissions: permissionsForRole(sessionUser.role),
             },
           },
           {
@@ -494,18 +526,52 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           json(res, 401, { error: "unauthorized" }, { "x-request-id": ctx.requestId });
           return;
         }
+        const currentUser = await store.getAdminUserByEmail(session.email);
+        if (!currentUser || currentUser.status !== "active") {
+          json(res, 401, { error: "unauthorized" }, { "x-request-id": ctx.requestId });
+          return;
+        }
         json(
           res,
           200,
           {
             ok: true,
             admin: {
-              email: session.email,
-              role: session.role,
+              id: currentUser.id,
+              email: currentUser.email,
+              role: currentUser.role,
+              display_name: currentUser.display_name || currentUser.email,
+              status: currentUser.status || "active",
+              permissions: permissionsForRole(currentUser.role),
             },
           },
           { "x-request-id": ctx.requestId }
         );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/session/password") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "change_password");
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        if (!body.current_password || !body.new_password) {
+          json(res, 400, { error: "current_password and new_password are required" });
+          return;
+        }
+        const currentUser = await store.getAdminUserByEmail(authContext.email);
+        if (!currentUser || !verifyPassword(body.current_password, currentUser.password_hash)) {
+          json(res, 401, { error: "unauthorized" });
+          return;
+        }
+        const updated = await store.updateAdminUser(currentUser.id, {
+          password_hash: hashPassword(body.new_password),
+          password_changed_at: new Date().toISOString(),
+        });
+        json(res, 200, { ok: true, user: updated }, { "x-request-id": ctx.requestId });
         return;
       }
 
@@ -630,6 +696,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "POST");
           return;
         }
+        authorizePermission(authContext, "manage_leads");
         const body = await readJsonBody(req);
         if (!body.message || typeof body.message !== "string") {
           json(res, 400, { error: "message is required" });
@@ -655,6 +722,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "POST");
           return;
         }
+        authorizePermission(authContext, "manage_leads");
         const body = await readJsonBody(req);
         requireObject(body, "body");
         if (!body.source || typeof body.source !== "string") {
@@ -682,6 +750,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "GET");
           return;
         }
+        authorizePermission(authContext, "view_dashboard");
         json(
           res,
           200,
@@ -697,6 +766,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "GET");
           return;
         }
+        authorizePermission(authContext, "view_dashboard");
         const memory = await store.getLeadMemory(memoryMatch[1]);
         json(res, 200, { memory }, { "x-request-id": ctx.requestId });
         return;
@@ -708,6 +778,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "GET");
           return;
         }
+        authorizePermission(authContext, "view_dashboard");
         json(
           res,
           200,
@@ -726,6 +797,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
         const leadId = channelStateMatch[1];
         const channel = channelStateMatch[2];
         if (req.method === "GET") {
+          authorizePermission(authContext, "view_dashboard");
           json(
             res,
             200,
@@ -737,6 +809,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           return;
         }
         if (req.method === "PATCH") {
+          authorizePermission(authContext, "manage_takeover");
           const body = await readJsonBody(req);
           requireObject(body, "body");
           const updated = await store.upsertLeadChannelState(leadId, channel, {
@@ -769,6 +842,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
       const leadMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)$/);
       if (leadMatch) {
         if (req.method === "GET") {
+          authorizePermission(authContext, "view_dashboard");
           const lead = await store.getLead(leadMatch[1]);
           if (!lead) {
             notFound(res);
@@ -778,6 +852,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           return;
         }
         if (req.method === "PATCH") {
+          authorizePermission(authContext, "manage_leads");
           const body = await readJsonBody(req);
           requireObject(body, "body");
           const updated = await store.updateLead(
@@ -816,6 +891,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "GET");
           return;
         }
+        authorizePermission(authContext, "view_dashboard");
         json(
           res,
           200,
@@ -830,6 +906,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
       const demosMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)\/demos$/);
       if (demosMatch) {
         if (req.method === "GET") {
+          authorizePermission(authContext, "view_dashboard");
           json(
             res,
             200,
@@ -841,6 +918,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           return;
         }
         if (req.method === "POST") {
+          authorizePermission(authContext, "manage_demos");
           const body = await readJsonBody(req);
           requireObject(body, "body");
           const lead = await store.getLead(demosMatch[1]);
@@ -873,7 +951,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "POST");
           return;
         }
-        authorizeRole(authContext, ["admin", "founder"]);
+        authorizePermission(authContext, "escalate_founder");
         const body = await readJsonBody(req);
         requireObject(body, "body");
         if (!body.reason || !body.summary) {
@@ -903,6 +981,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "GET");
           return;
         }
+        authorizePermission(authContext, "view_traces");
         json(
           res,
           200,
@@ -921,6 +1000,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "GET");
           return;
         }
+        authorizePermission(authContext, "manage_notifications");
         json(
           res,
           200,
@@ -940,7 +1020,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "PATCH");
           return;
         }
-        authorizeRole(authContext, ["admin", "founder"]);
+        authorizePermission(authContext, "manage_notifications");
         const body = await readJsonBody(req);
         requireObject(body, "body");
         const notification = await store.updateNotification(notificationMatch[1], {
@@ -971,6 +1051,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           methodNotAllowed(res, "GET");
           return;
         }
+        authorizePermission(authContext, "view_reports");
         json(
           res,
           200,
@@ -984,7 +1065,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
 
       if (pathname === "/api/lead-agents/admin/users") {
         if (req.method === "GET") {
-          authorizeRole(authContext, ["admin", "founder"]);
+          authorizePermission(authContext, "view_users");
           json(
             res,
             200,
@@ -996,7 +1077,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           return;
         }
         if (req.method === "POST") {
-          authorizeRole(authContext, ["admin"]);
+          authorizePermission(authContext, "manage_users");
           const body = await readJsonBody(req);
           requireObject(body, "body");
           if (!body.email || !body.password) {
@@ -1014,6 +1095,32 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           return;
         }
         methodNotAllowed(res, "GET,POST");
+        return;
+      }
+
+      const adminUserMatch = pathname.match(/^\/api\/lead-agents\/admin\/users\/([^/]+)$/);
+      if (adminUserMatch) {
+        if (req.method !== "PATCH") {
+          methodNotAllowed(res, "PATCH");
+          return;
+        }
+        authorizePermission(authContext, "manage_users");
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        const patch = {};
+        if (body.display_name !== undefined) patch.display_name = body.display_name;
+        if (body.role !== undefined) patch.role = body.role;
+        if (body.status !== undefined) patch.status = body.status;
+        if (body.password) {
+          patch.password_hash = hashPassword(body.password);
+          patch.password_changed_at = new Date().toISOString();
+        }
+        const user = await store.updateAdminUser(adminUserMatch[1], patch);
+        if (!user) {
+          notFound(res);
+          return;
+        }
+        json(res, 200, { user }, { "x-request-id": ctx.requestId });
         return;
       }
 
