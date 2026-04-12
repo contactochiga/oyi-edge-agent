@@ -19,6 +19,10 @@ create table if not exists leads (
   updated_at timestamptz not null default now()
 );
 
+alter table leads add column if not exists whatsapp_phone text;
+alter table leads add column if not exists primary_channel text;
+alter table leads add column if not exists channel_last_seen_at timestamptz;
+
 create index if not exists leads_updated_at_idx on leads (updated_at desc);
 create index if not exists leads_status_owner_idx on leads (status, owner);
 
@@ -33,6 +37,10 @@ create table if not exists conversations (
   content text not null,
   created_at timestamptz not null default now()
 );
+
+alter table conversations add column if not exists channel text not null default 'website';
+alter table conversations add column if not exists external_message_id text;
+alter table conversations add column if not exists parent_external_message_id text;
 
 create index if not exists conversations_lead_id_created_at_idx
 on conversations (lead_id, created_at);
