@@ -104,6 +104,7 @@ Required:
 Usage guidance:
 - Only use for qualified leads.
 - If time preference is missing, first ask for one concise scheduling detail if needed.
+- If the lead gives a preferred time and the lead is already qualified, use this tool immediately so the demo appears in the pipeline and dashboard.
 
 5. `notify_founder`
 

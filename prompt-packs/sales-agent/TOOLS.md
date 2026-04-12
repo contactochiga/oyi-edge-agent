@@ -53,6 +53,7 @@ Required:
 Usage guidance:
 - Use once the lead is qualified and interested.
 - Ask for preferred time and timezone if not already available.
+- If the lead already gave a preferred time and timezone, use the tool immediately instead of asking again.
 
 5. `notify_founder`
 

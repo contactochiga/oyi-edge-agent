@@ -68,6 +68,56 @@ function parseToolArguments(raw) {
   return JSON.parse(raw);
 }
 
+function messageHasSchedulingIntent(text) {
+  const value = String(text || "").toLowerCase();
+  const scheduleWords = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+    "tomorrow",
+    "today",
+    "available",
+    "works",
+    "is fine",
+    "is good",
+    "can do",
+    "12pm",
+    "1pm",
+    "2pm",
+    "3pm",
+    "4pm",
+    "5pm",
+    "am",
+    "pm",
+  ];
+  return scheduleWords.some((word) => value.includes(word));
+}
+
+function inferTimezone(message, lead) {
+  const combined = `${message || ""} ${lead?.location || ""}`.toLowerCase();
+  if (combined.includes("nigeria") || combined.includes("lagos") || combined.includes("abuja")) {
+    return "Africa/Lagos";
+  }
+  if (combined.includes("wat")) {
+    return "Africa/Lagos";
+  }
+  return "";
+}
+
+function shouldAutoScheduleDemo({ request, lead, executedTools }) {
+  if (!lead) return false;
+  if (!lead.email && !lead.phone) return false;
+  if (!messageHasSchedulingIntent(request.message)) return false;
+  if (executedTools.some((item) => item.name === "schedule_demo")) return false;
+  const status = String(lead.status || "").toLowerCase();
+  const owner = String(lead.owner || "").toLowerCase();
+  return owner === "sales_agent" || status === "sales" || status === "hot" || status === "booked";
+}
+
 class LeadAgentRuntime {
   constructor({
     config,
@@ -175,6 +225,54 @@ class LeadAgentRuntime {
     };
 
     return this.store.upsertLeadMemory(lead.id, memory);
+  }
+
+  async maybeAutoScheduleDemo({ request, lead, context, executedTools }) {
+    if (!shouldAutoScheduleDemo({ request, lead, executedTools })) {
+      return null;
+    }
+
+    const timezone = inferTimezone(request.message, lead);
+    const result = await this.toolExecutor.execute(
+      "schedule_demo",
+      {
+        lead_id: lead.id,
+        name: lead.name || request.profile?.name || "",
+        email: lead.email || request.profile?.email || "",
+        phone: lead.phone || request.profile?.phone || "",
+        preferred_time: request.message,
+        timezone,
+      },
+      context
+    );
+
+    executedTools.push({
+      name: "schedule_demo",
+      arguments: {
+        lead_id: lead.id,
+        preferred_time: request.message,
+        timezone,
+      },
+      result,
+    });
+
+    await this.store.appendConversation({
+      lead_id: context.leadId,
+      agent_name: context.agentName,
+      message_role: "tool",
+      channel: request.channel || "website",
+      content: JSON.stringify({
+        tool: "schedule_demo",
+        arguments: {
+          lead_id: lead.id,
+          preferred_time: request.message,
+          timezone,
+        },
+        result,
+      }),
+    });
+
+    return result;
   }
 
   async getToolDefinitions() {
@@ -376,9 +474,23 @@ class LeadAgentRuntime {
       });
     }
 
-    const assistantMessage = sanitizeAssistantMessage(extractTextFromResponse(response), {
+    let updatedLeadBeforeScheduling = await this.store.getLead(context.leadId);
+    const autoScheduleResult = await this.maybeAutoScheduleDemo({
+      request,
+      lead: updatedLeadBeforeScheduling,
+      context,
+      executedTools,
+    });
+
+    let assistantMessage = sanitizeAssistantMessage(extractTextFromResponse(response), {
       hasPriorAssistantTurn: history.some((item) => item.message_role === "assistant"),
     });
+    if (
+      autoScheduleResult &&
+      !/scheduled|booking|booked|demo/i.test(assistantMessage)
+    ) {
+      assistantMessage = `${assistantMessage}\n\nI have noted that preferred time and moved it into the Sales booking workflow for confirmation.`;
+    }
     await this.store.appendConversation({
       lead_id: context.leadId,
       agent_name: agentPack.agentName,

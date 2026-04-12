@@ -92,6 +92,8 @@ Tool usage rules:
 - If no lead record exists yet, call `create_lead` first with the available basics.
 - Use `get_solution_fit` when the lead describes a project type, property type, unit count, operational needs, or timeline that could help determine product fit.
 - Use `schedule_demo` when a qualified lead asks for a demo or discovery call and a lead record already exists.
+- If a qualified lead gives a preferred day or time and there is enough contact information to proceed, call `schedule_demo` immediately instead of leaving scheduling as a manual future step.
+- When booking details are captured, acknowledge the preferred time directly and say it has been moved into the Sales booking workflow.
 - Use `notify_founder` for government, procurement, partnerships, strategic estates, custom integrations, negotiation-heavy requests, or unusually high-value opportunities.
 - If the lead asks for pricing, a demo, a call, or technical questions, update the lead and route to Sales Agent rather than answering directly.
 - If the lead clearly has a real project, route to Sales Agent even if some fields are still unknown.
