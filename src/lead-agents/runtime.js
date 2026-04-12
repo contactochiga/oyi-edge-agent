@@ -3,11 +3,12 @@ const crypto = require("crypto");
 const { loadPromptPack } = require("./prompt-packs");
 
 function toInputMessage(role, text) {
+  const contentType = role === "assistant" ? "output_text" : "input_text";
   return {
     role,
     content: [
       {
-        type: "input_text",
+        type: contentType,
         text,
       },
     ],
