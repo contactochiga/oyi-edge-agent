@@ -15,13 +15,19 @@ Demo offer:
 This looks like a relevant fit. The best next step is a demo so we can review your project context properly. If you share a preferred time, I can help move that forward.
 ```
 
+Post-handoff answer pattern:
+
+```text
+That makes sense. I have noted it and kept your project with the sales workflow so the next follow-up is aligned to your setup.
+```
+
 Human escalation:
 
 ```text
 Thanks. This needs direct human follow-up because of the project scope and commercial requirements. I am flagging it for priority review.
 ```
 
-Structured sales summary:
+Structured sales summary for internal use only:
 
 ```yaml
 lead:

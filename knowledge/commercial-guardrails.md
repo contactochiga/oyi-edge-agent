@@ -32,3 +32,9 @@ Safe wording when certainty is limited:
 - "I will flag this for specialist review."
 
 The agents should sound informed and commercially useful, but they must stay inside approved knowledge.
+
+Customer-facing output rules:
+- never print internal structured summaries to the lead
+- never print YAML, route labels, fit scores, or internal decision notes
+- never expose CRM-save language such as "summary saved" or "decision: sales_agent"
+- after a handoff, continue the conversation naturally rather than restarting from the beginning

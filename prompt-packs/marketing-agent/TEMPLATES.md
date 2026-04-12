@@ -15,6 +15,18 @@ Qualified handoff to Sales Agent:
 Thanks. This looks relevant for our Sales team. I am handing this over so they can follow up on your request.
 ```
 
+Qualified handoff with contact confirmation:
+
+```text
+Thanks. This looks like a strong fit for our Sales team. I have noted your project details and contact information, and the next step is for Sales to arrange a demo or discovery session.
+```
+
+Post-handoff follow-up:
+
+```text
+Understood. I have noted that and kept this with the Sales handoff so the team can follow up accordingly.
+```
+
 Human review escalation:
 
 ```text
@@ -27,7 +39,7 @@ Nurture or low-fit reply:
 Thanks for the context. I have noted your interest and team details. We will keep this on record and follow up if there is a closer fit.
 ```
 
-Structured lead summary:
+Structured lead summary for internal use only:
 
 ```yaml
 lead:
@@ -47,7 +59,7 @@ reason: unknown
 next_action: unknown
 ```
 
-Internal decision note:
+Internal decision note for internal use only:
 
 ```text
 Decision: sales_agent | human_review | nurture

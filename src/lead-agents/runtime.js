@@ -38,6 +38,20 @@ function extractTextFromResponse(response) {
   return texts.join("\n").trim();
 }
 
+function sanitizeAssistantMessage(text) {
+  let value = String(text || "").trim();
+  if (!value) {
+    return value;
+  }
+
+  value = value.replace(/Internal decision note:[\s\S]*$/i, "").trim();
+  value = value.replace(/Structured (lead|sales) summary:[\s\S]*$/i, "").trim();
+  value = value.replace(/Summary saved:[\s\S]*$/i, "").trim();
+  value = value.replace(/\blead:\s*\n[\s\S]*$/i, "").trim();
+
+  return value;
+}
+
 function parseToolArguments(raw) {
   if (!raw) {
     return {};
@@ -349,7 +363,7 @@ class LeadAgentRuntime {
       });
     }
 
-    const assistantMessage = extractTextFromResponse(response);
+    const assistantMessage = sanitizeAssistantMessage(extractTextFromResponse(response));
     await this.store.appendConversation({
       lead_id: context.leadId,
       agent_name: agentPack.agentName,
