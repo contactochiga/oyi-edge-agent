@@ -28,7 +28,6 @@ class SupabaseLeadAgentsStore {
     if (!row) return null;
     return {
       ...row,
-      notes: row.notes || "",
       name: row.name || "",
       company: row.company || "",
       role: row.role || "",

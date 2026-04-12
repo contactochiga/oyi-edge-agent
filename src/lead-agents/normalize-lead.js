@@ -49,7 +49,6 @@ function normalizeLeadInput(input, fallbackSource) {
     score: normalizeScore(input.score),
     summary: normalizeText(input.summary),
     next_action: normalizeText(input.next_action),
-    notes: normalizeText(input.notes),
   };
 }
 

@@ -76,7 +76,6 @@ class FileLeadAgentsStore {
       score: Number.isFinite(Number(input.score)) ? Number(input.score) : 0,
       summary: input.summary || "",
       next_action: input.next_action || "",
-      notes: input.notes || "",
     };
   }
 
