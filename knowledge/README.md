@@ -20,6 +20,7 @@ Suggested structure:
 - approved claims and boundaries
 - system surfaces and implementation status
 - commercial packaging and current maturity notes
+- pitch, sales, and demo narrative
 
 Content rules:
 - Keep statements factual and high level unless explicitly verified.

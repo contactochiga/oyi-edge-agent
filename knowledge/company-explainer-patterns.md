@@ -6,6 +6,14 @@ Approved short answer:
 Approved slightly expanded answer:
 "Ochiga helps estates and buildings run their physical operations more effectively. Oyi is the operating layer used to coordinate access, monitoring, resident-facing workflows, and broader infrastructure operations from one system."
 
+Approved stronger enterprise answer:
+"Ochiga is building infrastructure operating systems for estates and buildings. Oyi is the operating layer that connects access, devices, operations, maintenance, payments-related workflows, communication, and infrastructure visibility into one coordinated system."
+
+If the lead asks how Oyi is different from normal estate software:
+- explain that the system is positioned as an operating layer, not just a point tool
+- explain that it spans operator dashboard, resident workflows, edge connectivity, and AI interaction
+- avoid claiming every positioned capability is already fully mature in production
+
 Approved bridge into qualification:
 - "If you are working on a live project, tell me the location, scale, and what you need most right now."
 - "If this is for a real estate or building project, I can guide you quickly if you share the location and approximate scale."
