@@ -38,7 +38,7 @@ function extractTextFromResponse(response) {
   return texts.join("\n").trim();
 }
 
-function sanitizeAssistantMessage(text) {
+function sanitizeAssistantMessage(text, options = {}) {
   let value = String(text || "").trim();
   if (!value) {
     return value;
@@ -48,6 +48,15 @@ function sanitizeAssistantMessage(text) {
   value = value.replace(/Structured (lead|sales) summary:[\s\S]*$/i, "").trim();
   value = value.replace(/Summary saved:[\s\S]*$/i, "").trim();
   value = value.replace(/\blead:\s*\n[\s\S]*$/i, "").trim();
+
+  if (options.hasPriorAssistantTurn) {
+    value = value
+      .replace(/^hi,\s*i['’]?m\s+oma\.?\s*/i, "")
+      .replace(/^hi,\s*i['’]?m\s+osa\.?\s*/i, "")
+      .replace(/^hi,\s*my\s+name\s+is\s+oma\.?\s*/i, "")
+      .replace(/^hi,\s*my\s+name\s+is\s+osa\.?\s*/i, "")
+      .trim();
+  }
 
   return value;
 }
@@ -276,6 +285,10 @@ class LeadAgentRuntime {
       ),
       toInputMessage(
         "user",
+        "Important response rule: answer the latest user message first. Do not revisit earlier answered questions unless the latest message explicitly asks again. If the lead just provided booking details, contact details, name, timezone, or scheduling confirmation, acknowledge those details directly and continue from there without reintroducing yourself."
+      ),
+      toInputMessage(
+        "user",
         `Lead memory:\n${
           this.serializeLeadMemory(leadMemory)
         }`
@@ -363,7 +376,9 @@ class LeadAgentRuntime {
       });
     }
 
-    const assistantMessage = sanitizeAssistantMessage(extractTextFromResponse(response));
+    const assistantMessage = sanitizeAssistantMessage(extractTextFromResponse(response), {
+      hasPriorAssistantTurn: history.some((item) => item.message_role === "assistant"),
+    });
     await this.store.appendConversation({
       lead_id: context.leadId,
       agent_name: agentPack.agentName,
