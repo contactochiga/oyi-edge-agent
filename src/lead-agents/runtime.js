@@ -1,6 +1,7 @@
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const { loadPromptPack } = require("./prompt-packs");
+const { inferCommercialFacts } = require("./commercial");
 
 function toInputMessage(role, text) {
   const contentType = role === "assistant" ? "output_text" : "input_text";
@@ -95,6 +96,16 @@ function messageHasSchedulingIntent(text) {
     "pm",
   ];
   return scheduleWords.some((word) => value.includes(word));
+}
+
+function extractEmail(text) {
+  const match = String(text || "").match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
+  return match ? match[0].toLowerCase() : "";
+}
+
+function extractPhone(text) {
+  const match = String(text || "").match(/(?:\+?\d[\d\s()-]{8,}\d)/);
+  return match ? match[0].trim() : "";
 }
 
 function inferTimezone(message, lead) {
@@ -309,6 +320,25 @@ class LeadAgentRuntime {
     });
   }
 
+  async enrichLeadFromMessage(lead, message) {
+    const inferred = inferCommercialFacts(message);
+    const patch = {};
+    if (!lead.unit_count && inferred.unit_count) patch.unit_count = inferred.unit_count;
+    if (!lead.project_type && inferred.project_type) patch.project_type = inferred.project_type;
+    if (!lead.email) {
+      const email = extractEmail(message);
+      if (email) patch.email = email;
+    }
+    if (!lead.phone) {
+      const phone = extractPhone(message);
+      if (phone) patch.phone = phone;
+    }
+    if (!Object.keys(patch).length) {
+      return lead;
+    }
+    return this.store.updateLead(lead.id, patch);
+  }
+
   buildHistoryMessages(conversations) {
     return conversations
       .filter(
@@ -329,6 +359,7 @@ class LeadAgentRuntime {
     const agentPack = await loadPromptPack(this.config.promptPackRoot, agentKey);
     const tools = await this.getToolDefinitions();
     const lead = await this.ensureLead(request);
+    const enrichedLead = await this.enrichLeadFromMessage(lead, request.message);
     const history = await this.store.listConversationsForLead(
       lead.id,
       this.config.maxConversationMessages
@@ -341,6 +372,8 @@ class LeadAgentRuntime {
             lead.company,
             lead.role,
             lead.location,
+            String(enrichedLead.unit_count || ""),
+            enrichedLead.project_type,
             lead.summary,
           ]
             .filter(Boolean)
@@ -379,7 +412,7 @@ class LeadAgentRuntime {
     let input = [
       toInputMessage(
         "user",
-        `Runtime context: agent=${agentPack.agentName}; lead_id=${lead.id}; source=${lead.source}. A lead record already exists for this conversation.`
+        `Runtime context: agent=${agentPack.agentName}; lead_id=${lead.id}; source=${lead.source}. A lead record already exists for this conversation. Known project type=${enrichedLead.project_type || "unknown"}; known unit_count=${enrichedLead.unit_count || "unknown"}.`
       ),
       toInputMessage(
         "user",

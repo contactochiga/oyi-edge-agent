@@ -10,10 +10,14 @@ class FileLeadAgentsStore {
       leads: [],
       conversations: [],
       demos: [],
+      proposals: [],
       notifications: [],
       traces: [],
       lead_memories: [],
       admin_users: [],
+      admin_invites: [],
+      password_reset_tokens: [],
+      audit_events: [],
       timeline_events: [],
       lead_channel_states: [],
       inbound_events: [],
@@ -30,10 +34,16 @@ class FileLeadAgentsStore {
         leads: Array.isArray(parsed.leads) ? parsed.leads : [],
         conversations: Array.isArray(parsed.conversations) ? parsed.conversations : [],
         demos: Array.isArray(parsed.demos) ? parsed.demos : [],
+        proposals: Array.isArray(parsed.proposals) ? parsed.proposals : [],
         notifications: Array.isArray(parsed.notifications) ? parsed.notifications : [],
         traces: Array.isArray(parsed.traces) ? parsed.traces : [],
         lead_memories: Array.isArray(parsed.lead_memories) ? parsed.lead_memories : [],
         admin_users: Array.isArray(parsed.admin_users) ? parsed.admin_users : [],
+        admin_invites: Array.isArray(parsed.admin_invites) ? parsed.admin_invites : [],
+        password_reset_tokens: Array.isArray(parsed.password_reset_tokens)
+          ? parsed.password_reset_tokens
+          : [],
+        audit_events: Array.isArray(parsed.audit_events) ? parsed.audit_events : [],
         timeline_events: Array.isArray(parsed.timeline_events) ? parsed.timeline_events : [],
         lead_channel_states: Array.isArray(parsed.lead_channel_states)
           ? parsed.lead_channel_states
@@ -71,8 +81,15 @@ class FileLeadAgentsStore {
       channel_last_seen_at: input.channel_last_seen_at || "",
       source: input.source || "",
       location: input.location || "",
+      unit_count:
+        input.unit_count === undefined || input.unit_count === null || input.unit_count === ""
+          ? null
+          : Number(input.unit_count),
+      project_type: input.project_type || "",
       status: input.status || "new",
       owner: input.owner || "marketing_agent",
+      commercial_stage: input.commercial_stage || "",
+      lost_reason: input.lost_reason || "",
       score: Number.isFinite(Number(input.score)) ? Number(input.score) : 0,
       summary: input.summary || "",
       next_action: input.next_action || "",
@@ -240,6 +257,53 @@ class FileLeadAgentsStore {
       .map((demo) => ({
         ...demo,
         lead: this.state.leads.find((lead) => lead.id === demo.lead_id) || null,
+      }))
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  }
+
+  async createProposal(input) {
+    const proposal = {
+      id: crypto.randomUUID(),
+      lead_id: input.lead_id,
+      title: input.title || "Proposal",
+      tier_name: input.tier_name || "",
+      unit_count:
+        input.unit_count === undefined || input.unit_count === null ? null : Number(input.unit_count),
+      monthly_price:
+        input.monthly_price === undefined || input.monthly_price === null
+          ? null
+          : Number(input.monthly_price),
+      currency: input.currency || "NGN",
+      status: input.status || "draft",
+      body: input.body || "",
+      metadata: input.metadata || {},
+      created_at: this.nowIso(),
+      updated_at: this.nowIso(),
+    };
+    this.state.proposals.push(proposal);
+    await this.appendTimelineEvent({
+      lead_id: input.lead_id,
+      event_type: "proposal_created",
+      actor: input.actor || "system",
+      title: "Proposal created",
+      body: proposal.title,
+      metadata: proposal,
+    });
+    await this.persist();
+    return proposal;
+  }
+
+  async listProposalsForLead(leadId) {
+    return this.state.proposals
+      .filter((item) => item.lead_id === leadId)
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  }
+
+  async listProposals() {
+    return this.state.proposals
+      .map((proposal) => ({
+        ...proposal,
+        lead: this.state.leads.find((lead) => lead.id === proposal.lead_id) || null,
       }))
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   }
@@ -494,6 +558,102 @@ class FileLeadAgentsStore {
     return this.state.admin_users[index];
   }
 
+  async createAdminInvite(input) {
+    const invite = {
+      id: crypto.randomUUID(),
+      email: normalizeEmail(input.email),
+      role: input.role || "viewer",
+      display_name: input.display_name || "",
+      token_hash: input.token_hash,
+      status: input.status || "pending",
+      invited_by: input.invited_by || "",
+      expires_at: input.expires_at,
+      accepted_at: input.accepted_at || null,
+      created_at: this.nowIso(),
+      updated_at: this.nowIso(),
+    };
+    this.state.admin_invites.push(invite);
+    await this.persist();
+    return invite;
+  }
+
+  async getAdminInviteByTokenHash(tokenHash) {
+    return this.state.admin_invites.find((item) => item.token_hash === tokenHash) || null;
+  }
+
+  async updateAdminInvite(inviteId, patch) {
+    const index = this.state.admin_invites.findIndex((item) => item.id === inviteId);
+    if (index === -1) return null;
+    this.state.admin_invites[index] = {
+      ...this.state.admin_invites[index],
+      ...patch,
+      updated_at: this.nowIso(),
+    };
+    await this.persist();
+    return this.state.admin_invites[index];
+  }
+
+  async listAdminInvites() {
+    return [...this.state.admin_invites].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  }
+
+  async createPasswordResetToken(input) {
+    const token = {
+      id: crypto.randomUUID(),
+      admin_user_id: input.admin_user_id || null,
+      email: normalizeEmail(input.email),
+      token_hash: input.token_hash,
+      status: input.status || "pending",
+      requested_by: input.requested_by || "",
+      expires_at: input.expires_at,
+      used_at: input.used_at || null,
+      created_at: this.nowIso(),
+      updated_at: this.nowIso(),
+    };
+    this.state.password_reset_tokens.push(token);
+    await this.persist();
+    return token;
+  }
+
+  async getPasswordResetTokenByHash(tokenHash) {
+    return this.state.password_reset_tokens.find((item) => item.token_hash === tokenHash) || null;
+  }
+
+  async updatePasswordResetToken(tokenId, patch) {
+    const index = this.state.password_reset_tokens.findIndex((item) => item.id === tokenId);
+    if (index === -1) return null;
+    this.state.password_reset_tokens[index] = {
+      ...this.state.password_reset_tokens[index],
+      ...patch,
+      updated_at: this.nowIso(),
+    };
+    await this.persist();
+    return this.state.password_reset_tokens[index];
+  }
+
+  async appendAuditEvent(input) {
+    const event = {
+      id: crypto.randomUUID(),
+      actor_user_id: input.actor_user_id || null,
+      actor_email: input.actor_email || "",
+      actor_role: input.actor_role || "",
+      action: input.action,
+      target_type: input.target_type,
+      target_id: input.target_id || "",
+      metadata: input.metadata || {},
+      created_at: this.nowIso(),
+    };
+    this.state.audit_events.push(event);
+    await this.persist();
+    return event;
+  }
+
+  async listAuditEvents(limit = 200) {
+    return [...this.state.audit_events]
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+      .slice(0, limit);
+  }
+
   async getReportingSummary() {
     const leads = await this.listLeads();
     const demos = this.state.demos;
@@ -536,9 +696,18 @@ class FileLeadAgentsStore {
         acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {}),
+      by_commercial_stage: leads.reduce((acc, lead) => {
+        const key = lead.commercial_stage || "unassigned";
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {}),
       demos_booked: demos.filter((demo) => ["requested", "pending", "confirmed"].includes(demo.status)).length,
       demos_confirmed: demos.filter((demo) => demo.status === "confirmed").length,
       upcoming_demos: upcomingDemos,
+      proposals_total: this.state.proposals.length,
+      proposals_sent: this.state.proposals.filter((item) => ["sent", "accepted"].includes(item.status)).length,
+      deals_won: leads.filter((lead) => lead.commercial_stage === "won").length,
+      deals_lost: leads.filter((lead) => lead.commercial_stage === "lost").length,
     };
   }
 
@@ -547,9 +716,11 @@ class FileLeadAgentsStore {
       leads: this.state.leads.length,
       conversations: this.state.conversations.length,
       demos: this.state.demos.length,
+      proposals: this.state.proposals.length,
       notifications: this.state.notifications.length,
       traces: this.state.traces.length,
       admin_users: this.state.admin_users.length,
+      audit_events: this.state.audit_events.length,
     };
   }
 }

@@ -10,8 +10,12 @@ create table if not exists leads (
   channel_last_seen_at timestamptz,
   source text not null,
   location text,
+  unit_count integer,
+  project_type text,
   status text,
   owner text,
+  commercial_stage text,
+  lost_reason text,
   score numeric,
   summary text,
   next_action text,
@@ -22,6 +26,10 @@ create table if not exists leads (
 alter table leads add column if not exists whatsapp_phone text;
 alter table leads add column if not exists primary_channel text;
 alter table leads add column if not exists channel_last_seen_at timestamptz;
+alter table leads add column if not exists unit_count integer;
+alter table leads add column if not exists project_type text;
+alter table leads add column if not exists commercial_stage text;
+alter table leads add column if not exists lost_reason text;
 
 create index if not exists leads_updated_at_idx on leads (updated_at desc);
 create index if not exists leads_status_owner_idx on leads (status, owner);
@@ -95,6 +103,30 @@ create table if not exists demos (
 
 create index if not exists demos_lead_id_created_at_idx
 on demos (lead_id, created_at desc);
+
+create table if not exists proposals (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null references leads(id) on delete cascade,
+  title text not null,
+  tier_name text,
+  unit_count integer,
+  monthly_price numeric,
+  currency text not null default 'NGN',
+  status text not null default 'draft',
+  body text not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists proposals_lead_id_created_at_idx
+on proposals (lead_id, created_at desc);
+
+drop trigger if exists proposals_set_updated_at on proposals;
+create trigger proposals_set_updated_at
+before update on proposals
+for each row
+execute function set_updated_at();
 
 create or replace function set_updated_at()
 returns trigger
@@ -196,6 +228,51 @@ before update on admin_users
 for each row
 execute function set_updated_at();
 
+create table if not exists admin_invites (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  role text not null default 'viewer',
+  display_name text,
+  token_hash text not null unique,
+  status text not null default 'pending',
+  invited_by text,
+  expires_at timestamptz not null,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists admin_invites_email_created_at_idx
+on admin_invites (email, created_at desc);
+
+drop trigger if exists admin_invites_set_updated_at on admin_invites;
+create trigger admin_invites_set_updated_at
+before update on admin_invites
+for each row
+execute function set_updated_at();
+
+create table if not exists password_reset_tokens (
+  id uuid primary key default gen_random_uuid(),
+  admin_user_id uuid references admin_users(id) on delete cascade,
+  email text not null,
+  token_hash text not null unique,
+  status text not null default 'pending',
+  requested_by text,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists password_reset_tokens_email_created_at_idx
+on password_reset_tokens (email, created_at desc);
+
+drop trigger if exists password_reset_tokens_set_updated_at on password_reset_tokens;
+create trigger password_reset_tokens_set_updated_at
+before update on password_reset_tokens
+for each row
+execute function set_updated_at();
+
 create table if not exists timeline_events (
   id uuid primary key default gen_random_uuid(),
   lead_id uuid not null references leads(id) on delete cascade,
@@ -209,3 +286,18 @@ create table if not exists timeline_events (
 
 create index if not exists timeline_events_lead_id_created_at_idx
 on timeline_events (lead_id, created_at desc);
+
+create table if not exists audit_events (
+  id uuid primary key default gen_random_uuid(),
+  actor_user_id uuid references admin_users(id) on delete set null,
+  actor_email text,
+  actor_role text,
+  action text not null,
+  target_type text not null,
+  target_id text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists audit_events_created_at_idx
+on audit_events (created_at desc);

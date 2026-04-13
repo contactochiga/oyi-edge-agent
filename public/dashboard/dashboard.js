@@ -19,6 +19,9 @@
     notifications: [],
     report: null,
     allDemos: [],
+    proposals: [],
+    allProposals: [],
+    audit: [],
     timeline: [],
     adminUsers: [],
     channelState: null,
@@ -68,10 +71,12 @@
     notificationFilters: document.getElementById("notificationFilters"),
     founderInbox: document.getElementById("founderInbox"),
     bookingsPanel: document.getElementById("bookingsPanel"),
+    commercialPanel: document.getElementById("commercialPanel"),
     reportsPanel: document.getElementById("reportsPanel"),
     sourcesPanel: document.getElementById("sourcesPanel"),
     statusesPanel: document.getElementById("statusesPanel"),
     ownersPanel: document.getElementById("ownersPanel"),
+    commercialStagesPanel: document.getElementById("commercialStagesPanel"),
     upcomingDemosPanel: document.getElementById("upcomingDemosPanel"),
     teamPanel: document.getElementById("teamPanel"),
     newUserName: document.getElementById("newUserName"),
@@ -80,10 +85,16 @@
     newUserPassword: document.getElementById("newUserPassword"),
     createUserBtn: document.getElementById("createUserBtn"),
     teamStatus: document.getElementById("teamStatus"),
+    inviteUserName: document.getElementById("inviteUserName"),
+    inviteUserEmail: document.getElementById("inviteUserEmail"),
+    inviteUserRole: document.getElementById("inviteUserRole"),
+    inviteUserBtn: document.getElementById("inviteUserBtn"),
+    inviteStatus: document.getElementById("inviteStatus"),
     currentPasswordInput: document.getElementById("currentPasswordInput"),
     newPasswordInput: document.getElementById("newPasswordInput"),
     changePasswordBtn: document.getElementById("changePasswordBtn"),
     passwordStatus: document.getElementById("passwordStatus"),
+    auditPanel: document.getElementById("auditPanel"),
     traceExplorer: document.getElementById("traceExplorer"),
     traceSearchInput: document.getElementById("traceSearchInput"),
     openFounderQueueBtn: document.getElementById("openFounderQueueBtn"),
@@ -106,10 +117,18 @@
     keepHumanBtn: document.getElementById("keepHumanBtn"),
     statusInput: document.getElementById("statusInput"),
     ownerInput: document.getElementById("ownerInput"),
+    projectTypeInput: document.getElementById("projectTypeInput"),
+    unitCountInput: document.getElementById("unitCountInput"),
+    commercialStageInput: document.getElementById("commercialStageInput"),
+    lostReasonInput: document.getElementById("lostReasonInput"),
     scoreInput: document.getElementById("scoreInput"),
     nextActionInput: document.getElementById("nextActionInput"),
     summaryInput: document.getElementById("summaryInput"),
     updateLeadBtn: document.getElementById("updateLeadBtn"),
+    proposalUnitsInput: document.getElementById("proposalUnitsInput"),
+    proposalStatusInput: document.getElementById("proposalStatusInput"),
+    createProposalBtn: document.getElementById("createProposalBtn"),
+    proposalListPanel: document.getElementById("proposalListPanel"),
     demoAtInput: document.getElementById("demoAtInput"),
     demoNotesInput: document.getElementById("demoNotesInput"),
     createDemoBtn: document.getElementById("createDemoBtn"),
@@ -150,6 +169,11 @@
   function setPasswordStatus(text, isError) {
     el.passwordStatus.textContent = text;
     el.passwordStatus.style.color = isError ? "#8d1f1f" : "#667c73";
+  }
+
+  function setInviteStatus(text, isError) {
+    el.inviteStatus.textContent = text;
+    el.inviteStatus.style.color = isError ? "#8d1f1f" : "#667c73";
   }
 
   async function api(path, options) {
@@ -252,7 +276,9 @@
 
   function canAccessTab(tab) {
     if (tab === "bookings") return hasPermission("view_reports");
+    if (tab === "commercial") return hasPermission("manage_commercial") || hasPermission("view_reports");
     if (tab === "reports") return hasPermission("view_reports");
+    if (tab === "audit") return hasPermission("view_audit");
     if (tab === "notifications" || tab === "founder") {
       return hasPermission("manage_notifications");
     }
@@ -484,6 +510,7 @@
       el.sourcesPanel.innerHTML = '<div class="value empty">Reporting access is restricted.</div>';
       el.statusesPanel.innerHTML = '<div class="value empty">Reporting access is restricted.</div>';
       el.ownersPanel.innerHTML = '<div class="value empty">Reporting access is restricted.</div>';
+      el.commercialStagesPanel.innerHTML = '<div class="value empty">Reporting access is restricted.</div>';
       el.upcomingDemosPanel.innerHTML = '<div class="value empty">Reporting access is restricted.</div>';
       return;
     }
@@ -495,6 +522,7 @@
       el.sourcesPanel.innerHTML = '<div class="value empty">No source breakdown yet.</div>';
       el.statusesPanel.innerHTML = '<div class="value empty">No stage breakdown yet.</div>';
       el.ownersPanel.innerHTML = '<div class="value empty">No owner breakdown yet.</div>';
+      el.commercialStagesPanel.innerHTML = '<div class="value empty">No commercial stage data yet.</div>';
       el.upcomingDemosPanel.innerHTML = '<div class="value empty">No upcoming demos yet.</div>';
       return;
     }
@@ -521,6 +549,10 @@
     el.ownersPanel.innerHTML = keyValueLines(
       state.report.by_owner,
       "No owner data yet."
+    );
+    el.commercialStagesPanel.innerHTML = keyValueLines(
+      state.report.by_commercial_stage,
+      "No commercial stage data yet."
     );
     const upcoming = state.report.upcoming_demos || [];
     el.upcomingDemosPanel.innerHTML = upcoming.length
@@ -563,6 +595,13 @@
                 <div class="pill-row">
                   <span class="pill ${statusClass(lead.status)}">${escapeHtml(lead.status || "new")}</span>
                   <span class="pill" style="background:rgba(10,44,34,0.08);color:#214238;">${escapeHtml(ownerLabel(lead.owner))}</span>
+                  ${
+                    lead.commercial_stage
+                      ? `<span class="pill" style="background:rgba(38, 120, 92, 0.12);color:#1b5a45;">${escapeHtml(
+                          lead.commercial_stage
+                        )}</span>`
+                      : ""
+                  }
                   <span class="pill" style="background:rgba(239,198,111,0.14);color:#6d5113;">score ${escapeHtml(String(lead.score || 0))}</span>
                 </div>
                 <div class="subtext" style="margin-top: 10px;">${escapeHtml(
@@ -798,6 +837,69 @@
     el.bookingsPanel.innerHTML = [renderGroup("Requested / Pending", requested), renderGroup("Confirmed", confirmed)].join("");
   }
 
+  function renderCommercial() {
+    if (!(hasPermission("manage_commercial") || hasPermission("view_reports"))) {
+      el.commercialPanel.innerHTML =
+        '<div class="value empty">Your role cannot access commercial workflow.</div>';
+      return;
+    }
+
+    if (!state.allProposals.length) {
+      el.commercialPanel.innerHTML =
+        '<div class="value empty">No proposals created yet.</div>';
+      return;
+    }
+
+    el.commercialPanel.innerHTML = state.allProposals
+      .map(function (proposal) {
+        const lead = proposal.lead || {};
+        return `
+          <article class="trace-item">
+            <div class="trace-head">
+              <strong>${escapeHtml(proposal.title || proposal.tier_name || "Proposal")}</strong>
+              <span>${escapeHtml(proposal.status || "draft")}</span>
+            </div>
+            <div class="subtext">${escapeHtml(leadTitle(lead))} · ${escapeHtml(leadMetaLine(lead))}</div>
+            <div class="value" style="margin-top:8px;">${escapeHtml(proposal.tier_name || "Tier not set")}</div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  function renderAudit() {
+    if (!hasPermission("view_audit")) {
+      el.auditPanel.innerHTML =
+        '<div class="value empty">Your role cannot access the audit trail.</div>';
+      return;
+    }
+
+    if (!state.audit.length) {
+      el.auditPanel.innerHTML =
+        '<div class="value empty">No audit events recorded yet.</div>';
+      return;
+    }
+
+    el.auditPanel.innerHTML = state.audit
+      .map(function (event) {
+        return `
+          <article class="trace-item">
+            <div class="trace-head">
+              <strong>${escapeHtml(event.action || "event")}</strong>
+              <span>${escapeHtml(formatDate(event.created_at))}</span>
+            </div>
+            <div class="subtext">${escapeHtml(
+              [event.actor_email || "system", event.actor_role || "", event.target_type || "", event.target_id || ""]
+                .filter(Boolean)
+                .join(" · ")
+            )}</div>
+            <div class="value" style="margin-top:8px;">${escapeHtml(JSON.stringify(event.metadata || {}))}</div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
   function notificationMatchesFilter(notification) {
     if (state.notificationFilter === "all") return true;
     if (state.notificationFilter === "open") return (notification.status || "open") === "open";
@@ -905,6 +1007,7 @@
       el.newUserRole.disabled = true;
       el.newUserPassword.disabled = true;
       setTeamStatus("Your role cannot access team administration.", true);
+      setInviteStatus("Your role cannot create invite links.", true);
       return;
     }
 
@@ -956,6 +1059,9 @@
                 <button class="outline" type="button" data-user-reset="${user.id}" ${
                   canManageUsers ? "" : "disabled"
                 }>Reset password</button>
+                <button class="outline" type="button" data-user-reset-link="${user.id}" ${
+                  canManageUsers ? "" : "disabled"
+                }>Issue reset link</button>
               </div>
             </article>
           `;
@@ -964,15 +1070,25 @@
     }
 
     const canManageUsers = hasPermission("manage_users");
+    const canManageSecurity = hasPermission("manage_security");
     el.createUserBtn.disabled = !canManageUsers;
     el.newUserName.disabled = !canManageUsers;
     el.newUserEmail.disabled = !canManageUsers;
     el.newUserRole.disabled = !canManageUsers;
     el.newUserPassword.disabled = !canManageUsers;
+    el.inviteUserBtn.disabled = !canManageSecurity;
+    el.inviteUserName.disabled = !canManageSecurity;
+    el.inviteUserEmail.disabled = !canManageSecurity;
+    el.inviteUserRole.disabled = !canManageSecurity;
     if (!canManageUsers) {
       setTeamStatus("Your role cannot create users.", true);
     } else {
       setTeamStatus("", false);
+    }
+    if (!canManageSecurity) {
+      setInviteStatus("Your role cannot create invite links.", true);
+    } else {
+      setInviteStatus("", false);
     }
 
     Array.from(el.teamPanel.querySelectorAll("[data-user-save]")).forEach(function (node) {
@@ -992,6 +1108,15 @@
         const passwordInput = el.teamPanel.querySelector(`[data-user-password="${userId}"]`);
         updateAdminUser(userId, { password: passwordInput.value || "" }).catch(function (error) {
           setTeamStatus(error.message || "Could not reset password.", true);
+        });
+      });
+    });
+
+    Array.from(el.teamPanel.querySelectorAll("[data-user-reset-link]")).forEach(function (node) {
+      node.addEventListener("click", function () {
+        const userId = node.getAttribute("data-user-reset-link");
+        issueResetLink(userId).catch(function (error) {
+          setTeamStatus(error.message || "Could not issue reset link.", true);
         });
       });
     });
@@ -1130,7 +1255,9 @@
     renderNotifications();
     renderReports();
     renderBookings();
+    renderCommercial();
     renderTeamPanel();
+    renderAudit();
     renderTraceExplorer();
     renderTimeline();
   }
@@ -1175,8 +1302,15 @@
       summaryField("Phone", displayValue(state.selectedLead.phone, "Not captured")),
       summaryField("Source", displayValue(state.selectedLead.source, "Not captured")),
       summaryField("Location", displayValue(state.selectedLead.location, "Not captured")),
+      summaryField("Project Type", displayValue(state.selectedLead.project_type, "Not captured")),
+      summaryField(
+        "Unit Count",
+        state.selectedLead.unit_count ? String(state.selectedLead.unit_count) : "Not captured"
+      ),
       summaryField("Status", displayValue(state.selectedLead.status, "new")),
       summaryField("Owner", ownerLabel(state.selectedLead.owner)),
+      summaryField("Commercial Stage", displayValue(state.selectedLead.commercial_stage, "Not set")),
+      summaryField("Lost Reason", displayValue(state.selectedLead.lost_reason, "Not set")),
       summaryField("Score", String(state.selectedLead.score || 0)),
       summaryField("Next Action", displayValue(state.selectedLead.next_action, "No next action yet")),
       summaryField("Summary", displayValue(state.selectedLead.summary, "No summary yet")),
@@ -1228,6 +1362,10 @@
 
     el.statusInput.value = "";
     el.ownerInput.value = "";
+    el.projectTypeInput.value = state.selectedLead.project_type || "";
+    el.unitCountInput.value = state.selectedLead.unit_count || "";
+    el.commercialStageInput.value = state.selectedLead.commercial_stage || "";
+    el.lostReasonInput.value = state.selectedLead.lost_reason || "";
     el.scoreInput.value = state.selectedLead.score || "";
     el.nextActionInput.value = state.selectedLead.next_action || "";
     el.summaryInput.value = state.selectedLead.summary || "";
@@ -1239,6 +1377,10 @@
 
     el.statusInput.disabled = !canManageLeads;
     el.ownerInput.disabled = !canManageLeads;
+    el.projectTypeInput.disabled = !canManageLeads;
+    el.unitCountInput.disabled = !canManageLeads;
+    el.commercialStageInput.disabled = !canManageLeads;
+    el.lostReasonInput.disabled = !canManageLeads;
     el.scoreInput.disabled = !canManageLeads;
     el.nextActionInput.disabled = !canManageLeads;
     el.summaryInput.disabled = !canManageLeads;
@@ -1259,10 +1401,32 @@
     el.agentSelect.disabled = !canManageLeads;
     el.composerInput.disabled = !canManageLeads;
     el.sendBtn.disabled = !canManageLeads;
+
+    if (!state.proposals.length) {
+      el.proposalListPanel.innerHTML = '<div class="value empty">No proposals yet for this lead.</div>';
+    } else {
+      el.proposalListPanel.innerHTML = state.proposals
+        .map(function (proposal) {
+          return `
+            <div class="trace-item">
+              <div class="trace-head">
+                <strong>${escapeHtml(proposal.title || proposal.tier_name || "Proposal")}</strong>
+                <span>${escapeHtml(proposal.status || "draft")}</span>
+              </div>
+              <div class="subtext">${escapeHtml(proposal.tier_name || "Tier not set")}</div>
+              <div class="value" style="margin-top:8px;">${escapeHtml(proposal.body || "")}</div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    el.proposalUnitsInput.value = state.selectedLead.unit_count || "";
+    el.createProposalBtn.disabled = !hasPermission("manage_commercial");
   }
 
   async function loadLeads() {
-    const [leadData, traceData, notificationData, reportData, userData, demosData] = await Promise.all([
+    const [leadData, traceData, notificationData, reportData, userData, demosData, proposalData, auditData] = await Promise.all([
       api("/api/lead-agents/leads", { method: "GET" }),
       hasPermission("view_traces")
         ? api("/api/lead-agents/admin/traces", { method: "GET" })
@@ -1279,6 +1443,12 @@
       hasPermission("view_reports")
         ? api("/api/lead-agents/admin/demos", { method: "GET" })
         : Promise.resolve({ demos: [] }),
+      hasPermission("view_reports") || hasPermission("manage_commercial")
+        ? api("/api/lead-agents/admin/proposals", { method: "GET" })
+        : Promise.resolve({ proposals: [] }),
+      hasPermission("view_audit")
+        ? api("/api/lead-agents/admin/audit", { method: "GET" })
+        : Promise.resolve({ audit: [] }),
     ]);
     state.leads = leadData.leads || [];
     state.traces = traceData.traces || [];
@@ -1286,6 +1456,8 @@
     state.report = reportData.report || null;
     state.adminUsers = userData.users || [];
     state.allDemos = demosData.demos || [];
+    state.allProposals = proposalData.proposals || [];
+    state.audit = auditData.audit || [];
 
     if (
       state.selectedLeadId &&
@@ -1309,7 +1481,9 @@
     renderNotifications();
     renderFounderInbox();
     renderBookings();
+    renderCommercial();
     renderTeamPanel();
+    renderAudit();
     renderTraceExplorer();
     renderTimeline();
 
@@ -1328,12 +1502,13 @@
         return lead.id === leadId;
       }) || null;
 
-    const [conversationData, demosData, memoryData, timelineData, channelStateData] = await Promise.all([
+    const [conversationData, demosData, memoryData, timelineData, channelStateData, proposalData] = await Promise.all([
       api(`/api/lead-agents/leads/${leadId}/conversations`, { method: "GET" }),
       api(`/api/lead-agents/leads/${leadId}/demos`, { method: "GET" }),
       api(`/api/lead-agents/leads/${leadId}/memory`, { method: "GET" }),
       api(`/api/lead-agents/leads/${leadId}/timeline`, { method: "GET" }),
       api(`/api/lead-agents/leads/${leadId}/channel-state/whatsapp`, { method: "GET" }),
+      api(`/api/lead-agents/leads/${leadId}/proposals`, { method: "GET" }),
     ]);
 
     state.conversations = conversationData.conversations || [];
@@ -1341,6 +1516,7 @@
     state.memory = memoryData.memory || null;
     state.timeline = timelineData.timeline || [];
     state.channelState = channelStateData.channel_state || null;
+    state.proposals = proposalData.proposals || [];
 
     if (!skipRender) {
       renderLeadList();
@@ -1440,6 +1616,31 @@
     setTeamStatus(`Created admin user for ${email}.`);
   }
 
+  async function inviteAdminUser() {
+    if (!hasPermission("manage_security")) {
+      setInviteStatus("Your role cannot create invite links.", true);
+      return;
+    }
+    const email = el.inviteUserEmail.value.trim().toLowerCase();
+    if (!email) {
+      setInviteStatus("Invite email is required.", true);
+      return;
+    }
+    setInviteStatus("Creating invite...");
+    const result = await api("/api/lead-agents/admin/users/invite", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        role: el.inviteUserRole.value || "viewer",
+        display_name: el.inviteUserName.value.trim() || email,
+      }),
+    });
+    el.inviteUserName.value = "";
+    el.inviteUserEmail.value = "";
+    el.inviteUserRole.value = "viewer";
+    setInviteStatus(`Invite token: ${result.invite_token}`);
+  }
+
   async function updateAdminUser(userId, patch) {
     if (!hasPermission("manage_users")) {
       throw new Error("Your role cannot update admin users.");
@@ -1453,6 +1654,18 @@
     state.adminUsers = userData.users || [];
     renderTeamPanel();
     setTeamStatus("Admin user updated.");
+  }
+
+  async function issueResetLink(userId) {
+    if (!hasPermission("manage_security")) {
+      throw new Error("Your role cannot issue reset links.");
+    }
+    setTeamStatus("Issuing reset link...");
+    const result = await api(`/api/lead-agents/admin/users/${userId}/reset`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    setTeamStatus(`Reset token: ${result.reset_token}`);
   }
 
   async function changeOwnPassword() {
@@ -1558,6 +1771,17 @@
           return payload.report || null;
         })
       : null;
+    state.allProposals =
+      hasPermission("view_reports") || hasPermission("manage_commercial")
+        ? await api("/api/lead-agents/admin/proposals", { method: "GET" }).then(function (payload) {
+            return payload.proposals || [];
+          })
+        : [];
+    state.audit = hasPermission("view_audit")
+      ? await api("/api/lead-agents/admin/audit", { method: "GET" }).then(function (payload) {
+          return payload.audit || [];
+        })
+      : [];
     state.leads = state.leads.map(function (lead) {
       return lead.id === data.lead.id ? data.lead : lead;
     });
@@ -1569,6 +1793,8 @@
     renderNotifications();
     renderReports();
     renderBookings();
+    renderCommercial();
+    renderAudit();
     renderTraceExplorer();
     if (state.selectedLeadId) {
       state.timeline = await api(`/api/lead-agents/leads/${state.selectedLeadId}/timeline`, {
@@ -1603,11 +1829,40 @@
     await updateLeadPatch(state.selectedLead.id, {
       status: el.statusInput.value || undefined,
       owner: el.ownerInput.value || undefined,
+      project_type: el.projectTypeInput.value || undefined,
+      unit_count: el.unitCountInput.value ? Number(el.unitCountInput.value) : undefined,
+      commercial_stage: el.commercialStageInput.value || undefined,
+      lost_reason: el.lostReasonInput.value || undefined,
       score: el.scoreInput.value ? Number(el.scoreInput.value) : undefined,
       next_action: el.nextActionInput.value || undefined,
       summary: el.summaryInput.value || undefined,
     });
     setDetailStatus("Lead updated.");
+  }
+
+  async function createProposal() {
+    if (!state.selectedLead) {
+      setDetailStatus("Select a lead first.", true);
+      return;
+    }
+    if (!hasPermission("manage_commercial")) {
+      setDetailStatus("Your role cannot create proposals.", true);
+      return;
+    }
+    setDetailStatus("Generating proposal...");
+    await api(`/api/lead-agents/leads/${state.selectedLead.id}/proposals`, {
+      method: "POST",
+      body: JSON.stringify({
+        unit_count: el.proposalUnitsInput.value ? Number(el.proposalUnitsInput.value) : undefined,
+        project_type: state.selectedLead.project_type || undefined,
+        status: el.proposalStatusInput.value || "draft",
+      }),
+    });
+    await loadLeads();
+    if (state.selectedLeadId) {
+      await selectLead(state.selectedLeadId, true);
+    }
+    setDetailStatus("Proposal created.");
   }
 
   async function createDemo() {
@@ -1752,6 +2007,9 @@
     state.notifications = [];
     state.report = null;
     state.allDemos = [];
+    state.proposals = [];
+    state.allProposals = [];
+    state.audit = [];
     state.timeline = [];
     state.adminUsers = [];
     state.channelState = null;
@@ -1768,7 +2026,9 @@
     renderFounderInbox();
     renderReports();
     renderBookings();
+    renderCommercial();
     renderTeamPanel();
+    renderAudit();
     renderTraceExplorer();
     renderTimeline();
     renderDetail();
@@ -1869,6 +2129,11 @@
       setTeamStatus(error.message || "Could not create admin user.", true);
     });
   });
+  el.inviteUserBtn.addEventListener("click", function () {
+    inviteAdminUser().catch(function (error) {
+      setInviteStatus(error.message || "Could not create invite.", true);
+    });
+  });
   el.changePasswordBtn.addEventListener("click", function () {
     changeOwnPassword().catch(function (error) {
       setPasswordStatus(error.message || "Could not change password.", true);
@@ -1965,6 +2230,11 @@
       setDetailStatus(error.message || "Demo creation failed.", true);
     });
   });
+  el.createProposalBtn.addEventListener("click", function () {
+    createProposal().catch(function (error) {
+      setDetailStatus(error.message || "Proposal creation failed.", true);
+    });
+  });
   el.escalateBtn.addEventListener("click", function () {
     escalate().catch(function (error) {
       setDetailStatus(error.message || "Escalation failed.", true);
@@ -1985,7 +2255,9 @@
   renderFounderInbox();
   renderReports();
   renderBookings();
+  renderCommercial();
   renderTeamPanel();
+  renderAudit();
   renderTraceExplorer();
   renderDetail();
   renderWorkspaceTabs();

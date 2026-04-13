@@ -2,6 +2,7 @@ require("dotenv").config();
 require("dotenv").config({ path: ".env.lead-agents.local", override: true });
 const http = require("http");
 const path = require("path");
+const crypto = require("crypto");
 const { createConfig } = require("./config");
 const { log } = require("./logger");
 const { createStore } = require("./store-factory");
@@ -25,6 +26,7 @@ const { FileKnowledgeBase } = require("./knowledge-base");
 const { normalizeEmail, normalizeLeadInput, normalizeLeadPatch } = require("./normalize-lead");
 const { WhatsAppCloudAdapter } = require("./whatsapp");
 const { buildCalendarLinks, parsePreferredSchedule } = require("./scheduling");
+const { buildProposal, inferCommercialFacts } = require("./commercial");
 const {
   createRequestContext,
   getPathname,
@@ -60,10 +62,39 @@ function customerServiceWindowExpiry(timestampSeconds) {
   return new Date(baseMs + 24 * 60 * 60 * 1000).toISOString();
 }
 
+function generateOpaqueToken() {
+  return crypto.randomBytes(24).toString("hex");
+}
+
+function hashOpaqueToken(token) {
+  return crypto.createHash("sha256").update(String(token || "")).digest("hex");
+}
+
+function absoluteUrl(req, pathname, token) {
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
+  const base = `${proto}://${host}${pathname}`;
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+}
+
+async function appendAudit(store, authContext, action, targetType, targetId, metadata) {
+  if (!store.appendAuditEvent) return null;
+  return store.appendAuditEvent({
+    actor_user_id: authContext?.userId || null,
+    actor_email: authContext?.email || "",
+    actor_role: authContext?.role || "",
+    action,
+    target_type: targetType,
+    target_id: targetId || "",
+    metadata: metadata || {},
+  });
+}
+
 function extractPublicLeadPatch(message) {
   const text = String(message || "").trim();
   const lower = text.toLowerCase();
   const patch = {};
+  const inferred = inferCommercialFacts(text);
 
   const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   if (emailMatch) {
@@ -104,6 +135,8 @@ function extractPublicLeadPatch(message) {
   if (fragments.length) {
     patch.summary = `Fallback project signals: ${fragments.join(", ")}.`;
   }
+  if (inferred.unit_count) patch.unit_count = inferred.unit_count;
+  if (inferred.project_type) patch.project_type = inferred.project_type;
 
   return patch;
 }
@@ -477,6 +510,18 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
         await store.updateAdminUser(sessionUser.id, {
           last_login_at: new Date().toISOString(),
         });
+        await appendAudit(
+          store,
+          {
+            userId: sessionUser.id,
+            email: sessionUser.email,
+            role: sessionUser.role,
+          },
+          "session_login",
+          "admin_user",
+          sessionUser.id,
+          {}
+        );
         const token = createAdminSessionToken(sessionUser, config);
         json(
           res,
@@ -514,6 +559,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
             "x-request-id": ctx.requestId,
           }
         );
+        await appendAudit(store, authContext, "session_logout", "session", authContext?.userId || "", {});
         return;
       }
 
@@ -572,7 +618,108 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           password_hash: hashPassword(body.new_password),
           password_changed_at: new Date().toISOString(),
         });
+        await appendAudit(store, authContext, "password_changed", "admin_user", currentUser.id, {});
         json(res, 200, { ok: true, user: updated }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/session/invite/accept") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        if (!body.token || !body.password) {
+          json(res, 400, { error: "token and password are required" });
+          return;
+        }
+        const invite = await store.getAdminInviteByTokenHash(hashOpaqueToken(body.token));
+        if (!invite || invite.status !== "pending" || new Date(invite.expires_at).getTime() < Date.now()) {
+          json(res, 400, { error: "invalid_or_expired_invite" });
+          return;
+        }
+        const user = await store.ensureAdminUser({
+          email: invite.email,
+          password_hash: hashPassword(body.password),
+          role: invite.role || "viewer",
+          display_name: body.display_name || invite.display_name || invite.email,
+          status: "active",
+          password_changed_at: new Date().toISOString(),
+        });
+        await store.updateAdminInvite(invite.id, {
+          status: "accepted",
+          accepted_at: new Date().toISOString(),
+        });
+        await appendAudit(
+          store,
+          { userId: user.id, email: user.email, role: user.role },
+          "invite_accepted",
+          "admin_invite",
+          invite.id,
+          { email: invite.email }
+        );
+        const token = createAdminSessionToken(user, config);
+        json(
+          res,
+          200,
+          {
+            ok: true,
+            admin: {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+              display_name: user.display_name || user.email,
+              status: user.status || "active",
+              permissions: permissionsForRole(user.role),
+            },
+          },
+          {
+            "set-cookie": createSessionCookie(token, config),
+            "x-request-id": ctx.requestId,
+          }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/session/reset/confirm") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        if (!body.token || !body.new_password) {
+          json(res, 400, { error: "token and new_password are required" });
+          return;
+        }
+        const reset = await store.getPasswordResetTokenByHash(hashOpaqueToken(body.token));
+        if (!reset || reset.status !== "pending" || new Date(reset.expires_at).getTime() < Date.now()) {
+          json(res, 400, { error: "invalid_or_expired_reset" });
+          return;
+        }
+        const user = await store.getAdminUserByEmail(reset.email);
+        if (!user) {
+          json(res, 404, { error: "user_not_found" });
+          return;
+        }
+        await store.updateAdminUser(user.id, {
+          password_hash: hashPassword(body.new_password),
+          password_changed_at: new Date().toISOString(),
+        });
+        await store.updatePasswordResetToken(reset.id, {
+          status: "used",
+          used_at: new Date().toISOString(),
+        });
+        await appendAudit(
+          store,
+          { userId: user.id, email: user.email, role: user.role },
+          "password_reset_completed",
+          "admin_user",
+          user.id,
+          {}
+        );
+        json(res, 200, { ok: true }, { "x-request-id": ctx.requestId });
         return;
       }
 
@@ -856,9 +1003,9 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           authorizePermission(authContext, "manage_leads");
           const body = await readJsonBody(req);
           requireObject(body, "body");
-          const updated = await store.updateLead(
-            leadMatch[1],
-            normalizeLeadPatch({
+        const updated = await store.updateLead(
+          leadMatch[1],
+          normalizeLeadPatch({
               name: body.name,
               company: body.company,
               role: body.role,
@@ -866,13 +1013,17 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
               phone: body.phone,
               source: body.source,
               location: body.location,
+              unit_count: body.unit_count,
+              project_type: body.project_type,
               status: body.status,
               owner: body.owner,
+              commercial_stage: body.commercial_stage,
+              lost_reason: body.lost_reason,
               score: body.score,
               summary: body.summary,
               next_action: body.next_action,
-            })
-          );
+          })
+        );
           if (!updated) {
             notFound(res);
             return;
@@ -901,6 +1052,80 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           },
           { "x-request-id": ctx.requestId }
         );
+        return;
+      }
+
+      const proposalMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)\/proposals$/);
+      if (proposalMatch) {
+        const leadId = proposalMatch[1];
+        if (req.method === "GET") {
+          authorizePermission(authContext, "view_dashboard");
+          json(
+            res,
+            200,
+            { proposals: await store.listProposalsForLead(leadId) },
+            { "x-request-id": ctx.requestId }
+          );
+          return;
+        }
+        if (req.method === "POST") {
+          authorizePermission(authContext, "manage_commercial");
+          const lead = await store.getLead(leadId);
+          if (!lead) {
+            notFound(res);
+            return;
+          }
+          const body = await readJsonBody(req);
+          requireObject(body, "body");
+          const inferred = inferCommercialFacts([lead.summary, lead.next_action, body.context || ""].join(" "));
+          const unitCount = body.unit_count || lead.unit_count || inferred.unit_count;
+          const projectType = body.project_type || lead.project_type || inferred.project_type;
+          if (!unitCount) {
+            json(res, 400, { error: "unit_count_required" });
+            return;
+          }
+          const proposalPayload = buildProposal({
+            unitCount,
+            projectType,
+            leadName: lead.name,
+            company: lead.company,
+          });
+          const proposal = await store.createProposal({
+            lead_id: leadId,
+            ...proposalPayload,
+            status: body.status || "draft",
+            actor: authContext?.email || "system",
+          });
+          const proposalStatus = String(body.status || "draft").toLowerCase();
+          const updatedLead = await store.updateLead(leadId, {
+            unit_count: unitCount,
+            project_type: projectType,
+            commercial_stage:
+              proposalStatus === "accepted"
+                ? "won"
+                : proposalStatus === "declined"
+                ? "lost"
+                : proposalStatus === "sent"
+                ? "proposal"
+                : lead.commercial_stage || "proposal",
+            status: proposalStatus === "accepted" ? "closed" : proposalStatus === "declined" ? "lost" : undefined,
+            lost_reason: proposalStatus === "declined" ? "proposal_declined" : undefined,
+            next_action:
+              proposalStatus === "accepted"
+                ? "Prepare deployment plan"
+                : proposalStatus === "declined"
+                ? "Record loss and nurture if needed"
+                : "Review and send proposal",
+          });
+          await appendAudit(store, authContext, "proposal_created", "proposal", proposal.id, {
+            lead_id: leadId,
+            tier_name: proposal.tier_name,
+            status: proposal.status,
+          });
+          json(res, 201, { proposal, lead: updatedLead }, { "x-request-id": ctx.requestId });
+          return;
+        }
+        methodNotAllowed(res, "GET,POST");
         return;
       }
 
@@ -976,6 +1201,21 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           res,
           200,
           { demos: await store.listDemos() },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/proposals") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_reports");
+        json(
+          res,
+          200,
+          { proposals: await store.listProposals() },
           { "x-request-id": ctx.requestId }
         );
         return;
@@ -1098,6 +1338,21 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
         return;
       }
 
+      if (pathname === "/api/lead-agents/admin/audit") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_audit");
+        json(
+          res,
+          200,
+          { audit: await store.listAuditEvents(200) },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
       if (pathname === "/api/lead-agents/admin/users") {
         if (req.method === "GET") {
           authorizePermission(authContext, "view_users");
@@ -1126,10 +1381,53 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
             display_name: body.display_name || body.email,
             status: body.status || "active",
           });
+          await appendAudit(store, authContext, "admin_user_created", "admin_user", user.id, {
+            email: user.email,
+            role: user.role,
+          });
           json(res, 201, { user }, { "x-request-id": ctx.requestId });
           return;
         }
         methodNotAllowed(res, "GET,POST");
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/users/invite") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_security");
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        if (!body.email) {
+          json(res, 400, { error: "email is required" });
+          return;
+        }
+        const rawToken = generateOpaqueToken();
+        const invite = await store.createAdminInvite({
+          email: body.email,
+          role: body.role || "viewer",
+          display_name: body.display_name || "",
+          token_hash: hashOpaqueToken(rawToken),
+          status: "pending",
+          invited_by: authContext?.email || "",
+          expires_at: new Date(Date.now() + (Number(body.expires_in_hours || 72) * 60 * 60 * 1000)).toISOString(),
+        });
+        await appendAudit(store, authContext, "admin_invite_created", "admin_invite", invite.id, {
+          email: invite.email,
+          role: invite.role,
+        });
+        json(
+          res,
+          201,
+          {
+            invite,
+            invite_token: rawToken,
+            invite_url: absoluteUrl(req, "/dashboard", rawToken),
+          },
+          { "x-request-id": ctx.requestId }
+        );
         return;
       }
 
@@ -1155,7 +1453,46 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           notFound(res);
           return;
         }
+        await appendAudit(store, authContext, "admin_user_updated", "admin_user", user.id, patch);
         json(res, 200, { user }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      const adminUserResetMatch = pathname.match(/^\/api\/lead-agents\/admin\/users\/([^/]+)\/reset$/);
+      if (adminUserResetMatch) {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_security");
+        const user = await store.getAdminUserById(adminUserResetMatch[1]);
+        if (!user) {
+          notFound(res);
+          return;
+        }
+        const body = await readJsonBody(req);
+        const rawToken = generateOpaqueToken();
+        const reset = await store.createPasswordResetToken({
+          admin_user_id: user.id,
+          email: user.email,
+          token_hash: hashOpaqueToken(rawToken),
+          requested_by: authContext?.email || "",
+          expires_at: new Date(Date.now() + (Number(body?.expires_in_hours || 24) * 60 * 60 * 1000)).toISOString(),
+        });
+        await appendAudit(store, authContext, "password_reset_issued", "admin_user", user.id, {
+          email: user.email,
+          reset_id: reset.id,
+        });
+        json(
+          res,
+          201,
+          {
+            reset,
+            reset_token: rawToken,
+            reset_url: absoluteUrl(req, "/dashboard", rawToken),
+          },
+          { "x-request-id": ctx.requestId }
+        );
         return;
       }
 

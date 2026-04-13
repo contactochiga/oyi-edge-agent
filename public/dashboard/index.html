@@ -746,8 +746,10 @@
               <button class="tab-btn" data-tab="notifications" type="button">Inbox</button>
               <button class="tab-btn" data-tab="founder" type="button">Founder Inbox</button>
               <button class="tab-btn" data-tab="bookings" type="button">Bookings</button>
+              <button class="tab-btn" data-tab="commercial" type="button">Commercial</button>
               <button class="tab-btn" data-tab="reports" type="button">Reports</button>
               <button class="tab-btn" data-tab="team" type="button">Team</button>
+              <button class="tab-btn" data-tab="audit" type="button">Audit</button>
               <button class="tab-btn" data-tab="traces" type="button">Trace Explorer</button>
             </div>
           </div>
@@ -802,6 +804,16 @@
                 </div>
               </div>
             </div>
+            <div class="tab-panel" data-panel="commercial">
+              <div class="stack-16">
+                <div class="card detail-card">
+                  <div class="key">Commercial Pipeline</div>
+                  <div id="commercialPanel" class="trace-list">
+                    <div class="value empty">No proposals loaded yet.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="tab-panel" data-panel="reports">
               <div class="stack-16">
                 <div class="card detail-card">
@@ -819,6 +831,10 @@
                 <div class="card detail-card">
                   <div class="key">Owner Breakdown</div>
                   <div id="ownersPanel" class="value empty">No owner breakdown yet.</div>
+                </div>
+                <div class="card detail-card">
+                  <div class="key">Commercial Stage Breakdown</div>
+                  <div id="commercialStagesPanel" class="value empty">No commercial stage data yet.</div>
                 </div>
                 <div class="card detail-card">
                   <div class="key">Upcoming Demos</div>
@@ -850,12 +866,38 @@
                   </div>
                 </div>
                 <div class="card detail-card">
+                  <div class="key">Invite Admin User</div>
+                  <div class="stack-12">
+                    <input id="inviteUserName" class="text-input" type="text" placeholder="Display name" />
+                    <input id="inviteUserEmail" class="text-input" type="email" placeholder="Invite email" />
+                    <select id="inviteUserRole" class="select-input">
+                      <option value="viewer">viewer</option>
+                      <option value="operator">operator</option>
+                      <option value="sales">sales</option>
+                      <option value="founder">founder</option>
+                      <option value="admin">admin</option>
+                    </select>
+                    <button class="ghost" id="inviteUserBtn" type="button">Create invite link</button>
+                    <div class="status-line" id="inviteStatus"></div>
+                  </div>
+                </div>
+                <div class="card detail-card">
                   <div class="key">Change Your Password</div>
                   <div class="stack-12">
                     <input id="currentPasswordInput" class="text-input" type="password" placeholder="Current password" />
                     <input id="newPasswordInput" class="text-input" type="password" placeholder="New password" />
                     <button class="ghost" id="changePasswordBtn" type="button">Change password</button>
                     <div class="status-line" id="passwordStatus"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="tab-panel" data-panel="audit">
+              <div class="stack-16">
+                <div class="card detail-card">
+                  <div class="key">Audit Trail</div>
+                  <div id="auditPanel" class="trace-list">
+                    <div class="value empty">No audit events loaded yet.</div>
                   </div>
                 </div>
               </div>
@@ -909,6 +951,30 @@
             <div class="action-card">
               <div class="stack-12">
                 <div>
+                  <label class="key" for="projectTypeInput">Project Type</label>
+                  <input id="projectTypeInput" class="text-input" type="text" placeholder="estate, mixed-use estate, building..." />
+                </div>
+                <div>
+                  <label class="key" for="unitCountInput">Unit Count</label>
+                  <input id="unitCountInput" class="text-input" type="number" min="0" placeholder="e.g. 240" />
+                </div>
+                <div>
+                  <label class="key" for="commercialStageInput">Commercial Stage</label>
+                  <select id="commercialStageInput" class="select-input">
+                    <option value="">Keep current</option>
+                    <option value="lead">lead</option>
+                    <option value="discovery">discovery</option>
+                    <option value="proposal">proposal</option>
+                    <option value="negotiation">negotiation</option>
+                    <option value="won">won</option>
+                    <option value="lost">lost</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="key" for="lostReasonInput">Lost Reason</label>
+                  <input id="lostReasonInput" class="text-input" type="text" placeholder="Optional reason if lost" />
+                </div>
+                <div>
                   <label class="key" for="statusInput">Status</label>
                   <select id="statusInput" class="select-input">
                     <option value="">Keep current</option>
@@ -947,6 +1013,28 @@
                   <textarea id="summaryInput" class="textarea-input" placeholder="Short structured summary"></textarea>
                 </div>
                 <button class="primary" id="updateLeadBtn" type="button">Update lead</button>
+              </div>
+            </div>
+            <div class="action-card">
+              <div class="stack-12">
+                <div>
+                  <label class="key" for="proposalUnitsInput">Generate Proposal</label>
+                  <input id="proposalUnitsInput" class="text-input" type="number" min="0" placeholder="Use selected lead unit count or override here" />
+                </div>
+                <div>
+                  <label class="key" for="proposalStatusInput">Proposal Status</label>
+                  <select id="proposalStatusInput" class="select-input">
+                    <option value="draft">draft</option>
+                    <option value="sent">sent</option>
+                    <option value="accepted">accepted</option>
+                    <option value="declined">declined</option>
+                  </select>
+                </div>
+                <button class="ghost" id="createProposalBtn" type="button">Generate proposal</button>
+                <div class="key">Lead Proposals</div>
+                <div id="proposalListPanel" class="trace-list">
+                  <div class="value empty">No proposals yet for this lead.</div>
+                </div>
               </div>
             </div>
             <div class="action-card">

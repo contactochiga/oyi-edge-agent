@@ -44,8 +44,15 @@ function normalizeLeadInput(input, fallbackSource) {
     primary_channel: normalizeText(input.primary_channel),
     source: normalizeSource(input.source, fallbackSource),
     location: normalizeText(input.location),
+    unit_count:
+      input.unit_count === undefined || input.unit_count === null || input.unit_count === ""
+        ? undefined
+        : Math.max(0, Math.round(Number(input.unit_count) || 0)),
+    project_type: normalizeText(input.project_type),
     status: normalizeText(input.status),
     owner: normalizeText(input.owner),
+    commercial_stage: normalizeText(input.commercial_stage),
+    lost_reason: normalizeText(input.lost_reason),
     score: normalizeScore(input.score),
     summary: normalizeText(input.summary),
     next_action: normalizeText(input.next_action),

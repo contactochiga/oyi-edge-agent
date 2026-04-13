@@ -37,8 +37,13 @@ class SupabaseLeadAgentsStore {
       primary_channel: row.primary_channel || "",
       channel_last_seen_at: row.channel_last_seen_at || "",
       location: row.location || "",
+      unit_count:
+        row.unit_count === undefined || row.unit_count === null ? null : Number(row.unit_count),
+      project_type: row.project_type || "",
       summary: row.summary || "",
       next_action: row.next_action || "",
+      commercial_stage: row.commercial_stage || "",
+      lost_reason: row.lost_reason || "",
     };
   }
 
@@ -205,6 +210,52 @@ class SupabaseLeadAgentsStore {
     return demos.data.map((demo) => ({
       ...demo,
       lead: leads.find((lead) => lead.id === demo.lead_id) || null,
+    }));
+  }
+
+  async createProposal(input) {
+    const response = await this.client.post(
+      "/proposals",
+      {
+        lead_id: input.lead_id,
+        title: input.title,
+        tier_name: input.tier_name || "",
+        unit_count: input.unit_count === undefined ? null : input.unit_count,
+        monthly_price: input.monthly_price === undefined ? null : input.monthly_price,
+        currency: input.currency || "NGN",
+        status: input.status || "draft",
+        body: input.body,
+        metadata: input.metadata || {},
+      },
+      {
+        headers: this.selectHeaders(),
+      }
+    );
+    const proposal = response.data[0];
+    await this.appendTimelineEvent({
+      lead_id: input.lead_id,
+      event_type: "proposal_created",
+      actor: input.actor || "system",
+      title: "Proposal created",
+      body: proposal.title,
+      metadata: proposal,
+    });
+    return proposal;
+  }
+
+  async listProposalsForLead(leadId) {
+    const response = await this.client.get(`/proposals?lead_id=eq.${leadId}&order=created_at.desc`);
+    return response.data;
+  }
+
+  async listProposals() {
+    const [proposals, leads] = await Promise.all([
+      this.client.get("/proposals?order=created_at.desc"),
+      this.listLeads(),
+    ]);
+    return proposals.data.map((proposal) => ({
+      ...proposal,
+      lead: leads.find((lead) => lead.id === proposal.lead_id) || null,
     }));
   }
 
@@ -427,11 +478,106 @@ class SupabaseLeadAgentsStore {
     return response.data[0] || null;
   }
 
+  async createAdminInvite(input) {
+    const response = await this.client.post(
+      "/admin_invites",
+      {
+        email: normalizeEmail(input.email),
+        role: input.role || "viewer",
+        display_name: input.display_name || "",
+        token_hash: input.token_hash,
+        status: input.status || "pending",
+        invited_by: input.invited_by || "",
+        expires_at: input.expires_at,
+        accepted_at: input.accepted_at || null,
+      },
+      {
+        headers: this.selectHeaders(),
+      }
+    );
+    return response.data[0];
+  }
+
+  async getAdminInviteByTokenHash(tokenHash) {
+    const response = await this.client.get(`/admin_invites?token_hash=eq.${encodeURIComponent(tokenHash)}&limit=1`);
+    return response.data[0] || null;
+  }
+
+  async updateAdminInvite(inviteId, patch) {
+    const response = await this.client.patch(`/admin_invites?id=eq.${inviteId}`, patch, {
+      headers: this.selectHeaders(),
+    });
+    return response.data[0] || null;
+  }
+
+  async listAdminInvites() {
+    const response = await this.client.get("/admin_invites?order=created_at.desc");
+    return response.data;
+  }
+
+  async createPasswordResetToken(input) {
+    const response = await this.client.post(
+      "/password_reset_tokens",
+      {
+        admin_user_id: input.admin_user_id || null,
+        email: normalizeEmail(input.email),
+        token_hash: input.token_hash,
+        status: input.status || "pending",
+        requested_by: input.requested_by || "",
+        expires_at: input.expires_at,
+        used_at: input.used_at || null,
+      },
+      {
+        headers: this.selectHeaders(),
+      }
+    );
+    return response.data[0];
+  }
+
+  async getPasswordResetTokenByHash(tokenHash) {
+    const response = await this.client.get(
+      `/password_reset_tokens?token_hash=eq.${encodeURIComponent(tokenHash)}&limit=1`
+    );
+    return response.data[0] || null;
+  }
+
+  async updatePasswordResetToken(tokenId, patch) {
+    const response = await this.client.patch(`/password_reset_tokens?id=eq.${tokenId}`, patch, {
+      headers: this.selectHeaders(),
+    });
+    return response.data[0] || null;
+  }
+
+  async appendAuditEvent(input) {
+    const response = await this.client.post(
+      "/audit_events",
+      {
+        actor_user_id: input.actor_user_id || null,
+        actor_email: input.actor_email || "",
+        actor_role: input.actor_role || "",
+        action: input.action,
+        target_type: input.target_type,
+        target_id: input.target_id || "",
+        metadata: input.metadata || {},
+      },
+      {
+        headers: this.selectHeaders(),
+      }
+    );
+    return response.data[0];
+  }
+
+  async listAuditEvents(limit = 200) {
+    const response = await this.client.get(`/audit_events?order=created_at.desc&limit=${limit}`);
+    return response.data;
+  }
+
   async getReportingSummary() {
-    const [leads, demos, notifications] = await Promise.all([
+    const [leads, demos, notifications, proposals] = await Promise.all([
       this.listLeads(),
       this.client.get("/demos?select=id,status,scheduled_for"),
       this.client.get("/notifications?select=id,type"),
+      this.client.get("/proposals?select=id,status"),
     ]);
     const totalLeads = leads.length || 1;
     const salesReady = leads.filter((lead) => ["sales", "booked", "closed"].includes(lead.status)).length;
@@ -471,30 +617,43 @@ class SupabaseLeadAgentsStore {
         acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {}),
+      by_commercial_stage: leads.reduce((acc, lead) => {
+        const key = lead.commercial_stage || "unassigned";
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {}),
       demos_booked: demos.data.filter((demo) => ["requested", "pending", "confirmed"].includes(demo.status)).length,
       demos_confirmed: demos.data.filter((demo) => demo.status === "confirmed").length,
       upcoming_demos: upcomingDemos,
+      proposals_total: proposals.data.length,
+      proposals_sent: proposals.data.filter((item) => ["sent", "accepted"].includes(item.status)).length,
+      deals_won: leads.filter((lead) => lead.commercial_stage === "won").length,
+      deals_lost: leads.filter((lead) => lead.commercial_stage === "lost").length,
     };
   }
 
   async stats() {
-    const [leads, conversations, demos, notifications, traces, adminUsers] =
+    const [leads, conversations, demos, proposals, notifications, traces, adminUsers, auditEvents] =
       await Promise.all([
         this.client.get("/leads?select=id"),
         this.client.get("/conversations?select=id"),
         this.client.get("/demos?select=id"),
+        this.client.get("/proposals?select=id"),
         this.client.get("/notifications?select=id"),
         this.client.get("/traces?select=id"),
         this.client.get("/admin_users?select=id"),
+        this.client.get("/audit_events?select=id"),
       ]);
 
     return {
       leads: leads.data.length,
       conversations: conversations.data.length,
       demos: demos.data.length,
+      proposals: proposals.data.length,
       notifications: notifications.data.length,
       traces: traces.data.length,
       admin_users: adminUsers.data.length,
+      audit_events: auditEvents.data.length,
     };
   }
 }

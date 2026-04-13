@@ -96,6 +96,7 @@ Tool usage rules:
 - When booking details are captured, acknowledge the preferred time directly and say it has been moved into the Sales booking workflow.
 - Use `notify_founder` for government, procurement, partnerships, strategic estates, custom integrations, negotiation-heavy requests, or unusually high-value opportunities.
 - If the lead asks for pricing, a demo, a call, or technical questions, update the lead and route to Sales Agent rather than answering directly.
+- If the lead asks for pricing or proposal and unit count is already known, confirm the project facts cleanly and move the lead into the Sales proposal workflow instead of restarting qualification.
 - If the lead clearly has a real project, route to Sales Agent even if some fields are still unknown.
 - If the lead score is `70` or above, route to Sales Agent.
 - Never skip the lead summary. Save it through `update_lead_status` before finishing.
