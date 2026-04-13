@@ -197,6 +197,17 @@ class SupabaseLeadAgentsStore {
     return response.data;
   }
 
+  async listDemos() {
+    const [demos, leads] = await Promise.all([
+      this.client.get("/demos?order=created_at.desc"),
+      this.listLeads(),
+    ]);
+    return demos.data.map((demo) => ({
+      ...demo,
+      lead: leads.find((lead) => lead.id === demo.lead_id) || null,
+    }));
+  }
+
   async getLeadChannelState(leadId, channel) {
     const response = await this.client.get(
       `/lead_channel_states?lead_id=eq.${leadId}&channel=eq.${channel}&limit=1`

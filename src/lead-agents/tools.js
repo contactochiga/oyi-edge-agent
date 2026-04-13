@@ -1,4 +1,5 @@
 const { getSolutionFit } = require("./solution-fit");
+const { buildCalendarLinks, parsePreferredSchedule } = require("./scheduling");
 
 class ToolExecutor {
   constructor({ store, config, log, webhooks }) {
@@ -124,32 +125,50 @@ class ToolExecutor {
       throw new Error("schedule_demo requires lead_id");
     }
 
+    const schedule = parsePreferredSchedule({
+      text: args.preferred_time || "",
+      timezoneHint: args.timezone || "",
+    });
+    const lead = await this.store.getLead(leadId);
+    const calendarLinks = buildCalendarLinks({
+      title: "Ochiga Discovery Demo",
+      description: `Lead ${lead?.name || ""} ${lead?.company ? `(${lead.company})` : ""}`.trim(),
+      location: lead?.location || "",
+      startIso: schedule.scheduled_for,
+      timezone: schedule.timezone,
+    });
+
     const demo = await this.store.createDemo({
       lead_id: leadId,
-      scheduled_for: args.preferred_time || null,
-      status: args.preferred_time ? "requested" : "pending",
+      scheduled_for: schedule.scheduled_for,
+      status: schedule.scheduled_for ? "requested" : args.preferred_time ? "requested" : "pending",
       notes: JSON.stringify({
         name: args.name || "",
         email: args.email || "",
         phone: args.phone || "",
-        timezone: args.timezone || "unknown",
+        timezone: schedule.timezone || args.timezone || "unknown",
+        preferred_time_text: args.preferred_time || "",
+        display_time: schedule.display_text || "",
+        calendar_links: calendarLinks,
       }),
     });
 
-    const lead = await this.store.updateLead(leadId, {
+    const updatedLead = await this.store.updateLead(leadId, {
       status: "booked",
       owner: "sales_agent",
-      next_action: args.preferred_time
-        ? "Confirm scheduled demo"
+      next_action: schedule.scheduled_for
+        ? `Confirm demo for ${schedule.display_text}`
+        : args.preferred_time
+        ? "Confirm requested demo time"
         : "Collect preferred time for demo",
     });
 
     const webhookResult = await this.webhooks.notifyDemo({
       lead_id: leadId,
-      preferred_time: args.preferred_time || null,
-      timezone: args.timezone || "unknown",
+      preferred_time: schedule.scheduled_for || args.preferred_time || null,
+      timezone: schedule.timezone || args.timezone || "unknown",
       demo_id: demo.id,
-      lead,
+      lead: updatedLead,
     });
 
     context.leadId = leadId;
@@ -158,22 +177,27 @@ class ToolExecutor {
       type: "demo_requested",
       urgency: args.preferred_time ? "high" : "medium",
       reason: "Demo requested",
-      summary: args.preferred_time
-        ? `Demo requested for ${args.preferred_time}`
+        summary: args.preferred_time
+        ? `Demo requested for ${schedule.display_text || args.preferred_time}`
         : "Demo requested without preferred time.",
       delivered: webhookResult.delivered,
       channel: "demo_webhook",
       response_code: webhookResult.response_code,
       metadata: {
         demo_id: demo.id,
-        preferred_time: args.preferred_time || null,
-        timezone: args.timezone || "unknown",
+        preferred_time: schedule.scheduled_for || args.preferred_time || null,
+        preferred_time_text: args.preferred_time || "",
+        display_time: schedule.display_text || "",
+        timezone: schedule.timezone || args.timezone || "unknown",
+        calendar_links: calendarLinks,
       },
     });
     return {
       ok: true,
       demo,
-      lead,
+      lead: updatedLead,
+      schedule,
+      calendar_links: calendarLinks,
       notification,
       webhook: webhookResult,
     };

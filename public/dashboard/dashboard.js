@@ -18,6 +18,7 @@
     traces: [],
     notifications: [],
     report: null,
+    allDemos: [],
     timeline: [],
     adminUsers: [],
     channelState: null,
@@ -66,6 +67,7 @@
     notificationsPanel: document.getElementById("notificationsPanel"),
     notificationFilters: document.getElementById("notificationFilters"),
     founderInbox: document.getElementById("founderInbox"),
+    bookingsPanel: document.getElementById("bookingsPanel"),
     reportsPanel: document.getElementById("reportsPanel"),
     sourcesPanel: document.getElementById("sourcesPanel"),
     statusesPanel: document.getElementById("statusesPanel"),
@@ -186,6 +188,31 @@
     return date.toLocaleString();
   }
 
+  function parseJson(value) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+
+  function demoMeta(demo) {
+    return parseJson(demo.notes) || {};
+  }
+
+  function demoDisplayTime(demo) {
+    const meta = demoMeta(demo);
+    if (meta.display_time) {
+      return meta.display_time;
+    }
+    return formatDate(demo.scheduled_for);
+  }
+
+  function demoCalendarLinks(demo) {
+    const meta = demoMeta(demo);
+    return meta.calendar_links || {};
+  }
+
   function initialsFromEmail(email) {
     const base = String(email || "OA").split("@")[0];
     const parts = base.split(/[._-]+/).filter(Boolean);
@@ -224,6 +251,7 @@
   }
 
   function canAccessTab(tab) {
+    if (tab === "bookings") return hasPermission("view_reports");
     if (tab === "reports") return hasPermission("view_reports");
     if (tab === "notifications" || tab === "founder") {
       return hasPermission("manage_notifications");
@@ -700,6 +728,76 @@
     });
   }
 
+  function renderBookings() {
+    if (!hasPermission("view_reports")) {
+      el.bookingsPanel.innerHTML =
+        '<div class="value empty">Your role cannot access bookings.</div>';
+      return;
+    }
+
+    if (!state.allDemos.length) {
+      el.bookingsPanel.innerHTML =
+        '<div class="value empty">No demo bookings available right now.</div>';
+      return;
+    }
+
+    const requested = state.allDemos.filter(function (demo) {
+      return ["requested", "pending"].includes(String(demo.status || "").toLowerCase());
+    });
+    const confirmed = state.allDemos.filter(function (demo) {
+      return String(demo.status || "").toLowerCase() === "confirmed";
+    });
+
+    function renderGroup(title, demos) {
+      if (!demos.length) {
+        return `
+          <article class="detail-card" style="padding:16px;">
+            <div class="key">${escapeHtml(title)}</div>
+            <div class="value empty">No items in this state.</div>
+          </article>
+        `;
+      }
+
+      return `
+        <article class="detail-card" style="padding:16px;">
+          <div class="key">${escapeHtml(title)}</div>
+          <div class="stack-12" style="margin-top:12px;">
+            ${demos
+              .map(function (demo) {
+                const lead = demo.lead || {};
+                const links = demoCalendarLinks(demo);
+                return `
+                  <div class="trace-item">
+                    <div class="trace-head">
+                      <strong>${escapeHtml(leadTitle(lead))}</strong>
+                      <span>${escapeHtml(String(demo.status || "pending"))}</span>
+                    </div>
+                    <div class="subtext">${escapeHtml(leadMetaLine(lead))}</div>
+                    <div class="value" style="margin-top:8px;">${escapeHtml(demoDisplayTime(demo))}</div>
+                    <div class="toolbar" style="margin-top:10px;">
+                      ${
+                        links.google
+                          ? `<a class="outline" href="${escapeHtml(links.google)}" target="_blank" rel="noreferrer">Google Calendar</a>`
+                          : ""
+                      }
+                      ${
+                        links.outlook
+                          ? `<a class="outline" href="${escapeHtml(links.outlook)}" target="_blank" rel="noreferrer">Outlook</a>`
+                          : ""
+                      }
+                    </div>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+        </article>
+      `;
+    }
+
+    el.bookingsPanel.innerHTML = [renderGroup("Requested / Pending", requested), renderGroup("Confirmed", confirmed)].join("");
+  }
+
   function notificationMatchesFilter(notification) {
     if (state.notificationFilter === "all") return true;
     if (state.notificationFilter === "open") return (notification.status || "open") === "open";
@@ -1031,6 +1129,7 @@
     renderFounderInbox();
     renderNotifications();
     renderReports();
+    renderBookings();
     renderTeamPanel();
     renderTraceExplorer();
     renderTimeline();
@@ -1163,7 +1262,7 @@
   }
 
   async function loadLeads() {
-    const [leadData, traceData, notificationData, reportData, userData] = await Promise.all([
+    const [leadData, traceData, notificationData, reportData, userData, demosData] = await Promise.all([
       api("/api/lead-agents/leads", { method: "GET" }),
       hasPermission("view_traces")
         ? api("/api/lead-agents/admin/traces", { method: "GET" })
@@ -1177,12 +1276,16 @@
       hasPermission("view_users")
         ? api("/api/lead-agents/admin/users", { method: "GET" })
         : Promise.resolve({ users: [] }),
+      hasPermission("view_reports")
+        ? api("/api/lead-agents/admin/demos", { method: "GET" })
+        : Promise.resolve({ demos: [] }),
     ]);
     state.leads = leadData.leads || [];
     state.traces = traceData.traces || [];
     state.notifications = notificationData.notifications || [];
     state.report = reportData.report || null;
     state.adminUsers = userData.users || [];
+    state.allDemos = demosData.demos || [];
 
     if (
       state.selectedLeadId &&
@@ -1205,6 +1308,7 @@
     renderReports();
     renderNotifications();
     renderFounderInbox();
+    renderBookings();
     renderTeamPanel();
     renderTraceExplorer();
     renderTimeline();
@@ -1464,6 +1568,7 @@
     renderFounderInbox();
     renderNotifications();
     renderReports();
+    renderBookings();
     renderTraceExplorer();
     if (state.selectedLeadId) {
       state.timeline = await api(`/api/lead-agents/leads/${state.selectedLeadId}/timeline`, {
@@ -1523,8 +1628,9 @@
           ? new Date(el.demoAtInput.value).toISOString()
           : null,
         notes: el.demoNotesInput.value || "",
-        status: "pending",
+        status: "confirmed",
         update_lead_status: true,
+        timezone: "Africa/Lagos",
       }),
     });
     await loadLeads();
@@ -1645,6 +1751,7 @@
     state.traces = [];
     state.notifications = [];
     state.report = null;
+    state.allDemos = [];
     state.timeline = [];
     state.adminUsers = [];
     state.channelState = null;
@@ -1660,6 +1767,7 @@
     renderNotifications();
     renderFounderInbox();
     renderReports();
+    renderBookings();
     renderTeamPanel();
     renderTraceExplorer();
     renderTimeline();
@@ -1876,6 +1984,7 @@
   renderNotifications();
   renderFounderInbox();
   renderReports();
+  renderBookings();
   renderTeamPanel();
   renderTraceExplorer();
   renderDetail();

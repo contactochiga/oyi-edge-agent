@@ -24,6 +24,7 @@ const { MemoryRateLimiter } = require("./rate-limit");
 const { FileKnowledgeBase } = require("./knowledge-base");
 const { normalizeEmail, normalizeLeadInput, normalizeLeadPatch } = require("./normalize-lead");
 const { WhatsAppCloudAdapter } = require("./whatsapp");
+const { buildCalendarLinks, parsePreferredSchedule } = require("./scheduling");
 const {
   createRequestContext,
   getPathname,
@@ -926,23 +927,57 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
             notFound(res);
             return;
           }
+          const schedule = parsePreferredSchedule({
+            text: body.scheduled_for || "",
+            timezoneHint: body.timezone || "",
+          });
+          const calendarLinks = buildCalendarLinks({
+            title: "Ochiga Discovery Demo",
+            description: `Lead ${lead.name || ""} ${lead.company ? `(${lead.company})` : ""}`.trim(),
+            location: lead.location || "",
+            startIso: schedule.scheduled_for,
+            timezone: schedule.timezone,
+          });
           const demo = await store.createDemo({
             lead_id: demosMatch[1],
-            scheduled_for: body.scheduled_for || null,
-            status: body.status || "pending",
-            notes: body.notes || "",
+            scheduled_for: schedule.scheduled_for,
+            status: body.status || (schedule.scheduled_for ? "confirmed" : "pending"),
+            notes: JSON.stringify({
+              notes: body.notes || "",
+              timezone: schedule.timezone || body.timezone || "",
+              preferred_time_text: body.scheduled_for || "",
+              display_time: schedule.display_text || "",
+              calendar_links: calendarLinks,
+            }),
           });
           if (parseBoolean(body.update_lead_status, true)) {
             await store.updateLead(demosMatch[1], {
               status: "booked",
               owner: "sales_agent",
-              next_action: "Confirm scheduled demo",
+              next_action: schedule.scheduled_for
+                ? `Confirmed demo for ${schedule.display_text}`
+                : "Confirm scheduled demo",
             });
           }
           json(res, 201, { demo }, { "x-request-id": ctx.requestId });
           return;
         }
         methodNotAllowed(res, "GET,POST");
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/demos") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_reports");
+        json(
+          res,
+          200,
+          { demos: await store.listDemos() },
+          { "x-request-id": ctx.requestId }
+        );
         return;
       }
 

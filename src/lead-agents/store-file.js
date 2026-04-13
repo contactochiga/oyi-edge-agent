@@ -235,6 +235,15 @@ class FileLeadAgentsStore {
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   }
 
+  async listDemos() {
+    return this.state.demos
+      .map((demo) => ({
+        ...demo,
+        lead: this.state.leads.find((lead) => lead.id === demo.lead_id) || null,
+      }))
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  }
+
   async getLeadChannelState(leadId, channel) {
     return (
       this.state.lead_channel_states.find(
