@@ -1,5 +1,6 @@
 (function () {
   const ADMIN_EMAIL_STORAGE = "ochiga_lead_desk_admin_email";
+  const DETAIL_COLLAPSED_STORAGE = "ochiga_lead_desk_detail_collapsed";
 
   const state = {
     adminEmail: window.localStorage.getItem(ADMIN_EMAIL_STORAGE) || "",
@@ -28,6 +29,7 @@
     traceQuery: "",
     notificationFilter: "open",
     auditQuery: "",
+    detailCollapsed: window.localStorage.getItem(DETAIL_COLLAPSED_STORAGE) === "1",
   };
 
   const el = {
@@ -72,6 +74,7 @@
     threadTitle: document.getElementById("threadTitle"),
     threadSubtitle: document.getElementById("threadSubtitle"),
     workspaceTabs: document.getElementById("workspaceTabs"),
+    terminalMeta: document.getElementById("terminalMeta"),
     threadCanvas: document.getElementById("threadCanvas"),
     timelinePanel: document.getElementById("timelinePanel"),
     notificationsPanel: document.getElementById("notificationsPanel"),
@@ -113,6 +116,14 @@
     composerStatus: document.getElementById("composerStatus"),
     detailTitle: document.getElementById("detailTitle"),
     detailSubtitle: document.getElementById("detailSubtitle"),
+    detailColumn: document.getElementById("detailColumn"),
+    detailToggleBtn: document.getElementById("detailToggleBtn"),
+    detailToggleGlyph: document.getElementById("detailToggleGlyph"),
+    detailToggleBadge: document.getElementById("detailToggleBadge"),
+    miniTraceCount: document.getElementById("miniTraceCount"),
+    miniDemoCount: document.getElementById("miniDemoCount"),
+    miniProposalCount: document.getElementById("miniProposalCount"),
+    miniAlertCount: document.getElementById("miniAlertCount"),
     detailSummary: document.getElementById("detailSummary"),
     memoryPanel: document.getElementById("memoryPanel"),
     tracePanel: document.getElementById("tracePanel"),
@@ -383,6 +394,48 @@
     } catch {
       return content;
     }
+  }
+
+  function conversationStateMeta() {
+    if (!state.selectedLead) {
+      return "Live operator thread";
+    }
+    const parts = [
+      `${state.conversations.length} messages`,
+      `${state.demos.length} demos`,
+      `${state.proposals.length} proposals`,
+    ];
+    return parts.join(" · ");
+  }
+
+  function notificationCountForLead() {
+    if (!state.selectedLead) return 0;
+    return state.notifications.filter(function (notification) {
+      return notification.lead_id === state.selectedLead.id && (notification.status || "open") === "open";
+    }).length;
+  }
+
+  function updateDetailRailState() {
+    document.body.classList.toggle("detail-collapsed", state.detailCollapsed);
+    el.detailColumn.classList.toggle("collapsed", state.detailCollapsed);
+    el.detailToggleGlyph.textContent = state.detailCollapsed ? "←" : "→";
+
+    const traceCount = state.selectedLead
+      ? state.traces.filter(function (trace) {
+          return trace.lead_id === state.selectedLead.id;
+        }).length
+      : 0;
+    const demoCount = state.demos.length;
+    const proposalCount = state.proposals.length;
+    const alertCount = notificationCountForLead();
+    const badgeCount = traceCount + demoCount + proposalCount + alertCount;
+
+    el.miniTraceCount.textContent = String(traceCount);
+    el.miniDemoCount.textContent = String(demoCount);
+    el.miniProposalCount.textContent = String(proposalCount);
+    el.miniAlertCount.textContent = String(alertCount);
+    el.detailToggleBadge.textContent = String(badgeCount);
+    el.detailToggleBadge.classList.toggle("visible", state.detailCollapsed && badgeCount > 0);
   }
 
   function updateAuthUi() {
@@ -679,12 +732,14 @@
       el.threadTitle.textContent = "Select a lead";
       el.threadSubtitle.textContent = "Review conversations, founder escalations, and trace activity.";
       el.threadCanvas.innerHTML = '<div class="value empty">Choose a lead from the left to review the conversation.</div>';
+      el.terminalMeta.textContent = "Live operator thread";
       return;
     }
 
     el.threadTitle.textContent =
       leadTitle(state.selectedLead);
     el.threadSubtitle.textContent = leadMetaLine(state.selectedLead);
+    el.terminalMeta.textContent = conversationStateMeta();
 
     if (!state.conversations.length) {
       el.threadCanvas.innerHTML = '<div class="value empty">No conversation history yet for this lead.</div>';
@@ -710,6 +765,7 @@
         `;
       })
       .join("");
+    el.threadCanvas.scrollTop = el.threadCanvas.scrollHeight;
   }
 
   function renderFounderInbox() {
@@ -867,21 +923,29 @@
           return (lead.commercial_stage || "lead") === stage;
         });
         return `
-          <article class="detail-card" style="padding:16px;">
-            <div class="key">${escapeHtml(stage)}</div>
-            <div class="stack-12" style="margin-top:12px;">
+          <article class="board-column" data-stage-column="${escapeHtml(stage)}">
+            <div class="board-column-head">
+              <div class="key" style="margin:0;">${escapeHtml(stage)}</div>
+              <span class="board-count">${escapeHtml(String(leads.length))}</span>
+            </div>
+            <div class="stack-12" data-stage-dropzone="${escapeHtml(stage)}">
               ${
                 leads.length
                   ? leads
                       .map(function (lead) {
                         return `
-                          <div class="trace-item">
+                          <div class="board-card" draggable="true" data-commercial-card="${lead.id}" data-commercial-stage="${escapeHtml(stage)}">
                             <div class="trace-head">
                               <strong>${escapeHtml(leadTitle(lead))}</strong>
                               <span>${escapeHtml(String(lead.unit_count || "n/a"))} units</span>
                             </div>
-                            <div class="subtext">${escapeHtml(leadMetaLine(lead))}</div>
-                            <div class="toolbar" style="margin-top:10px;">
+                            <div class="board-card-meta">${escapeHtml(leadMetaLine(lead))}</div>
+                            <div class="pill-row" style="margin-top:0;">
+                              <span class="pill ${statusClass(lead.status)}">${escapeHtml(lead.status || "new")}</span>
+                              <span class="pill" style="background:rgba(10,44,34,0.08);color:#214238;">${escapeHtml(ownerLabel(lead.owner))}</span>
+                            </div>
+                            <div class="board-card-actions">
+                              <span class="subtext">${escapeHtml(displayValue(lead.next_action, "Open lead"))}</span>
                               <button class="ghost" type="button" data-commercial-open="${lead.id}">Open</button>
                             </div>
                           </div>
@@ -927,7 +991,7 @@
       <div class="stack-16">
         <article class="detail-card" style="padding:16px;">
           <div class="key">Commercial Board</div>
-          <div class="stack-12" style="margin-top:12px;">${columns}</div>
+          <div class="board-grid" style="margin-top:12px;">${columns}</div>
         </article>
         <article class="detail-card" style="padding:16px;">
           <div class="key">Proposal Actions</div>
@@ -950,6 +1014,41 @@
         const nextStatus = node.getAttribute("data-proposal-next");
         updateProposalStatus(proposalId, nextStatus).catch(function (error) {
           setDetailStatus(error.message || "Proposal update failed.", true);
+        });
+      });
+    });
+
+    let draggingLeadId = "";
+    Array.from(el.commercialPanel.querySelectorAll("[data-commercial-card]")).forEach(function (node) {
+      node.addEventListener("dragstart", function () {
+        draggingLeadId = node.getAttribute("data-commercial-card");
+        node.classList.add("dragging");
+      });
+      node.addEventListener("dragend", function () {
+        node.classList.remove("dragging");
+        Array.from(el.commercialPanel.querySelectorAll("[data-stage-column]")).forEach(function (column) {
+          column.classList.remove("drag-over");
+        });
+      });
+    });
+
+    Array.from(el.commercialPanel.querySelectorAll("[data-stage-column]")).forEach(function (node) {
+      node.addEventListener("dragover", function (event) {
+        event.preventDefault();
+        node.classList.add("drag-over");
+      });
+      node.addEventListener("dragleave", function () {
+        node.classList.remove("drag-over");
+      });
+      node.addEventListener("drop", function (event) {
+        event.preventDefault();
+        node.classList.remove("drag-over");
+        const nextStage = node.getAttribute("data-stage-column");
+        if (!draggingLeadId || !nextStage) {
+          return;
+        }
+        moveCommercialLead(draggingLeadId, nextStage).catch(function (error) {
+          setDetailStatus(error.message || "Could not move commercial stage.", true);
         });
       });
     });
@@ -1394,6 +1493,7 @@
       el.memoryPanel.className = "value empty";
       el.tracePanel.innerHTML = '<div class="value empty">No lead selected.</div>';
       renderChannelState();
+      updateDetailRailState();
       return;
     }
 
@@ -1537,6 +1637,7 @@
 
     el.proposalUnitsInput.value = state.selectedLead.unit_count || "";
     el.createProposalBtn.disabled = !hasPermission("manage_commercial");
+    updateDetailRailState();
   }
 
   async function loadLeads() {
@@ -1656,7 +1757,28 @@
     renderLeadList();
     renderFounderInbox();
     renderDetail();
+    renderCommercial();
+    renderReports();
     return data.lead;
+  }
+
+  async function moveCommercialLead(leadId, nextStage) {
+    const patch = { commercial_stage: nextStage };
+    if (nextStage === "won") {
+      patch.status = "closed";
+    }
+    if (nextStage === "lost") {
+      patch.status = "lost";
+    }
+    if (["proposal", "quote", "negotiation", "procurement"].includes(nextStage)) {
+      patch.status = "sales";
+    }
+    setDetailStatus(`Moving lead to ${nextStage}...`);
+    await updateLeadPatch(leadId, patch);
+    if (state.selectedLeadId === leadId) {
+      await selectLead(leadId, true);
+    }
+    setDetailStatus(`Commercial stage updated to ${nextStage}.`);
   }
 
   async function updateNotificationStatus(notificationId, status) {
@@ -2227,6 +2349,11 @@
   el.accountButton.addEventListener("click", function () {
     el.accountMenuWrap.classList.toggle("open");
   });
+  el.detailToggleBtn.addEventListener("click", function () {
+    state.detailCollapsed = !state.detailCollapsed;
+    window.localStorage.setItem(DETAIL_COLLAPSED_STORAGE, state.detailCollapsed ? "1" : "0");
+    updateDetailRailState();
+  });
   document.addEventListener("click", function (event) {
     if (!el.accountMenuWrap.contains(event.target)) {
       el.accountMenuWrap.classList.remove("open");
@@ -2439,6 +2566,7 @@
   renderTraceExplorer();
   renderDetail();
   renderWorkspaceTabs();
+  updateDetailRailState();
 
   restoreSession()
     .then(function (restored) {
