@@ -596,6 +596,15 @@
           <div class="toolbar">
             <button class="primary" id="loginBtn" type="button">Log in</button>
           </div>
+          <div class="card detail-card" id="tokenActionCard" style="display:none; padding:16px;">
+            <div class="key" id="tokenActionTitle">Token action</div>
+            <div class="stack-12" style="margin-top:12px;">
+              <input id="tokenDisplayName" class="text-input" type="text" placeholder="Display name (invite only)" />
+              <input id="tokenPassword" class="text-input" type="password" placeholder="Choose a password" />
+              <button class="ghost" id="tokenActionBtn" type="button">Complete action</button>
+              <div class="status-line" id="tokenActionStatus"></div>
+            </div>
+          </div>
           <div class="status-line" id="authStatus">Log in to access the lead desk.</div>
         </div>
       </div>
@@ -896,6 +905,7 @@
               <div class="stack-16">
                 <div class="card detail-card">
                   <div class="key">Audit Trail</div>
+                  <input id="auditSearchInput" class="search-input" type="search" placeholder="Search audit action, user, target..." style="margin:12px 0;" />
                   <div id="auditPanel" class="trace-list">
                     <div class="value empty">No audit events loaded yet.</div>
                   </div>
@@ -965,7 +975,9 @@
                     <option value="lead">lead</option>
                     <option value="discovery">discovery</option>
                     <option value="proposal">proposal</option>
+                    <option value="quote">quote</option>
                     <option value="negotiation">negotiation</option>
+                    <option value="procurement">procurement</option>
                     <option value="won">won</option>
                     <option value="lost">lost</option>
                   </select>

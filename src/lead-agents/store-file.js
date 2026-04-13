@@ -180,6 +180,12 @@ class FileLeadAgentsStore {
     );
   }
 
+  async findLeadByEmail(email) {
+    const normalized = normalizeEmail(email);
+    if (!normalized) return null;
+    return this.state.leads.find((lead) => normalizeEmail(lead.email) === normalized) || null;
+  }
+
   async listLeads() {
     return [...this.state.leads].sort((a, b) =>
       String(b.updated_at).localeCompare(String(a.updated_at))
@@ -306,6 +312,22 @@ class FileLeadAgentsStore {
         lead: this.state.leads.find((lead) => lead.id === proposal.lead_id) || null,
       }))
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  }
+
+  async getProposal(proposalId) {
+    return this.state.proposals.find((item) => item.id === proposalId) || null;
+  }
+
+  async updateProposal(proposalId, patch) {
+    const index = this.state.proposals.findIndex((item) => item.id === proposalId);
+    if (index === -1) return null;
+    this.state.proposals[index] = {
+      ...this.state.proposals[index],
+      ...patch,
+      updated_at: this.nowIso(),
+    };
+    await this.persist();
+    return this.state.proposals[index];
   }
 
   async getLeadChannelState(leadId, channel) {

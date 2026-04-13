@@ -306,6 +306,35 @@ class LeadAgentRuntime {
       return existing;
     }
 
+    const profileEmail = request.profile?.email || "";
+    const profilePhone = request.profile?.phone || "";
+    if (profileEmail && this.store.findLeadByEmail) {
+      const existingByEmail = await this.store.findLeadByEmail(profileEmail);
+      if (existingByEmail) {
+        return this.store.updateLead(existingByEmail.id, {
+          name: request.profile?.name || undefined,
+          company: request.profile?.company || undefined,
+          role: request.profile?.role || undefined,
+          phone: profilePhone || undefined,
+          location: request.profile?.location || undefined,
+          source: request.source || existingByEmail.source || this.config.defaultLeadSource,
+        });
+      }
+    }
+    if (profilePhone && this.store.findLeadByPhone) {
+      const existingByPhone = await this.store.findLeadByPhone(profilePhone);
+      if (existingByPhone) {
+        return this.store.updateLead(existingByPhone.id, {
+          name: request.profile?.name || undefined,
+          company: request.profile?.company || undefined,
+          role: request.profile?.role || undefined,
+          email: profileEmail || undefined,
+          location: request.profile?.location || undefined,
+          source: request.source || existingByPhone.source || this.config.defaultLeadSource,
+        });
+      }
+    }
+
     return this.store.createLead({
       source: request.source || this.config.defaultLeadSource,
       name: request.profile?.name || "",

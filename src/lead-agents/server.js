@@ -74,7 +74,8 @@ function absoluteUrl(req, pathname, token) {
   const proto = req.headers["x-forwarded-proto"] || "https";
   const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
   const base = `${proto}://${host}${pathname}`;
-  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+  if (!token) return base;
+  return `${base}${base.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
 }
 
 async function appendAudit(store, authContext, action, targetType, targetId, metadata) {
@@ -148,10 +149,21 @@ async function ensurePublicFallbackLead(store, body) {
       : null;
   const patch = extractPublicLeadPatch(body.message);
 
-  if (existing) {
-    return store.updateLead(existing.id, {
+  const existingByEmail =
+    !existing && body.profile?.email && store.findLeadByEmail
+      ? await store.findLeadByEmail(body.profile.email)
+      : null;
+  const existingByPhone =
+    !existing && !existingByEmail && body.profile?.phone && store.findLeadByPhone
+      ? await store.findLeadByPhone(body.profile.phone)
+      : null;
+  const matchedLead = existing || existingByEmail || existingByPhone;
+
+  if (matchedLead) {
+    return store.updateLead(matchedLead.id, {
+      ...body.profile,
       ...patch,
-      source: body.source || existing.source || "website_chat",
+      source: body.source || matchedLead.source || "website_chat",
     });
   }
 
@@ -1221,6 +1233,60 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
         return;
       }
 
+      const proposalAdminMatch = pathname.match(/^\/api\/lead-agents\/admin\/proposals\/([^/]+)$/);
+      if (proposalAdminMatch) {
+        if (req.method !== "PATCH") {
+          methodNotAllowed(res, "PATCH");
+          return;
+        }
+        authorizePermission(authContext, "manage_commercial");
+        const proposal = await store.getProposal(proposalAdminMatch[1]);
+        if (!proposal) {
+          notFound(res);
+          return;
+        }
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        const updatedProposal = await store.updateProposal(proposal.id, {
+          status: body.status || proposal.status,
+          body: body.body || proposal.body,
+          metadata: body.metadata || proposal.metadata,
+        });
+        const proposalStatus = String(updatedProposal.status || "").toLowerCase();
+        const leadPatch = {
+          commercial_stage:
+            proposalStatus === "accepted"
+              ? "won"
+              : proposalStatus === "declined"
+              ? "lost"
+              : proposalStatus === "sent"
+              ? "proposal"
+              : "proposal",
+          status: proposalStatus === "accepted" ? "closed" : proposalStatus === "declined" ? "lost" : undefined,
+          lost_reason: proposalStatus === "declined" ? "proposal_declined" : undefined,
+          next_action:
+            proposalStatus === "accepted"
+              ? "Prepare deployment plan"
+              : proposalStatus === "declined"
+              ? "Record loss and nurture if needed"
+              : proposalStatus === "sent"
+              ? "Await proposal feedback"
+              : "Review proposal",
+        };
+        const updatedLead = await store.updateLead(proposal.lead_id, leadPatch);
+        await appendAudit(store, authContext, "proposal_updated", "proposal", proposal.id, {
+          status: updatedProposal.status,
+          lead_id: proposal.lead_id,
+        });
+        json(
+          res,
+          200,
+          { proposal: updatedProposal, lead: updatedLead },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
       if (pathname === "/api/lead-agents/admin/notify-founder") {
         if (req.method !== "POST") {
           methodNotAllowed(res, "POST");
@@ -1424,7 +1490,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           {
             invite,
             invite_token: rawToken,
-            invite_url: absoluteUrl(req, "/dashboard", rawToken),
+            invite_url: absoluteUrl(req, "/dashboard?mode=invite", rawToken),
           },
           { "x-request-id": ctx.requestId }
         );
@@ -1489,7 +1555,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           {
             reset,
             reset_token: rawToken,
-            reset_url: absoluteUrl(req, "/dashboard", rawToken),
+            reset_url: absoluteUrl(req, "/dashboard?mode=reset", rawToken),
           },
           { "x-request-id": ctx.requestId }
         );

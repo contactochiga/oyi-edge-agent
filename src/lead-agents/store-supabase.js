@@ -128,6 +128,15 @@ class SupabaseLeadAgentsStore {
     return this.normalizeLead(response.data[0] || null);
   }
 
+  async findLeadByEmail(email) {
+    const normalized = normalizeEmail(email);
+    if (!normalized) return null;
+    const response = await this.client.get(
+      `/leads?email=eq.${encodeURIComponent(normalized)}&limit=1`
+    );
+    return this.normalizeLead(response.data[0] || null);
+  }
+
   async listLeads() {
     const response = await this.client.get("/leads?order=updated_at.desc");
     return response.data.map((row) => this.normalizeLead(row));
@@ -257,6 +266,18 @@ class SupabaseLeadAgentsStore {
       ...proposal,
       lead: leads.find((lead) => lead.id === proposal.lead_id) || null,
     }));
+  }
+
+  async getProposal(proposalId) {
+    const response = await this.client.get(`/proposals?id=eq.${proposalId}&limit=1`);
+    return response.data[0] || null;
+  }
+
+  async updateProposal(proposalId, patch) {
+    const response = await this.client.patch(`/proposals?id=eq.${proposalId}`, patch, {
+      headers: this.selectHeaders(),
+    });
+    return response.data[0] || null;
   }
 
   async getLeadChannelState(leadId, channel) {

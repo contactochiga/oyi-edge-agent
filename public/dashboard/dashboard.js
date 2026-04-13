@@ -27,6 +27,7 @@
     channelState: null,
     traceQuery: "",
     notificationFilter: "open",
+    auditQuery: "",
   };
 
   const el = {
@@ -34,6 +35,12 @@
     adminPassword: document.getElementById("adminPassword"),
     loginBtn: document.getElementById("loginBtn"),
     authStatus: document.getElementById("authStatus"),
+    tokenActionCard: document.getElementById("tokenActionCard"),
+    tokenActionTitle: document.getElementById("tokenActionTitle"),
+    tokenDisplayName: document.getElementById("tokenDisplayName"),
+    tokenPassword: document.getElementById("tokenPassword"),
+    tokenActionBtn: document.getElementById("tokenActionBtn"),
+    tokenActionStatus: document.getElementById("tokenActionStatus"),
     refreshBtn: document.getElementById("refreshBtn"),
     logoutBtn: document.getElementById("logoutBtn"),
     accountMenuWrap: document.getElementById("accountMenuWrap"),
@@ -95,6 +102,7 @@
     changePasswordBtn: document.getElementById("changePasswordBtn"),
     passwordStatus: document.getElementById("passwordStatus"),
     auditPanel: document.getElementById("auditPanel"),
+    auditSearchInput: document.getElementById("auditSearchInput"),
     traceExplorer: document.getElementById("traceExplorer"),
     traceSearchInput: document.getElementById("traceSearchInput"),
     openFounderQueueBtn: document.getElementById("openFounderQueueBtn"),
@@ -174,6 +182,11 @@
   function setInviteStatus(text, isError) {
     el.inviteStatus.textContent = text;
     el.inviteStatus.style.color = isError ? "#8d1f1f" : "#667c73";
+  }
+
+  function setTokenActionStatus(text, isError) {
+    el.tokenActionStatus.textContent = text;
+    el.tokenActionStatus.style.color = isError ? "#8d1f1f" : "#667c73";
   }
 
   async function api(path, options) {
@@ -845,26 +858,101 @@
     }
 
     if (!state.allProposals.length) {
-      el.commercialPanel.innerHTML =
-        '<div class="value empty">No proposals created yet.</div>';
-      return;
+      // Continue to render stage board from lead data even when no proposals exist.
     }
-
-    el.commercialPanel.innerHTML = state.allProposals
-      .map(function (proposal) {
-        const lead = proposal.lead || {};
+    const stages = ["lead", "discovery", "proposal", "quote", "negotiation", "procurement", "won", "lost"];
+    const columns = stages
+      .map(function (stage) {
+        const leads = state.leads.filter(function (lead) {
+          return (lead.commercial_stage || "lead") === stage;
+        });
         return `
-          <article class="trace-item">
-            <div class="trace-head">
-              <strong>${escapeHtml(proposal.title || proposal.tier_name || "Proposal")}</strong>
-              <span>${escapeHtml(proposal.status || "draft")}</span>
+          <article class="detail-card" style="padding:16px;">
+            <div class="key">${escapeHtml(stage)}</div>
+            <div class="stack-12" style="margin-top:12px;">
+              ${
+                leads.length
+                  ? leads
+                      .map(function (lead) {
+                        return `
+                          <div class="trace-item">
+                            <div class="trace-head">
+                              <strong>${escapeHtml(leadTitle(lead))}</strong>
+                              <span>${escapeHtml(String(lead.unit_count || "n/a"))} units</span>
+                            </div>
+                            <div class="subtext">${escapeHtml(leadMetaLine(lead))}</div>
+                            <div class="toolbar" style="margin-top:10px;">
+                              <button class="ghost" type="button" data-commercial-open="${lead.id}">Open</button>
+                            </div>
+                          </div>
+                        `;
+                      })
+                      .join("")
+                  : '<div class="value empty">No leads in this stage.</div>'
+              }
             </div>
-            <div class="subtext">${escapeHtml(leadTitle(lead))} · ${escapeHtml(leadMetaLine(lead))}</div>
-            <div class="value" style="margin-top:8px;">${escapeHtml(proposal.tier_name || "Tier not set")}</div>
           </article>
         `;
       })
       .join("");
+
+    const proposals = state.allProposals.length
+      ? state.allProposals
+          .map(function (proposal) {
+            const lead = proposal.lead || {};
+            return `
+              <article class="trace-item">
+                <div class="trace-head">
+                  <strong>${escapeHtml(proposal.title || proposal.tier_name || "Proposal")}</strong>
+                  <span>${escapeHtml(proposal.status || "draft")}</span>
+                </div>
+                <div class="subtext">${escapeHtml(leadTitle(lead))} · ${escapeHtml(leadMetaLine(lead))}</div>
+                <div class="value" style="margin-top:8px;">${escapeHtml(proposal.tier_name || "Tier not set")}</div>
+                ${
+                  hasPermission("manage_commercial")
+                    ? `<div class="toolbar" style="margin-top:10px;">
+                        <button class="outline" type="button" data-proposal-status="${proposal.id}" data-proposal-next="sent">Mark sent</button>
+                        <button class="outline" type="button" data-proposal-status="${proposal.id}" data-proposal-next="accepted">Accept</button>
+                        <button class="outline" type="button" data-proposal-status="${proposal.id}" data-proposal-next="declined">Decline</button>
+                      </div>`
+                    : ""
+                }
+              </article>
+            `;
+          })
+          .join("")
+      : '<div class="value empty">No proposals created yet.</div>';
+
+    el.commercialPanel.innerHTML = `
+      <div class="stack-16">
+        <article class="detail-card" style="padding:16px;">
+          <div class="key">Commercial Board</div>
+          <div class="stack-12" style="margin-top:12px;">${columns}</div>
+        </article>
+        <article class="detail-card" style="padding:16px;">
+          <div class="key">Proposal Actions</div>
+          <div class="stack-12" style="margin-top:12px;">${proposals}</div>
+        </article>
+      </div>
+    `;
+
+    Array.from(el.commercialPanel.querySelectorAll("[data-commercial-open]")).forEach(function (node) {
+      node.addEventListener("click", function () {
+        state.workspaceTab = "conversation";
+        renderWorkspaceTabs();
+        selectLead(node.getAttribute("data-commercial-open"));
+      });
+    });
+
+    Array.from(el.commercialPanel.querySelectorAll("[data-proposal-status]")).forEach(function (node) {
+      node.addEventListener("click", function () {
+        const proposalId = node.getAttribute("data-proposal-status");
+        const nextStatus = node.getAttribute("data-proposal-next");
+        updateProposalStatus(proposalId, nextStatus).catch(function (error) {
+          setDetailStatus(error.message || "Proposal update failed.", true);
+        });
+      });
+    });
   }
 
   function renderAudit() {
@@ -874,13 +962,19 @@
       return;
     }
 
-    if (!state.audit.length) {
+    const query = state.auditQuery.trim().toLowerCase();
+    const items = state.audit.filter(function (event) {
+      if (!query) return true;
+      return JSON.stringify(event).toLowerCase().includes(query);
+    });
+
+    if (!items.length) {
       el.auditPanel.innerHTML =
-        '<div class="value empty">No audit events recorded yet.</div>';
+        '<div class="value empty">No audit events match this filter.</div>';
       return;
     }
 
-    el.auditPanel.innerHTML = state.audit
+    el.auditPanel.innerHTML = items
       .map(function (event) {
         return `
           <article class="trace-item">
@@ -898,6 +992,26 @@
         `;
       })
       .join("");
+  }
+
+  function tokenMode() {
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("mode");
+    const token = params.get("token");
+    return token ? { mode, token } : null;
+  }
+
+  function renderTokenActionCard() {
+    const tokenState = tokenMode();
+    if (!tokenState) {
+      el.tokenActionCard.style.display = "none";
+      return;
+    }
+    el.tokenActionCard.style.display = "block";
+    const inviteMode = tokenState.mode === "invite";
+    el.tokenActionTitle.textContent = inviteMode ? "Accept admin invite" : "Confirm password reset";
+    el.tokenDisplayName.style.display = inviteMode ? "block" : "none";
+    el.tokenPassword.placeholder = inviteMode ? "Choose your password" : "Enter new password";
   }
 
   function notificationMatchesFilter(notification) {
@@ -1668,6 +1782,44 @@
     setTeamStatus(`Reset token: ${result.reset_token}`);
   }
 
+  async function completeTokenAction() {
+    const tokenState = tokenMode();
+    if (!tokenState) {
+      setTokenActionStatus("No token action found in this URL.", true);
+      return;
+    }
+    const password = el.tokenPassword.value;
+    if (!password) {
+      setTokenActionStatus("Password is required.", true);
+      return;
+    }
+    setTokenActionStatus("Submitting...");
+    if (tokenState.mode === "invite") {
+      await api("/api/lead-agents/admin/session/invite/accept", {
+        method: "POST",
+        body: JSON.stringify({
+          token: tokenState.token,
+          password,
+          display_name: el.tokenDisplayName.value.trim() || undefined,
+        }),
+      });
+      el.tokenPassword.value = "";
+      setTokenActionStatus("Invite accepted. You are now signed in.");
+      await restoreSession();
+      await loadLeads();
+      return;
+    }
+    await api("/api/lead-agents/admin/session/reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({
+        token: tokenState.token,
+        new_password: password,
+      }),
+    });
+    el.tokenPassword.value = "";
+    setTokenActionStatus("Password reset completed. You can now log in.");
+  }
+
   async function changeOwnPassword() {
     const currentPassword = el.currentPasswordInput.value;
     const newPassword = el.newPasswordInput.value;
@@ -1863,6 +2015,22 @@
       await selectLead(state.selectedLeadId, true);
     }
     setDetailStatus("Proposal created.");
+  }
+
+  async function updateProposalStatus(proposalId, status) {
+    if (!hasPermission("manage_commercial")) {
+      throw new Error("Your role cannot update proposals.");
+    }
+    setDetailStatus("Updating proposal...");
+    await api(`/api/lead-agents/admin/proposals/${proposalId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    await loadLeads();
+    if (state.selectedLeadId) {
+      await selectLead(state.selectedLeadId, true);
+    }
+    setDetailStatus(`Proposal marked ${status}.`);
   }
 
   async function createDemo() {
@@ -2139,6 +2307,15 @@
       setPasswordStatus(error.message || "Could not change password.", true);
     });
   });
+  el.tokenActionBtn.addEventListener("click", function () {
+    completeTokenAction().catch(function (error) {
+      setTokenActionStatus(error.message || "Token action failed.", true);
+    });
+  });
+  el.auditSearchInput.addEventListener("input", function () {
+    state.auditQuery = el.auditSearchInput.value;
+    renderAudit();
+  });
   el.pauseAiBtn.addEventListener("click", function () {
     updateChannelState(
       {
@@ -2249,6 +2426,7 @@
   });
 
   updateAuthUi();
+  renderTokenActionCard();
   renderLeadList();
   renderConversation();
   renderNotifications();
