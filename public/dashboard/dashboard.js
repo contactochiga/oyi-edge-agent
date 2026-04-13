@@ -913,10 +913,20 @@
       return;
     }
 
-    if (!state.allProposals.length) {
-      // Continue to render stage board from lead data even when no proposals exist.
-    }
     const stages = ["lead", "discovery", "proposal", "quote", "negotiation", "procurement", "won", "lost"];
+    const salesOwned = state.leads.filter(function (lead) {
+      return lead.owner === "sales_agent";
+    }).length;
+    const proposalActive = state.allProposals.filter(function (proposal) {
+      return ["draft", "sent"].includes(String(proposal.status || "").toLowerCase());
+    }).length;
+    const wonCount = state.leads.filter(function (lead) {
+      return (lead.commercial_stage || "") === "won";
+    }).length;
+    const lostCount = state.leads.filter(function (lead) {
+      return (lead.commercial_stage || "") === "lost";
+    }).length;
+
     const columns = stages
       .map(function (stage) {
         const leads = state.leads.filter(function (lead) {
@@ -928,24 +938,27 @@
               <div class="key" style="margin:0;">${escapeHtml(stage)}</div>
               <span class="board-count">${escapeHtml(String(leads.length))}</span>
             </div>
-            <div class="stack-12" data-stage-dropzone="${escapeHtml(stage)}">
+            <div class="board-lane" data-stage-dropzone="${escapeHtml(stage)}">
               ${
                 leads.length
                   ? leads
                       .map(function (lead) {
                         return `
                           <div class="board-card" draggable="true" data-commercial-card="${lead.id}" data-commercial-stage="${escapeHtml(stage)}">
-                            <div class="trace-head">
+                            <div class="board-card-head">
                               <strong>${escapeHtml(leadTitle(lead))}</strong>
-                              <span>${escapeHtml(String(lead.unit_count || "n/a"))} units</span>
+                              <span class="board-card-units">${escapeHtml(String(lead.unit_count || "n/a"))} units</span>
                             </div>
                             <div class="board-card-meta">${escapeHtml(leadMetaLine(lead))}</div>
                             <div class="pill-row" style="margin-top:0;">
                               <span class="pill ${statusClass(lead.status)}">${escapeHtml(lead.status || "new")}</span>
                               <span class="pill" style="background:rgba(10,44,34,0.08);color:#214238;">${escapeHtml(ownerLabel(lead.owner))}</span>
                             </div>
+                            <div class="board-card-snippet">${escapeHtml(
+                              displayValue(lead.next_action || lead.summary, "Open lead to review commercial next step")
+                            )}</div>
                             <div class="board-card-actions">
-                              <span class="subtext">${escapeHtml(displayValue(lead.next_action, "Open lead"))}</span>
+                              <span class="subtext">${escapeHtml(displayValue(lead.project_type, "Project type pending"))}</span>
                               <button class="ghost" type="button" data-commercial-open="${lead.id}">Open</button>
                             </div>
                           </div>
@@ -965,7 +978,7 @@
           .map(function (proposal) {
             const lead = proposal.lead || {};
             return `
-              <article class="trace-item">
+              <article class="proposal-card">
                 <div class="trace-head">
                   <strong>${escapeHtml(proposal.title || proposal.tier_name || "Proposal")}</strong>
                   <span>${escapeHtml(proposal.status || "draft")}</span>
@@ -988,14 +1001,44 @@
       : '<div class="value empty">No proposals created yet.</div>';
 
     el.commercialPanel.innerHTML = `
-      <div class="stack-16">
+      <div class="board-shell">
+        <div class="board-summary">
+          <div class="board-summary-card">
+            <div class="key" style="margin:0;">Sales-owned</div>
+            <strong>${escapeHtml(String(salesOwned))}</strong>
+          </div>
+          <div class="board-summary-card">
+            <div class="key" style="margin:0;">Active proposals</div>
+            <strong>${escapeHtml(String(proposalActive))}</strong>
+          </div>
+          <div class="board-summary-card">
+            <div class="key" style="margin:0;">Won</div>
+            <strong>${escapeHtml(String(wonCount))}</strong>
+          </div>
+          <div class="board-summary-card">
+            <div class="key" style="margin:0;">Lost</div>
+            <strong>${escapeHtml(String(lostCount))}</strong>
+          </div>
+        </div>
         <article class="detail-card" style="padding:16px;">
-          <div class="key">Commercial Board</div>
-          <div class="board-grid" style="margin-top:12px;">${columns}</div>
+          <div class="trace-head">
+            <div>
+              <div class="key" style="margin:0;">Commercial Board</div>
+              <div class="subtext" style="margin-top:6px;">Drag leads across stages to move the deal forward.</div>
+            </div>
+          </div>
+          <div class="board-scroll" style="margin-top:12px;">
+            <div class="board-grid">${columns}</div>
+          </div>
         </article>
         <article class="detail-card" style="padding:16px;">
-          <div class="key">Proposal Actions</div>
-          <div class="stack-12" style="margin-top:12px;">${proposals}</div>
+          <div class="trace-head">
+            <div>
+              <div class="key" style="margin:0;">Proposal Actions</div>
+              <div class="subtext" style="margin-top:6px;">Review generated proposals and move them through send, accept, or decline.</div>
+            </div>
+          </div>
+          <div class="proposal-rail" style="margin-top:12px;">${proposals}</div>
         </article>
       </div>
     `;
