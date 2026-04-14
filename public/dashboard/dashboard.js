@@ -32,6 +32,7 @@
     auditQuery: "",
     leftCollapsed: window.localStorage.getItem(LEFT_COLLAPSED_STORAGE) === "1",
     detailCollapsed: window.localStorage.getItem(DETAIL_COLLAPSED_STORAGE) === "1",
+    centerMode: "browser",
   };
 
   const el = {
@@ -92,6 +93,7 @@
     workspaceTabs: document.getElementById("workspaceTabs"),
     terminalMeta: document.getElementById("terminalMeta"),
     threadCanvas: document.getElementById("threadCanvas"),
+    composerCard: document.getElementById("composerCard"),
     timelinePanel: document.getElementById("timelinePanel"),
     notificationsPanel: document.getElementById("notificationsPanel"),
     notificationFilters: document.getElementById("notificationFilters"),
@@ -374,6 +376,13 @@
     return parts.join(" · ") || "Company, role, or location not captured yet";
   }
 
+  function queueTitle() {
+    if (state.activeQueue === "oma") return "Oma Queue";
+    if (state.activeQueue === "osa") return "Osa Queue";
+    if (state.activeQueue === "escalated") return "Founder Queue";
+    return "All Leads";
+  }
+
   function toolSummary(content) {
     try {
       const parsed = JSON.parse(content);
@@ -470,8 +479,9 @@
 
   function updateDetailRailState() {
     const autoCollapsed =
-      window.innerWidth > 1320 &&
-      ["commercial", "reports", "bookings", "audit", "traces"].includes(state.workspaceTab);
+      !state.selectedLead ||
+      (window.innerWidth > 1320 &&
+        ["commercial", "reports", "bookings", "audit", "traces"].includes(state.workspaceTab));
     const isCollapsed = state.detailCollapsed || autoCollapsed;
 
     document.body.classList.toggle("detail-collapsed", isCollapsed);
@@ -790,14 +800,13 @@
   }
 
   function renderConversation() {
-    if (!state.selectedLead) {
-      el.threadTitle.textContent = "Select a lead";
-      el.threadSubtitle.textContent = "Review conversations, founder escalations, and trace activity.";
-      el.threadCanvas.innerHTML = '<div class="value empty">Choose a lead from the left to review the conversation.</div>';
-      el.terminalMeta.textContent = "Live operator thread";
+    if (state.centerMode === "browser" || !state.selectedLead) {
+      renderLeadBrowser();
       return;
     }
 
+    el.threadCanvas.classList.remove("browser-mode");
+    el.composerCard.classList.remove("hidden");
     el.threadTitle.textContent =
       leadTitle(state.selectedLead);
     el.threadSubtitle.textContent = leadMetaLine(state.selectedLead);
@@ -1155,6 +1164,56 @@
         moveCommercialLead(draggingLeadId, nextStage).catch(function (error) {
           setDetailStatus(error.message || "Could not move commercial stage.", true);
         });
+      });
+    });
+  }
+
+  function renderLeadBrowser() {
+    filterLeads();
+    el.threadTitle.textContent = queueTitle();
+    el.threadSubtitle.textContent = `${state.filteredLeads.length} lead${state.filteredLeads.length === 1 ? "" : "s"} in this view`;
+    el.terminalMeta.textContent = "Open a lead to inspect the thread and next actions";
+    el.threadCanvas.classList.add("browser-mode");
+    el.composerCard.classList.add("hidden");
+
+    if (!state.filteredLeads.length) {
+      el.threadCanvas.innerHTML = '<div class="value empty">No leads match this view yet.</div>';
+      return;
+    }
+
+    el.threadCanvas.innerHTML = state.filteredLeads
+      .map(function (lead) {
+        return `
+          <article class="lead-card browser-lead-card">
+            <div>
+              <div class="lead-title">${escapeHtml(leadTitle(lead))}</div>
+              <div class="subtext" style="margin-top: 6px;">${escapeHtml(leadMetaLine(lead))}</div>
+            </div>
+            <div class="pill-row" style="margin-top:0;">
+              <span class="pill ${statusClass(lead.status)}">${escapeHtml(lead.status || "new")}</span>
+              <span class="pill" style="background:rgba(10,44,34,0.08);color:#214238;">${escapeHtml(ownerLabel(lead.owner))}</span>
+              ${
+                lead.commercial_stage
+                  ? `<span class="pill" style="background:rgba(38, 120, 92, 0.12);color:#1b5a45;">${escapeHtml(
+                      lead.commercial_stage
+                    )}</span>`
+                  : ""
+              }
+              <span class="pill" style="background:rgba(239,198,111,0.14);color:#6d5113;">score ${escapeHtml(String(lead.score || 0))}</span>
+            </div>
+            <div class="subtext">${escapeHtml(displayValue(lead.next_action || lead.summary, "Open lead to review next step"))}</div>
+            <div class="lead-quick-row">
+              <span class="subtext">${escapeHtml(displayValue(lead.project_type, "Project type pending"))}</span>
+              <button class="ghost" type="button" data-browser-open="${lead.id}">Open thread</button>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+
+    Array.from(el.threadCanvas.querySelectorAll("[data-browser-open]")).forEach(function (node) {
+      node.addEventListener("click", function () {
+        selectLead(node.getAttribute("data-browser-open"));
       });
     });
   }
@@ -1804,10 +1863,6 @@
       state.memory = null;
     }
 
-    if (!state.selectedLeadId && state.leads.length) {
-      state.selectedLeadId = state.leads[0].id;
-    }
-
     renderLeadList();
     renderReports();
     renderNotifications();
@@ -1822,12 +1877,14 @@
     if (state.selectedLeadId) {
       await selectLead(state.selectedLeadId, true);
     } else {
+      state.centerMode = "browser";
       renderConversation();
       renderDetail();
     }
   }
 
   async function selectLead(leadId, skipRender) {
+    state.centerMode = "thread";
     state.selectedLeadId = leadId;
     state.selectedLead =
       state.leads.find(function (lead) {
@@ -2484,7 +2541,12 @@
   Array.from(document.querySelectorAll("[data-queue-mini]")).forEach(function (node) {
     node.addEventListener("click", function () {
       state.activeQueue = node.getAttribute("data-queue-mini");
+      state.centerMode = "browser";
+      state.selectedLeadId = "";
+      state.selectedLead = null;
       renderLeadList();
+      renderConversation();
+      renderDetail();
     });
   });
   window.addEventListener("resize", updateDetailRailState);
@@ -2496,11 +2558,21 @@
     state.workspaceTab = "founder";
     renderWorkspaceTabs();
   });
-  el.searchInput.addEventListener("input", renderLeadList);
+  el.searchInput.addEventListener("input", function () {
+    state.centerMode = "browser";
+    renderLeadList();
+    renderConversation();
+    renderDetail();
+  });
   Array.from(el.queueGrid.querySelectorAll("[data-queue]")).forEach(function (node) {
     node.addEventListener("click", function () {
       state.activeQueue = node.getAttribute("data-queue");
+      state.centerMode = "browser";
+      state.selectedLeadId = "";
+      state.selectedLead = null;
       renderLeadList();
+      renderConversation();
+      renderDetail();
     });
   });
   Array.from(el.filterRow.querySelectorAll("[data-filter]")).forEach(function (node) {
