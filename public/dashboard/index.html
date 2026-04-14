@@ -101,6 +101,49 @@
       }
       .account {
         position: relative;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .header-icon-btn {
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: var(--shadow);
+        display: grid;
+        place-items: center;
+        position: relative;
+        color: var(--green);
+        font-size: 18px;
+      }
+      .header-icon-btn.active {
+        background: linear-gradient(145deg, var(--green), var(--green-deep));
+        color: #fff;
+      }
+      .header-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #d44343;
+        color: #fff;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 0 5px;
+      }
+      .header-badge.visible {
+        display: inline-flex;
       }
       .avatar-btn {
         display: inline-flex;
@@ -191,8 +234,14 @@
         min-height: calc(100vh - 80px);
         transition: grid-template-columns 180ms ease;
       }
+      body.left-collapsed .shell {
+        grid-template-columns: 86px minmax(420px, 1fr) 380px;
+      }
       body.detail-collapsed .shell {
         grid-template-columns: 332px minmax(420px, 1fr) 72px;
+      }
+      body.left-collapsed.detail-collapsed .shell {
+        grid-template-columns: 86px minmax(420px, 1fr) 72px;
       }
       .column {
         min-width: 0;
@@ -210,6 +259,61 @@
       }
       .section {
         padding: 22px;
+      }
+      .left-column {
+        position: relative;
+      }
+      .left-rail-toggle {
+        position: sticky;
+        top: 16px;
+        z-index: 5;
+        margin: 12px 12px 0 auto;
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        background: rgba(13, 92, 70, 0.1);
+        color: var(--green);
+        display: grid;
+        place-items: center;
+      }
+      .left-content {
+        height: 100%;
+      }
+      .left-mini-rail {
+        display: none;
+        height: 100%;
+        padding: 16px 10px;
+        gap: 10px;
+        align-content: start;
+        overflow-y: auto;
+      }
+      body.left-collapsed .left-content {
+        display: none;
+      }
+      body.left-collapsed .left-mini-rail {
+        display: grid;
+      }
+      .mini-lead-card {
+        min-height: 74px;
+        border-radius: 18px;
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        box-shadow: var(--shadow);
+        padding: 10px 8px;
+        display: grid;
+        place-items: center;
+        gap: 4px;
+        text-align: center;
+      }
+      .mini-lead-card strong {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--green);
+      }
+      .mini-lead-card span {
+        font-size: 18px;
+        font-weight: 800;
       }
       .card,
       .lead-card,
@@ -301,6 +405,16 @@
       .textarea-input {
         min-height: 112px;
         resize: vertical;
+      }
+      .composer-textarea {
+        min-height: 54px;
+        max-height: 54px;
+        resize: none;
+        transition: max-height 160ms ease, min-height 160ms ease, box-shadow 160ms ease;
+      }
+      .composer-textarea:focus {
+        min-height: 138px;
+        max-height: 220px;
       }
       .search-input:focus,
       .text-input:focus,
@@ -435,8 +549,8 @@
       .conversation-shell {
         height: 100%;
         display: grid;
-        grid-template-rows: minmax(0, 1fr) auto;
-        gap: 14px;
+        grid-template-rows: minmax(420px, 1fr) auto;
+        gap: 10px;
       }
       .terminal-card {
         padding: 0;
@@ -493,15 +607,55 @@
           linear-gradient(180deg, rgba(8, 24, 18, 0.24), rgba(8, 24, 18, 0));
       }
       .composer-card {
-        padding: 16px;
+        padding: 12px 14px;
+        position: sticky;
+        bottom: 0;
+        z-index: 3;
       }
       .composer-shell {
         display: grid;
-        gap: 12px;
+        gap: 10px;
+      }
+      .composer-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .agent-switch {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .agent-pill {
+        border-radius: 999px;
+        padding: 9px 12px;
+        background: rgba(13, 92, 70, 0.08);
+        color: var(--green);
+        font-weight: 800;
+        font-size: 12px;
+      }
+      .agent-pill.active {
+        background: linear-gradient(145deg, var(--green), var(--green-deep));
+        color: #fff;
+      }
+      .icon-pill {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        background: rgba(13, 92, 70, 0.08);
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        font-size: 16px;
+      }
+      .composer-field {
+        display: grid;
+        gap: 10px;
       }
       .message {
         padding: 14px 16px;
-        max-width: 78%;
+        max-width: 92%;
         white-space: pre-wrap;
         line-height: 1.6;
         border-radius: 18px;
@@ -880,8 +1034,14 @@
         .shell {
           grid-template-columns: 330px 1fr 360px;
         }
+        body.left-collapsed .shell {
+          grid-template-columns: 78px 1fr 360px;
+        }
         body.detail-collapsed .shell {
           grid-template-columns: 320px 1fr 68px;
+        }
+        body.left-collapsed.detail-collapsed .shell {
+          grid-template-columns: 78px 1fr 68px;
         }
         .board-summary {
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -907,6 +1067,12 @@
           display: block;
         }
         .detail-column.collapsed .detail-mini-rail {
+          display: none;
+        }
+        body.left-collapsed .left-content {
+          display: block;
+        }
+        body.left-collapsed .left-mini-rail {
           display: none;
         }
         .board-summary {
@@ -955,6 +1121,16 @@
           </div>
         </div>
         <div class="account" id="accountMenuWrap">
+          <div class="header-actions">
+            <button class="header-icon-btn" id="messageInboxBtn" type="button" title="Open inbox">
+              <span aria-hidden="true">✉</span>
+              <span class="header-badge" id="messageInboxBadge">0</span>
+            </button>
+            <button class="header-icon-btn" id="notificationBtn" type="button" title="Open notifications">
+              <span aria-hidden="true">🔔</span>
+              <span class="header-badge" id="notificationBadge">0</span>
+            </button>
+          </div>
           <button class="avatar-btn" id="accountButton" type="button">
             <span class="avatar" id="accountAvatar">OA</span>
             <span class="account-meta">
@@ -976,8 +1152,11 @@
       </header>
 
       <div class="shell">
-        <aside class="column">
-          <div class="panel-scroll">
+        <aside class="column left-column" id="leftColumn">
+          <button class="left-rail-toggle" id="leftToggleBtn" type="button" aria-label="Toggle lead rail" title="Toggle lead rail">
+            <span id="leftToggleGlyph">←</span>
+          </button>
+          <div class="panel-scroll left-content">
             <div class="section">
               <div class="queue-grid" id="queueGrid">
                 <button class="card queue-card active" data-queue="all" type="button">
@@ -1075,6 +1254,36 @@
             </div>
             <div class="list" id="leadList"></div>
           </div>
+          <div class="left-mini-rail" id="leftMiniRail">
+            <button class="mini-lead-card" data-queue-mini="all" type="button">
+              <strong>All</strong>
+              <span id="miniAllCount">0</span>
+            </button>
+            <button class="mini-lead-card" data-queue-mini="oma" type="button">
+              <strong>Oma</strong>
+              <span id="miniOmaCount">0</span>
+            </button>
+            <button class="mini-lead-card" data-queue-mini="osa" type="button">
+              <strong>Osa</strong>
+              <span id="miniOsaCount">0</span>
+            </button>
+            <button class="mini-lead-card" data-queue-mini="escalated" type="button">
+              <strong>Human</strong>
+              <span id="miniEscalatedCount">0</span>
+            </button>
+            <div class="mini-lead-card">
+              <strong>Leads</strong>
+              <span id="miniMetricLeads">0</span>
+            </div>
+            <div class="mini-lead-card">
+              <strong>Demos</strong>
+              <span id="miniMetricDemos">0</span>
+            </div>
+            <div class="mini-lead-card">
+              <strong>Hot</strong>
+              <span id="miniMetricHot">0</span>
+            </div>
+          </div>
         </aside>
 
         <section class="column workspace-shell">
@@ -1085,8 +1294,6 @@
             <div class="tabbar" id="workspaceTabs">
               <button class="tab-btn active" data-tab="conversation" type="button">Conversation</button>
               <button class="tab-btn" data-tab="timeline" type="button">Timeline</button>
-              <button class="tab-btn" data-tab="notifications" type="button">Inbox</button>
-              <button class="tab-btn" data-tab="founder" type="button">Founder Inbox</button>
               <button class="tab-btn" data-tab="bookings" type="button">Bookings</button>
               <button class="tab-btn" data-tab="commercial" type="button">Commercial</button>
               <button class="tab-btn" data-tab="reports" type="button">Reports</button>
@@ -1114,15 +1321,16 @@
                 </div>
                 <div class="card composer-card">
                   <div class="composer-shell">
-                    <div class="toolbar">
-                      <select id="agentSelect" class="mini-select">
-                        <option value="marketing">Oma · Marketing</option>
-                        <option value="sales">Osa · Sales</option>
-                      </select>
-                      <button class="ghost" id="reloadLeadBtn" type="button">Reload thread</button>
+                    <div class="composer-toolbar">
+                      <div class="agent-switch">
+                        <button class="agent-pill active" id="agentOmaBtn" data-agent-choice="marketing" type="button">Oma</button>
+                        <button class="agent-pill" id="agentOsaBtn" data-agent-choice="sales" type="button">Osa</button>
+                        <input id="agentSelect" type="hidden" value="marketing" />
+                      </div>
+                      <button class="icon-pill" id="reloadLeadBtn" type="button" title="Reload thread">↻</button>
                     </div>
-                    <textarea id="composerInput" class="textarea-input" placeholder="Write the next internal message to send through the selected agent..."></textarea>
-                    <div class="toolbar">
+                    <div class="composer-field">
+                      <textarea id="composerInput" class="textarea-input composer-textarea" placeholder="Write the next internal message to send through the selected agent..."></textarea>
                       <button class="primary" id="sendBtn" type="button">Send through agent</button>
                     </div>
                     <div class="status-line" id="composerStatus"></div>

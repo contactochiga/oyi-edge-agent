@@ -1,5 +1,6 @@
 (function () {
   const ADMIN_EMAIL_STORAGE = "ochiga_lead_desk_admin_email";
+  const LEFT_COLLAPSED_STORAGE = "ochiga_lead_desk_left_collapsed";
   const DETAIL_COLLAPSED_STORAGE = "ochiga_lead_desk_detail_collapsed";
 
   const state = {
@@ -29,6 +30,7 @@
     traceQuery: "",
     notificationFilter: "open",
     auditQuery: "",
+    leftCollapsed: window.localStorage.getItem(LEFT_COLLAPSED_STORAGE) === "1",
     detailCollapsed: window.localStorage.getItem(DETAIL_COLLAPSED_STORAGE) === "1",
   };
 
@@ -47,11 +49,25 @@
     logoutBtn: document.getElementById("logoutBtn"),
     accountMenuWrap: document.getElementById("accountMenuWrap"),
     accountButton: document.getElementById("accountButton"),
+    messageInboxBtn: document.getElementById("messageInboxBtn"),
+    messageInboxBadge: document.getElementById("messageInboxBadge"),
+    notificationBtn: document.getElementById("notificationBtn"),
+    notificationBadge: document.getElementById("notificationBadge"),
     accountAvatar: document.getElementById("accountAvatar"),
     accountName: document.getElementById("accountName"),
     accountSubtitle: document.getElementById("accountSubtitle"),
     accountEmailMenu: document.getElementById("accountEmailMenu"),
     queueGrid: document.getElementById("queueGrid"),
+    leftColumn: document.getElementById("leftColumn"),
+    leftToggleBtn: document.getElementById("leftToggleBtn"),
+    leftToggleGlyph: document.getElementById("leftToggleGlyph"),
+    miniAllCount: document.getElementById("miniAllCount"),
+    miniOmaCount: document.getElementById("miniOmaCount"),
+    miniOsaCount: document.getElementById("miniOsaCount"),
+    miniEscalatedCount: document.getElementById("miniEscalatedCount"),
+    miniMetricLeads: document.getElementById("miniMetricLeads"),
+    miniMetricDemos: document.getElementById("miniMetricDemos"),
+    miniMetricHot: document.getElementById("miniMetricHot"),
     filterRow: document.getElementById("filterRow"),
     countAll: document.getElementById("countAll"),
     countOma: document.getElementById("countOma"),
@@ -110,6 +126,8 @@
     traceSearchInput: document.getElementById("traceSearchInput"),
     openFounderQueueBtn: document.getElementById("openFounderQueueBtn"),
     agentSelect: document.getElementById("agentSelect"),
+    agentOmaBtn: document.getElementById("agentOmaBtn"),
+    agentOsaBtn: document.getElementById("agentOsaBtn"),
     reloadLeadBtn: document.getElementById("reloadLeadBtn"),
     composerInput: document.getElementById("composerInput"),
     sendBtn: document.getElementById("sendBtn"),
@@ -428,6 +446,27 @@
     }).length;
   }
 
+  function updateHeaderActions() {
+    const openNotifications = state.notifications.filter(function (notification) {
+      return (notification.status || "open") === "open";
+    }).length;
+    const founderNotifications = state.notifications.filter(function (notification) {
+      return notification.type === "founder_escalation" && (notification.status || "open") === "open";
+    }).length;
+
+    el.messageInboxBadge.textContent = String(openNotifications);
+    el.messageInboxBadge.classList.toggle("visible", openNotifications > 0);
+    el.notificationBadge.textContent = String(founderNotifications);
+    el.notificationBadge.classList.toggle("visible", founderNotifications > 0);
+    el.messageInboxBtn.classList.toggle("active", state.workspaceTab === "notifications");
+    el.notificationBtn.classList.toggle("active", state.workspaceTab === "founder");
+  }
+
+  function updateLeftRailState() {
+    document.body.classList.toggle("left-collapsed", state.leftCollapsed);
+    el.leftToggleGlyph.textContent = state.leftCollapsed ? "→" : "←";
+  }
+
   function updateDetailRailState() {
     const autoCollapsed =
       window.innerWidth > 1320 &&
@@ -543,6 +582,10 @@
     el.countOma.textContent = String(oma);
     el.countOsa.textContent = String(osa);
     el.countEscalated.textContent = String(escalated);
+    el.miniAllCount.textContent = String(all);
+    el.miniOmaCount.textContent = String(oma);
+    el.miniOsaCount.textContent = String(osa);
+    el.miniEscalatedCount.textContent = String(escalated);
 
     Array.from(el.queueGrid.querySelectorAll("[data-queue]")).forEach(function (node) {
       node.classList.toggle("active", node.getAttribute("data-queue") === state.activeQueue);
@@ -565,6 +608,9 @@
     el.metricConversion.textContent = `${totals.sales_handoff_conversion_pct || 0}%`;
     el.metricHotLeads.textContent = String(totals.hot_leads || 0);
     el.metricAverageScore.textContent = String(totals.average_score || 0);
+    el.miniMetricLeads.textContent = String(totals.leads || 0);
+    el.miniMetricDemos.textContent = String(state.report ? state.report.demos_booked || 0 : 0);
+    el.miniMetricHot.textContent = String(totals.hot_leads || 0);
   }
 
   function keyValueLines(map, emptyText) {
@@ -1534,6 +1580,7 @@
     renderAudit();
     renderTraceExplorer();
     renderTimeline();
+    updateHeaderActions();
     updateDetailRailState();
   }
 
@@ -1700,6 +1747,12 @@
     el.proposalUnitsInput.value = state.selectedLead.unit_count || "";
     el.createProposalBtn.disabled = !hasPermission("manage_commercial");
     updateDetailRailState();
+  }
+
+  function setAgentChoice(choice) {
+    el.agentSelect.value = choice;
+    el.agentOmaBtn.classList.toggle("active", choice === "marketing");
+    el.agentOsaBtn.classList.toggle("active", choice === "sales");
   }
 
   async function loadLeads() {
@@ -2411,6 +2464,11 @@
   el.accountButton.addEventListener("click", function () {
     el.accountMenuWrap.classList.toggle("open");
   });
+  el.leftToggleBtn.addEventListener("click", function () {
+    state.leftCollapsed = !state.leftCollapsed;
+    window.localStorage.setItem(LEFT_COLLAPSED_STORAGE, state.leftCollapsed ? "1" : "0");
+    updateLeftRailState();
+  });
   el.detailToggleBtn.addEventListener("click", function () {
     state.detailCollapsed = !state.detailCollapsed;
     window.localStorage.setItem(DETAIL_COLLAPSED_STORAGE, state.detailCollapsed ? "1" : "0");
@@ -2421,7 +2479,21 @@
       el.accountMenuWrap.classList.remove("open");
     }
   });
+  Array.from(document.querySelectorAll("[data-queue-mini]")).forEach(function (node) {
+    node.addEventListener("click", function () {
+      state.activeQueue = node.getAttribute("data-queue-mini");
+      renderLeadList();
+    });
+  });
   window.addEventListener("resize", updateDetailRailState);
+  el.messageInboxBtn.addEventListener("click", function () {
+    state.workspaceTab = "notifications";
+    renderWorkspaceTabs();
+  });
+  el.notificationBtn.addEventListener("click", function () {
+    state.workspaceTab = "founder";
+    renderWorkspaceTabs();
+  });
   el.searchInput.addEventListener("input", renderLeadList);
   Array.from(el.queueGrid.querySelectorAll("[data-queue]")).forEach(function (node) {
     node.addEventListener("click", function () {
@@ -2466,6 +2538,12 @@
     selectLead(state.selectedLeadId, true).catch(function (error) {
       setComposerStatus(error.message || "Reload failed.", true);
     });
+  });
+  el.agentOmaBtn.addEventListener("click", function () {
+    setAgentChoice("marketing");
+  });
+  el.agentOsaBtn.addEventListener("click", function () {
+    setAgentChoice("sales");
   });
   el.sendBtn.addEventListener("click", function () {
     sendAgentMessage().catch(function (error) {
@@ -2616,6 +2694,7 @@
   });
 
   updateAuthUi();
+  setAgentChoice(el.agentSelect.value || "marketing");
   renderTokenActionCard();
   renderLeadList();
   renderConversation();
@@ -2629,6 +2708,7 @@
   renderTraceExplorer();
   renderDetail();
   renderWorkspaceTabs();
+  updateLeftRailState();
   updateDetailRailState();
 
   restoreSession()
