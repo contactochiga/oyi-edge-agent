@@ -330,6 +330,18 @@
     if (company) {
       return company;
     }
+    const projectType = displayValue(lead.project_type, "");
+    if (projectType) {
+      return projectType;
+    }
+    const email = displayValue(lead.email, "");
+    if (email) {
+      return email;
+    }
+    const phone = displayValue(lead.phone, "");
+    if (phone) {
+      return phone;
+    }
     return "Unidentified lead";
   }
 
@@ -338,6 +350,7 @@
       displayValue(lead.company, ""),
       displayValue(lead.role, ""),
       displayValue(lead.location, ""),
+      displayValue(lead.project_type, ""),
     ].filter(Boolean);
     return parts.join(" · ") || "Company, role, or location not captured yet";
   }
@@ -416,9 +429,14 @@
   }
 
   function updateDetailRailState() {
-    document.body.classList.toggle("detail-collapsed", state.detailCollapsed);
-    el.detailColumn.classList.toggle("collapsed", state.detailCollapsed);
-    el.detailToggleGlyph.textContent = state.detailCollapsed ? "←" : "→";
+    const autoCollapsed =
+      window.innerWidth > 1320 &&
+      ["commercial", "reports", "bookings", "audit", "traces"].includes(state.workspaceTab);
+    const isCollapsed = state.detailCollapsed || autoCollapsed;
+
+    document.body.classList.toggle("detail-collapsed", isCollapsed);
+    el.detailColumn.classList.toggle("collapsed", isCollapsed);
+    el.detailToggleGlyph.textContent = isCollapsed ? "←" : "→";
 
     const traceCount = state.selectedLead
       ? state.traces.filter(function (trace) {
@@ -435,7 +453,7 @@
     el.miniProposalCount.textContent = String(proposalCount);
     el.miniAlertCount.textContent = String(alertCount);
     el.detailToggleBadge.textContent = String(badgeCount);
-    el.detailToggleBadge.classList.toggle("visible", state.detailCollapsed && badgeCount > 0);
+    el.detailToggleBadge.classList.toggle("visible", isCollapsed && badgeCount > 0);
   }
 
   function updateAuthUi() {
@@ -946,7 +964,7 @@
                         return `
                           <div class="board-card" draggable="true" data-commercial-card="${lead.id}" data-commercial-stage="${escapeHtml(stage)}">
                             <div class="board-card-head">
-                              <strong>${escapeHtml(leadTitle(lead))}</strong>
+                              <h3 class="board-card-title">${escapeHtml(leadTitle(lead))}</h3>
                               <span class="board-card-units">${escapeHtml(String(lead.unit_count || "n/a"))} units</span>
                             </div>
                             <div class="board-card-meta">${escapeHtml(leadMetaLine(lead))}</div>
@@ -965,7 +983,7 @@
                         `;
                       })
                       .join("")
-                  : '<div class="value empty">No leads in this stage.</div>'
+                  : '<div class="board-empty">Drop leads here</div>'
               }
             </div>
           </article>
@@ -1023,7 +1041,7 @@
         <article class="detail-card" style="padding:16px;">
           <div class="trace-head">
             <div>
-              <div class="key" style="margin:0;">Commercial Board</div>
+              <div class="key" style="margin:0;">Commercial Pipeline</div>
               <div class="subtext" style="margin-top:6px;">Drag leads across stages to move the deal forward.</div>
             </div>
           </div>
@@ -1516,6 +1534,7 @@
     renderAudit();
     renderTraceExplorer();
     renderTimeline();
+    updateDetailRailState();
   }
 
   function summaryField(label, value) {
@@ -2402,6 +2421,7 @@
       el.accountMenuWrap.classList.remove("open");
     }
   });
+  window.addEventListener("resize", updateDetailRailState);
   el.searchInput.addEventListener("input", renderLeadList);
   Array.from(el.queueGrid.querySelectorAll("[data-queue]")).forEach(function (node) {
     node.addEventListener("click", function () {
