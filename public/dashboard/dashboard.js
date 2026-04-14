@@ -146,6 +146,15 @@
     miniAlertCount: document.getElementById("miniAlertCount"),
     detailSummaryPrimary: document.getElementById("detailSummaryPrimary"),
     detailSummaryMore: document.getElementById("detailSummaryMore"),
+    snapshotBadge: document.getElementById("snapshotBadge"),
+    moreFieldsBadge: document.getElementById("moreFieldsBadge"),
+    memoryBadge: document.getElementById("memoryBadge"),
+    traceBadge: document.getElementById("traceBadge"),
+    channelBadge: document.getElementById("channelBadge"),
+    updateBadge: document.getElementById("updateBadge"),
+    proposalBadge: document.getElementById("proposalBadge"),
+    demoBadge: document.getElementById("demoBadge"),
+    escalationBadge: document.getElementById("escalationBadge"),
     memoryPanel: document.getElementById("memoryPanel"),
     tracePanel: document.getElementById("tracePanel"),
     channelStatePanel: document.getElementById("channelStatePanel"),
@@ -1659,6 +1668,15 @@
       el.memoryPanel.textContent = "No lead selected.";
       el.memoryPanel.className = "value empty";
       el.tracePanel.innerHTML = '<div class="value empty">No lead selected.</div>';
+      el.snapshotBadge.textContent = "4";
+      el.moreFieldsBadge.textContent = "0";
+      el.memoryBadge.textContent = "0";
+      el.traceBadge.textContent = "0";
+      el.channelBadge.textContent = "0";
+      el.updateBadge.textContent = "1";
+      el.proposalBadge.textContent = "0";
+      el.demoBadge.textContent = "0";
+      el.escalationBadge.textContent = "0";
       renderChannelState();
       updateDetailRailState();
       return;
@@ -1700,10 +1718,13 @@
       summaryField("Summary", displayValue(state.selectedLead.summary, "No summary yet")),
       summaryField("Demo Pipeline", demos),
     ].join("");
+    el.snapshotBadge.textContent = "4";
+    el.moreFieldsBadge.textContent = "8";
 
     if (!state.memory) {
       el.memoryPanel.textContent = "No memory stored yet.";
       el.memoryPanel.className = "value empty";
+      el.memoryBadge.textContent = "0";
     } else {
       el.memoryPanel.textContent = [
         `Known: ${JSON.stringify(state.memory.known_fields || {}, null, 2)}`,
@@ -1714,12 +1735,22 @@
         `Last owner: ${ownerLabel(state.memory.last_owner)}`,
       ].join("\n\n");
       el.memoryPanel.className = "value";
+      el.memoryBadge.textContent = String(
+        [
+          Object.keys(state.memory.known_fields || {}).length,
+          (state.memory.open_questions || []).length,
+          (state.memory.need_signals || []).length,
+        ].reduce(function (sum, value) {
+          return sum + value;
+        }, 0)
+      );
     }
     renderChannelState();
 
     if (!hasPermission("view_traces")) {
       el.tracePanel.innerHTML =
         '<div class="value empty">Trace access is restricted for your role.</div>';
+      el.traceBadge.textContent = "0";
     } else {
       const relatedTraces = state.traces.filter(function (trace) {
         return trace.lead_id === state.selectedLead.id;
@@ -1742,6 +1773,7 @@
           })
           .join("");
       }
+      el.traceBadge.textContent = String(relatedTraces.length);
     }
 
     el.statusInput.value = "";
@@ -1804,6 +1836,15 @@
         })
         .join("");
     }
+    el.channelBadge.textContent = state.channelState ? (state.channelState.ai_paused ? "1" : "0") : "0";
+    el.updateBadge.textContent = "1";
+    el.proposalBadge.textContent = String(state.proposals.length);
+    el.demoBadge.textContent = String(state.demos.length);
+    el.escalationBadge.textContent = String(
+      state.notifications.filter(function (notification) {
+        return notification.lead_id === state.selectedLead.id && notification.type === "founder_escalation";
+      }).length
+    );
 
     el.proposalUnitsInput.value = state.selectedLead.unit_count || "";
     el.createProposalBtn.disabled = !hasPermission("manage_commercial");

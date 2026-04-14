@@ -637,7 +637,7 @@
       }
       .terminal-thread.browser-mode {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
+        gap: 12px;
         align-content: start;
       }
       .composer-card {
@@ -692,11 +692,11 @@
       }
       .message {
         padding: 8px 10px;
-        max-width: min(58ch, 68%);
+        max-width: min(52ch, 64%);
         width: fit-content;
         white-space: pre-wrap;
-        line-height: 1.5;
-        border-radius: 16px;
+        line-height: 1.45;
+        border-radius: 15px;
         justify-self: start;
       }
       .message.user {
@@ -712,22 +712,25 @@
         background: rgba(13, 92, 70, 0.07);
       }
       .meta {
-        margin-top: 6px;
-        font-size: 11px;
+        margin-top: 5px;
+        font-size: 10px;
         color: var(--muted);
       }
       .browser-lead-card {
-        padding: 14px;
-        border-radius: 20px;
+        padding: 12px;
+        border-radius: 18px;
         display: grid;
-        gap: 10px;
+        gap: 8px;
         align-content: start;
       }
       .browser-lead-card .lead-title {
-        font-size: 20px;
+        font-size: 18px;
       }
       .browser-lead-card .lead-quick-row {
         margin-top: 0;
+      }
+      .browser-lead-card .subtext {
+        font-size: 12px;
       }
       .trace-list,
       .founder-list,
@@ -868,6 +871,25 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+      }
+      .accordion-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .accordion-badge {
+        min-width: 22px;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(13, 92, 70, 0.1);
+        color: var(--green);
+        font-size: 11px;
+        font-weight: 800;
       }
       .detail-accordion summary::-webkit-details-marker {
         display: none;
@@ -1631,9 +1653,12 @@
           <div class="detail-scroll">
             <details class="detail-accordion" open>
               <summary>
-                <div>
-                  <div class="key" style="margin:0;">Lead Snapshot</div>
-                  <div class="accordion-meta">Core contact details first</div>
+                <div class="accordion-head">
+                  <span class="accordion-badge" id="snapshotBadge">4</span>
+                  <div>
+                    <div class="key" style="margin:0;">Lead Snapshot</div>
+                    <div class="accordion-meta">Core contact details first</div>
+                  </div>
                 </div>
                 <span>▾</span>
               </summary>
@@ -1641,9 +1666,12 @@
                 <div class="summary-grid compact" id="detailSummaryPrimary"></div>
                 <details class="detail-accordion" style="margin-top:12px;">
                   <summary>
-                    <div>
-                      <div class="key" style="margin:0;">More fields</div>
-                      <div class="accordion-meta">Project, stage, source, summary</div>
+                    <div class="accordion-head">
+                      <span class="accordion-badge" id="moreFieldsBadge">0</span>
+                      <div>
+                        <div class="key" style="margin:0;">More fields</div>
+                        <div class="accordion-meta">Project, stage, source, summary</div>
+                      </div>
                     </div>
                     <span>▾</span>
                   </summary>
@@ -1655,9 +1683,12 @@
             </details>
             <details class="detail-accordion">
               <summary>
-                <div>
-                  <div class="key" style="margin:0;">Lead Memory</div>
-                  <div class="accordion-meta">Context and open questions</div>
+                <div class="accordion-head">
+                  <span class="accordion-badge" id="memoryBadge">0</span>
+                  <div>
+                    <div class="key" style="margin:0;">Lead Memory</div>
+                    <div class="accordion-meta">Context and open questions</div>
+                  </div>
                 </div>
                 <span>▾</span>
               </summary>
@@ -1667,9 +1698,12 @@
             </details>
             <details class="detail-accordion">
               <summary>
-                <div>
-                  <div class="key" style="margin:0;">Recent Trace</div>
-                  <div class="accordion-meta">Latest system activity for this lead</div>
+                <div class="accordion-head">
+                  <span class="accordion-badge" id="traceBadge">0</span>
+                  <div>
+                    <div class="key" style="margin:0;">Recent Trace</div>
+                    <div class="accordion-meta">Latest system activity for this lead</div>
+                  </div>
                 </div>
                 <span>▾</span>
               </summary>
@@ -1681,9 +1715,12 @@
             </details>
             <details class="detail-accordion">
               <summary>
-                <div>
-                  <div class="key" style="margin:0;">WhatsApp Channel State</div>
-                  <div class="accordion-meta">Takeover and resume controls</div>
+                <div class="accordion-head">
+                  <span class="accordion-badge" id="channelBadge">0</span>
+                  <div>
+                    <div class="key" style="margin:0;">WhatsApp Channel State</div>
+                    <div class="accordion-meta">Takeover and resume controls</div>
+                  </div>
                 </div>
                 <span>▾</span>
               </summary>
@@ -1706,9 +1743,12 @@
             </details>
             <details class="detail-accordion">
               <summary>
-                <div>
-                  <div class="key" style="margin:0;">Lead Update</div>
-                  <div class="accordion-meta">Ownership, status, stage, and summary</div>
+                <div class="accordion-head">
+                  <span class="accordion-badge" id="updateBadge">1</span>
+                  <div>
+                    <div class="key" style="margin:0;">Lead Update</div>
+                    <div class="accordion-meta">Ownership, status, stage, and summary</div>
+                  </div>
                 </div>
                 <span>▾</span>
               </summary>
@@ -1784,9 +1824,12 @@
             </details>
             <details class="detail-accordion">
               <summary>
-                <div>
-                  <div class="key" style="margin:0;">Generate Proposal</div>
-                  <div class="accordion-meta">Create and review proposals for this lead</div>
+                <div class="accordion-head">
+                  <span class="accordion-badge" id="proposalBadge">0</span>
+                  <div>
+                    <div class="key" style="margin:0;">Generate Proposal</div>
+                    <div class="accordion-meta">Create and review proposals for this lead</div>
+                  </div>
                 </div>
                 <span>▾</span>
               </summary>
@@ -1815,9 +1858,12 @@
             </details>
             <details class="detail-accordion">
               <summary>
-                <div>
-                  <div class="key" style="margin:0;">Schedule Demo</div>
-                  <div class="accordion-meta">Book the next sales or discovery step</div>
+                <div class="accordion-head">
+                  <span class="accordion-badge" id="demoBadge">0</span>
+                  <div>
+                    <div class="key" style="margin:0;">Schedule Demo</div>
+                    <div class="accordion-meta">Book the next sales or discovery step</div>
+                  </div>
                 </div>
                 <span>▾</span>
               </summary>
@@ -1837,9 +1883,12 @@
             </details>
             <details class="detail-accordion">
               <summary>
-                <div>
-                  <div class="key" style="margin:0;">Escalate to Founder</div>
-                  <div class="accordion-meta">Send a high-priority lead for human attention</div>
+                <div class="accordion-head">
+                  <span class="accordion-badge" id="escalationBadge">0</span>
+                  <div>
+                    <div class="key" style="margin:0;">Escalate to Founder</div>
+                    <div class="accordion-meta">Send a high-priority lead for human attention</div>
+                  </div>
                 </div>
                 <span>▾</span>
               </summary>
