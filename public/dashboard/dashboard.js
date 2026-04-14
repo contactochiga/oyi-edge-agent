@@ -1333,6 +1333,8 @@
                   ? "Sales handoff"
                   : notification.type === "demo_requested"
                   ? "Demo request"
+                  : notification.type === "inbound_message"
+                  ? "New inbound message"
                   : notification.type || "Notification"
               )}</strong>
               <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(
@@ -1341,7 +1343,7 @@
             </div>
             <div class="subtext">${escapeHtml(
               lead ? leadTitle(lead) : "Lead record"
-            )} · ${escapeHtml(notification.urgency || "medium")} · ${escapeHtml(
+            )} · ${escapeHtml(notification.channel || notification.metadata?.source || "unknown source")} · ${escapeHtml(
               formatDate(notification.created_at)
             )}</div>
             <div class="value" style="margin-top:8px;">${escapeHtml(

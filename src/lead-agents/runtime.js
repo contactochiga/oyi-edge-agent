@@ -432,6 +432,22 @@ class LeadAgentRuntime {
       content: request.message,
     });
 
+    if (request.notify_inbound && this.store.createNotification) {
+      await this.store.createNotification({
+        lead_id: lead.id,
+        type: "inbound_message",
+        urgency: "medium",
+        reason: "New inbound lead message",
+        summary: request.message.slice(0, 180),
+        delivered: false,
+        channel,
+        metadata: {
+          source: request.source || lead.source || this.config.defaultLeadSource,
+          preview: request.message.slice(0, 180),
+        },
+      });
+    }
+
     const context = {
       agentName: agentPack.agentName,
       leadId: lead.id,

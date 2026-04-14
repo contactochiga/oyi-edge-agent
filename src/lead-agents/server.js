@@ -294,6 +294,7 @@ async function processWhatsAppEvent({ event, runtime, store, adapter, config, re
     lead_id: lead.id,
     source: "whatsapp",
     channel: "whatsapp",
+    notify_inbound: true,
     message: event.text || "",
     external_message_id: event.message_id,
     profile: {
@@ -805,6 +806,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
             agent: "marketing",
             lead_id: body.lead_id,
             source: body.source || config.defaultLeadSource,
+            notify_inbound: true,
             message: body.message,
             profile: body.profile || {},
           });
@@ -867,6 +869,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           agent: body.agent,
           lead_id: body.lead_id,
           source: body.source,
+          notify_inbound: false,
           message: body.message,
           profile: body.profile || {},
         });
