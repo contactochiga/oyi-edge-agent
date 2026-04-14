@@ -558,9 +558,8 @@
         display: grid;
         grid-template-rows: auto minmax(0, 1fr);
         min-height: 0;
-        background:
-          linear-gradient(180deg, rgba(6, 28, 22, 0.94), rgba(9, 37, 28, 0.98));
-        border: 1px solid rgba(14, 95, 72, 0.22);
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(13, 92, 70, 0.1);
       }
       .terminal-bar {
         display: flex;
@@ -568,12 +567,12 @@
         justify-content: space-between;
         gap: 12px;
         padding: 14px 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.9);
-        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid rgba(13, 92, 70, 0.08);
+        color: var(--ink);
+        background: rgba(13, 92, 70, 0.04);
       }
       .terminal-dots {
-        display: inline-flex;
+        display: none;
         gap: 6px;
       }
       .terminal-dot {
@@ -593,7 +592,7 @@
       }
       .terminal-meta {
         font-size: 12px;
-        color: rgba(255, 255, 255, 0.68);
+        color: var(--muted);
       }
       .terminal-thread {
         min-height: 0;
@@ -603,8 +602,8 @@
         align-content: start;
         gap: 12px;
         background:
-          radial-gradient(circle at top right, rgba(239, 198, 111, 0.12), transparent 22%),
-          linear-gradient(180deg, rgba(8, 24, 18, 0.24), rgba(8, 24, 18, 0));
+          radial-gradient(circle at top right, rgba(239, 198, 111, 0.08), transparent 24%),
+          linear-gradient(180deg, rgba(13, 92, 70, 0.02), rgba(255, 255, 255, 0.12));
       }
       .composer-card {
         padding: 12px 14px;
@@ -793,6 +792,46 @@
         gap: 12px;
         overflow-y: auto;
         height: calc(100% - 136px);
+      }
+      .detail-accordion {
+        border-radius: 22px;
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .detail-accordion summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 16px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .detail-accordion summary::-webkit-details-marker {
+        display: none;
+      }
+      .detail-accordion[open] summary {
+        border-bottom: 1px solid rgba(13, 92, 70, 0.08);
+      }
+      .detail-accordion-content {
+        padding: 16px 18px 18px;
+      }
+      .accordion-meta {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .summary-grid.compact {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .summary-grid.compact .detail-card,
+      .summary-grid.secondary .detail-card {
+        box-shadow: none;
+        background: rgba(255, 255, 255, 0.72);
+      }
+      .summary-grid.secondary {
+        grid-template-columns: 1fr;
       }
       .summary-grid,
       .insight-grid {
@@ -1123,11 +1162,17 @@
         <div class="account" id="accountMenuWrap">
           <div class="header-actions">
             <button class="header-icon-btn" id="messageInboxBtn" type="button" title="Open inbox">
-              <span aria-hidden="true">✉</span>
+              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 6h16v12H4z"></path>
+                <path d="m4 8 8 6 8-6"></path>
+              </svg>
               <span class="header-badge" id="messageInboxBadge">0</span>
             </button>
             <button class="header-icon-btn" id="notificationBtn" type="button" title="Open notifications">
-              <span aria-hidden="true">🔔</span>
+              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path>
+                <path d="M10 20a2 2 0 0 0 4 0"></path>
+              </svg>
               <span class="header-badge" id="notificationBadge">0</span>
             </button>
           </div>
@@ -1515,161 +1560,242 @@
             </div>
           </div>
           <div class="detail-scroll">
-            <div class="summary-grid" id="detailSummary"></div>
-            <div class="insight-grid">
-              <div class="detail-card">
-                <div class="key">Lead Memory</div>
+            <details class="detail-accordion" open>
+              <summary>
+                <div>
+                  <div class="key" style="margin:0;">Lead Snapshot</div>
+                  <div class="accordion-meta">Core contact details first</div>
+                </div>
+                <span>▾</span>
+              </summary>
+              <div class="detail-accordion-content">
+                <div class="summary-grid compact" id="detailSummaryPrimary"></div>
+                <details class="detail-accordion" style="margin-top:12px;">
+                  <summary>
+                    <div>
+                      <div class="key" style="margin:0;">More fields</div>
+                      <div class="accordion-meta">Project, stage, source, summary</div>
+                    </div>
+                    <span>▾</span>
+                  </summary>
+                  <div class="detail-accordion-content">
+                    <div class="summary-grid secondary" id="detailSummaryMore"></div>
+                  </div>
+                </details>
+              </div>
+            </details>
+            <details class="detail-accordion">
+              <summary>
+                <div>
+                  <div class="key" style="margin:0;">Lead Memory</div>
+                  <div class="accordion-meta">Context and open questions</div>
+                </div>
+                <span>▾</span>
+              </summary>
+              <div class="detail-accordion-content">
                 <div class="value empty" id="memoryPanel">No lead selected.</div>
               </div>
-              <div class="detail-card">
-                <div class="key">Recent Trace</div>
+            </details>
+            <details class="detail-accordion">
+              <summary>
+                <div>
+                  <div class="key" style="margin:0;">Recent Trace</div>
+                  <div class="accordion-meta">Latest system activity for this lead</div>
+                </div>
+                <span>▾</span>
+              </summary>
+              <div class="detail-accordion-content">
                 <div id="tracePanel" class="trace-list">
                   <div class="value empty">No lead selected.</div>
                 </div>
               </div>
-            </div>
-            <div class="action-card">
-              <div class="stack-12">
-                <div class="key">WhatsApp Channel State</div>
-                <div id="channelStatePanel" class="value empty">No channel state loaded yet.</div>
-                <input id="takeoverOwnerInput" class="text-input" type="text" placeholder="Human owner email or name" />
-                <input id="takeoverReasonInput" class="text-input" type="text" placeholder="Takeover reason" />
-                <div class="toolbar">
-                  <button class="ghost" id="pauseAiBtn" type="button">Take over</button>
-                  <button class="outline" id="resumeOmaBtn" type="button">Resume Oma</button>
-                  <button class="outline" id="resumeOsaBtn" type="button">Resume Osa</button>
-                  <button class="sand" id="keepHumanBtn" type="button">Keep human-only</button>
+            </details>
+            <details class="detail-accordion">
+              <summary>
+                <div>
+                  <div class="key" style="margin:0;">WhatsApp Channel State</div>
+                  <div class="accordion-meta">Takeover and resume controls</div>
                 </div>
-                <div class="small-note">
-                  Human takeover pauses automatic WhatsApp replies while still recording inbound messages.
+                <span>▾</span>
+              </summary>
+              <div class="detail-accordion-content">
+                <div class="stack-12">
+                  <div id="channelStatePanel" class="value empty">No channel state loaded yet.</div>
+                  <input id="takeoverOwnerInput" class="text-input" type="text" placeholder="Human owner email or name" />
+                  <input id="takeoverReasonInput" class="text-input" type="text" placeholder="Takeover reason" />
+                  <div class="toolbar">
+                    <button class="ghost" id="pauseAiBtn" type="button">Take over</button>
+                    <button class="outline" id="resumeOmaBtn" type="button">Resume Oma</button>
+                    <button class="outline" id="resumeOsaBtn" type="button">Resume Osa</button>
+                    <button class="sand" id="keepHumanBtn" type="button">Keep human-only</button>
+                  </div>
+                  <div class="small-note">
+                    Human takeover pauses automatic WhatsApp replies while still recording inbound messages.
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="action-card">
-              <div class="stack-12">
+            </details>
+            <details class="detail-accordion">
+              <summary>
                 <div>
-                  <label class="key" for="projectTypeInput">Project Type</label>
-                  <input id="projectTypeInput" class="text-input" type="text" placeholder="estate, mixed-use estate, building..." />
+                  <div class="key" style="margin:0;">Lead Update</div>
+                  <div class="accordion-meta">Ownership, status, stage, and summary</div>
                 </div>
-                <div>
-                  <label class="key" for="unitCountInput">Unit Count</label>
-                  <input id="unitCountInput" class="text-input" type="number" min="0" placeholder="e.g. 240" />
-                </div>
-                <div>
-                  <label class="key" for="commercialStageInput">Commercial Stage</label>
-                  <select id="commercialStageInput" class="select-input">
-                    <option value="">Keep current</option>
-                    <option value="lead">lead</option>
-                    <option value="discovery">discovery</option>
-                    <option value="proposal">proposal</option>
-                    <option value="quote">quote</option>
-                    <option value="negotiation">negotiation</option>
-                    <option value="procurement">procurement</option>
-                    <option value="won">won</option>
-                    <option value="lost">lost</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="key" for="lostReasonInput">Lost Reason</label>
-                  <input id="lostReasonInput" class="text-input" type="text" placeholder="Optional reason if lost" />
-                </div>
-                <div>
-                  <label class="key" for="statusInput">Status</label>
-                  <select id="statusInput" class="select-input">
-                    <option value="">Keep current</option>
-                    <option value="new">new</option>
-                    <option value="qualified">qualified</option>
-                    <option value="warm">warm</option>
-                    <option value="hot">hot</option>
-                    <option value="sales">sales</option>
-                    <option value="booked">booked</option>
-                    <option value="closed">closed</option>
-                    <option value="lost">lost</option>
-                    <option value="escalated">escalated</option>
-                  </select>
-                </div>
-                <div class="toolbar">
-                  <div style="flex: 1;">
-                    <label class="key" for="ownerInput">Owner</label>
-                    <select id="ownerInput" class="select-input">
+                <span>▾</span>
+              </summary>
+              <div class="detail-accordion-content">
+                <div class="stack-12">
+                  <div>
+                    <label class="key" for="projectTypeInput">Project Type</label>
+                    <input id="projectTypeInput" class="text-input" type="text" placeholder="estate, mixed-use estate, building..." />
+                  </div>
+                  <div>
+                    <label class="key" for="unitCountInput">Unit Count</label>
+                    <input id="unitCountInput" class="text-input" type="number" min="0" placeholder="e.g. 240" />
+                  </div>
+                  <div>
+                    <label class="key" for="commercialStageInput">Commercial Stage</label>
+                    <select id="commercialStageInput" class="select-input">
                       <option value="">Keep current</option>
-                      <option value="marketing_agent">Oma</option>
-                      <option value="sales_agent">Osa</option>
-                      <option value="human">Human</option>
+                      <option value="lead">lead</option>
+                      <option value="discovery">discovery</option>
+                      <option value="proposal">proposal</option>
+                      <option value="quote">quote</option>
+                      <option value="negotiation">negotiation</option>
+                      <option value="procurement">procurement</option>
+                      <option value="won">won</option>
+                      <option value="lost">lost</option>
                     </select>
                   </div>
-                  <div style="flex: 1;">
-                    <label class="key" for="scoreInput">Score</label>
-                    <input id="scoreInput" class="text-input" type="number" min="0" max="100" placeholder="0-100" />
+                  <div>
+                    <label class="key" for="lostReasonInput">Lost Reason</label>
+                    <input id="lostReasonInput" class="text-input" type="text" placeholder="Optional reason if lost" />
+                  </div>
+                  <div>
+                    <label class="key" for="statusInput">Status</label>
+                    <select id="statusInput" class="select-input">
+                      <option value="">Keep current</option>
+                      <option value="new">new</option>
+                      <option value="qualified">qualified</option>
+                      <option value="warm">warm</option>
+                      <option value="hot">hot</option>
+                      <option value="sales">sales</option>
+                      <option value="booked">booked</option>
+                      <option value="closed">closed</option>
+                      <option value="lost">lost</option>
+                      <option value="escalated">escalated</option>
+                    </select>
+                  </div>
+                  <div class="toolbar">
+                    <div style="flex: 1;">
+                      <label class="key" for="ownerInput">Owner</label>
+                      <select id="ownerInput" class="select-input">
+                        <option value="">Keep current</option>
+                        <option value="marketing_agent">Oma</option>
+                        <option value="sales_agent">Osa</option>
+                        <option value="human">Human</option>
+                      </select>
+                    </div>
+                    <div style="flex: 1;">
+                      <label class="key" for="scoreInput">Score</label>
+                      <input id="scoreInput" class="text-input" type="number" min="0" max="100" placeholder="0-100" />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="key" for="nextActionInput">Next Action</label>
+                    <input id="nextActionInput" class="text-input" type="text" placeholder="What happens next?" />
+                  </div>
+                  <div>
+                    <label class="key" for="summaryInput">Summary</label>
+                    <textarea id="summaryInput" class="textarea-input" placeholder="Short structured summary"></textarea>
+                  </div>
+                  <button class="primary" id="updateLeadBtn" type="button">Update lead</button>
+                </div>
+              </div>
+            </details>
+            <details class="detail-accordion">
+              <summary>
+                <div>
+                  <div class="key" style="margin:0;">Generate Proposal</div>
+                  <div class="accordion-meta">Create and review proposals for this lead</div>
+                </div>
+                <span>▾</span>
+              </summary>
+              <div class="detail-accordion-content">
+                <div class="stack-12">
+                  <div>
+                    <label class="key" for="proposalUnitsInput">Generate Proposal</label>
+                    <input id="proposalUnitsInput" class="text-input" type="number" min="0" placeholder="Use selected lead unit count or override here" />
+                  </div>
+                  <div>
+                    <label class="key" for="proposalStatusInput">Proposal Status</label>
+                    <select id="proposalStatusInput" class="select-input">
+                      <option value="draft">draft</option>
+                      <option value="sent">sent</option>
+                      <option value="accepted">accepted</option>
+                      <option value="declined">declined</option>
+                    </select>
+                  </div>
+                  <button class="ghost" id="createProposalBtn" type="button">Generate proposal</button>
+                  <div class="key">Lead Proposals</div>
+                  <div id="proposalListPanel" class="trace-list">
+                    <div class="value empty">No proposals yet for this lead.</div>
                   </div>
                 </div>
-                <div>
-                  <label class="key" for="nextActionInput">Next Action</label>
-                  <input id="nextActionInput" class="text-input" type="text" placeholder="What happens next?" />
-                </div>
-                <div>
-                  <label class="key" for="summaryInput">Summary</label>
-                  <textarea id="summaryInput" class="textarea-input" placeholder="Short structured summary"></textarea>
-                </div>
-                <button class="primary" id="updateLeadBtn" type="button">Update lead</button>
               </div>
-            </div>
-            <div class="action-card">
-              <div class="stack-12">
+            </details>
+            <details class="detail-accordion">
+              <summary>
                 <div>
-                  <label class="key" for="proposalUnitsInput">Generate Proposal</label>
-                  <input id="proposalUnitsInput" class="text-input" type="number" min="0" placeholder="Use selected lead unit count or override here" />
+                  <div class="key" style="margin:0;">Schedule Demo</div>
+                  <div class="accordion-meta">Book the next sales or discovery step</div>
                 </div>
-                <div>
-                  <label class="key" for="proposalStatusInput">Proposal Status</label>
-                  <select id="proposalStatusInput" class="select-input">
-                    <option value="draft">draft</option>
-                    <option value="sent">sent</option>
-                    <option value="accepted">accepted</option>
-                    <option value="declined">declined</option>
-                  </select>
-                </div>
-                <button class="ghost" id="createProposalBtn" type="button">Generate proposal</button>
-                <div class="key">Lead Proposals</div>
-                <div id="proposalListPanel" class="trace-list">
-                  <div class="value empty">No proposals yet for this lead.</div>
+                <span>▾</span>
+              </summary>
+              <div class="detail-accordion-content">
+                <div class="stack-12">
+                  <div>
+                    <label class="key" for="demoAtInput">Schedule Demo</label>
+                    <input id="demoAtInput" class="text-input" type="datetime-local" />
+                  </div>
+                  <div>
+                    <label class="key" for="demoNotesInput">Demo Notes</label>
+                    <textarea id="demoNotesInput" class="textarea-input" placeholder="Optional notes for the demo record"></textarea>
+                  </div>
+                  <button class="sand" id="createDemoBtn" type="button">Create demo</button>
                 </div>
               </div>
-            </div>
-            <div class="action-card">
-              <div class="stack-12">
+            </details>
+            <details class="detail-accordion">
+              <summary>
                 <div>
-                  <label class="key" for="demoAtInput">Schedule Demo</label>
-                  <input id="demoAtInput" class="text-input" type="datetime-local" />
+                  <div class="key" style="margin:0;">Escalate to Founder</div>
+                  <div class="accordion-meta">Send a high-priority lead for human attention</div>
                 </div>
-                <div>
-                  <label class="key" for="demoNotesInput">Demo Notes</label>
-                  <textarea id="demoNotesInput" class="textarea-input" placeholder="Optional notes for the demo record"></textarea>
-                </div>
-                <button class="sand" id="createDemoBtn" type="button">Create demo</button>
-              </div>
-            </div>
-            <div class="action-card">
-              <div class="stack-12">
-                <div>
-                  <label class="key" for="escalationReasonInput">Escalate to Founder</label>
-                  <input id="escalationReasonInput" class="text-input" type="text" placeholder="Reason for escalation" />
-                </div>
-                <div>
-                  <label class="key" for="escalationSummaryInput">Escalation Summary</label>
-                  <textarea id="escalationSummaryInput" class="textarea-input" placeholder="What should the founder know immediately?"></textarea>
-                </div>
-                <div class="toolbar">
-                  <select id="escalationUrgencyInput" class="mini-select">
-                    <option value="medium">medium</option>
-                    <option value="low">low</option>
-                    <option value="high">high</option>
-                    <option value="critical">critical</option>
-                  </select>
-                  <button class="ghost" id="escalateBtn" type="button">Escalate</button>
+                <span>▾</span>
+              </summary>
+              <div class="detail-accordion-content">
+                <div class="stack-12">
+                  <div>
+                    <label class="key" for="escalationReasonInput">Escalate to Founder</label>
+                    <input id="escalationReasonInput" class="text-input" type="text" placeholder="Reason for escalation" />
+                  </div>
+                  <div>
+                    <label class="key" for="escalationSummaryInput">Escalation Summary</label>
+                    <textarea id="escalationSummaryInput" class="textarea-input" placeholder="What should the founder know immediately?"></textarea>
+                  </div>
+                  <div class="toolbar">
+                    <select id="escalationUrgencyInput" class="mini-select">
+                      <option value="medium">medium</option>
+                      <option value="low">low</option>
+                      <option value="high">high</option>
+                      <option value="critical">critical</option>
+                    </select>
+                    <button class="ghost" id="escalateBtn" type="button">Escalate</button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </details>
             <div class="status-line" id="detailStatus"></div>
           </div>
         </aside>

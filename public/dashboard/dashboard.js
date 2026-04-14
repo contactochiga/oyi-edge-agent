@@ -142,7 +142,8 @@
     miniDemoCount: document.getElementById("miniDemoCount"),
     miniProposalCount: document.getElementById("miniProposalCount"),
     miniAlertCount: document.getElementById("miniAlertCount"),
-    detailSummary: document.getElementById("detailSummary"),
+    detailSummaryPrimary: document.getElementById("detailSummaryPrimary"),
+    detailSummaryMore: document.getElementById("detailSummaryMore"),
     memoryPanel: document.getElementById("memoryPanel"),
     tracePanel: document.getElementById("tracePanel"),
     channelStatePanel: document.getElementById("channelStatePanel"),
@@ -734,9 +735,6 @@
                   }
                   <span class="pill" style="background:rgba(239,198,111,0.14);color:#6d5113;">score ${escapeHtml(String(lead.score || 0))}</span>
                 </div>
-                <div class="subtext" style="margin-top: 10px;">${escapeHtml(
-                  lead.summary || lead.next_action || "No summary yet"
-                )}</div>
               </div>
             </div>
             <div class="lead-quick-row" style="margin-top: 12px;">
@@ -1597,7 +1595,8 @@
     if (!state.selectedLead) {
       el.detailTitle.textContent = "No lead selected";
       el.detailSubtitle.textContent = "Update ownership, score, summary, demos, and escalation notes.";
-      el.detailSummary.innerHTML = '<div class="value empty">Select a lead to inspect details and take action.</div>';
+      el.detailSummaryPrimary.innerHTML = '<div class="value empty">Select a lead to inspect details and take action.</div>';
+      el.detailSummaryMore.innerHTML = '<div class="value empty">More lead detail appears here.</div>';
       el.memoryPanel.textContent = "No lead selected.";
       el.memoryPanel.className = "value empty";
       el.tracePanel.innerHTML = '<div class="value empty">No lead selected.</div>';
@@ -1618,11 +1617,14 @@
           .join("\n")
       : "No demos yet";
 
-    el.detailSummary.innerHTML = [
+    el.detailSummaryPrimary.innerHTML = [
       summaryField("Company", displayValue(state.selectedLead.company, "Not captured")),
       summaryField("Role", displayValue(state.selectedLead.role, "Not captured")),
       summaryField("Email", displayValue(state.selectedLead.email, "Not captured")),
       summaryField("Phone", displayValue(state.selectedLead.phone, "Not captured")),
+    ].join("");
+
+    el.detailSummaryMore.innerHTML = [
       summaryField("Source", displayValue(state.selectedLead.source, "Not captured")),
       summaryField("Location", displayValue(state.selectedLead.location, "Not captured")),
       summaryField("Project Type", displayValue(state.selectedLead.project_type, "Not captured")),
