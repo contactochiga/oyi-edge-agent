@@ -20,6 +20,7 @@
     traces: [],
     notifications: [],
     report: null,
+    channelOverview: null,
     allDemos: [],
     proposals: [],
     allProposals: [],
@@ -95,6 +96,7 @@
     threadCanvas: document.getElementById("threadCanvas"),
     composerCard: document.getElementById("composerCard"),
     timelinePanel: document.getElementById("timelinePanel"),
+    channelsPanel: document.getElementById("channelsPanel"),
     notificationsPanel: document.getElementById("notificationsPanel"),
     notificationFilters: document.getElementById("notificationFilters"),
     founderInbox: document.getElementById("founderInbox"),
@@ -329,6 +331,7 @@
   }
 
   function canAccessTab(tab) {
+    if (tab === "channels") return hasPermission("view_reports");
     if (tab === "bookings") return hasPermission("view_reports");
     if (tab === "commercial") return hasPermission("manage_commercial") || hasPermission("view_reports");
     if (tab === "reports") return hasPermission("view_reports");
@@ -986,6 +989,56 @@
     el.bookingsPanel.innerHTML = [renderGroup("Requested / Pending", requested), renderGroup("Confirmed", confirmed)].join("");
   }
 
+  function renderChannels() {
+    if (!hasPermission("view_reports")) {
+      el.channelsPanel.innerHTML =
+        '<div class="value empty">Your role cannot access channel reporting.</div>';
+      return;
+    }
+
+    const overview = state.channelOverview || { channels: [] };
+    if (!overview.channels || !overview.channels.length) {
+      el.channelsPanel.innerHTML =
+        '<div class="value empty">No channel overview loaded yet.</div>';
+      return;
+    }
+
+    el.channelsPanel.innerHTML = overview.channels
+      .map(function (channel) {
+        const status = String(channel.status || "staged").toLowerCase();
+        return `
+          <article class="channel-card">
+            <div class="channel-card-head">
+              <div>
+                <div class="channel-title">${escapeHtml(channel.name || "Channel")}</div>
+                <div class="subtext" style="margin-top:6px;">${escapeHtml(
+                  channel.description || "Channel overview"
+                )}</div>
+              </div>
+              <span class="channel-status ${escapeHtml(status)}">${escapeHtml(status.replace(/_/g, " "))}</span>
+            </div>
+            <div class="channel-metrics">
+              <div class="channel-metric">
+                <div class="key" style="margin:0;">Leads</div>
+                <strong>${escapeHtml(String(channel.lead_count || 0))}</strong>
+              </div>
+              <div class="channel-metric">
+                <div class="key" style="margin:0;">Open alerts</div>
+                <strong>${escapeHtml(String(channel.open_notifications || 0))}</strong>
+              </div>
+            </div>
+            <div class="channel-note">
+              <strong style="display:block;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#0d5c46;">Operational note</strong>
+              <div class="subtext" style="margin-top:6px;">${escapeHtml(
+                channel.note || "No operational note recorded."
+              )}</div>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
   function renderCommercial() {
     if (!(hasPermission("manage_commercial") || hasPermission("view_reports"))) {
       el.commercialPanel.innerHTML =
@@ -1343,7 +1396,9 @@
             </div>
             <div class="subtext">${escapeHtml(
               lead ? leadTitle(lead) : "Lead record"
-            )} · ${escapeHtml(notification.channel || notification.metadata?.source || "unknown source")} · ${escapeHtml(
+            )} · ${escapeHtml(
+              displayValue(notification.channel || notification.metadata?.source, "website")
+            )} · ${escapeHtml(
               formatDate(notification.created_at)
             )}</div>
             <div class="value" style="margin-top:8px;">${escapeHtml(
@@ -1517,32 +1572,47 @@
       return;
     }
 
-    if (!state.channelState) {
-      el.channelStatePanel.textContent =
-        "No WhatsApp channel state recorded yet for this lead.";
-      el.channelStatePanel.className = "value empty";
-      return;
-    }
+    const websiteState = [
+      "Website widget: live",
+      `Primary source: ${displayValue(state.selectedLead.source, "website_widget")}`,
+      `Primary channel: ${displayValue(state.selectedLead.primary_channel, "website")}`,
+    ];
+
+    const whatsappState = state.channelState
+      ? [
+          "WhatsApp: active",
+          `AI paused: ${state.channelState.ai_paused ? "yes" : "no"}`,
+          `Human status: ${displayValue(state.channelState.human_status, "auto")}`,
+          `Human owner: ${displayValue(state.channelState.human_owner, "Not assigned")}`,
+          `Window expires: ${displayValue(
+            state.channelState.customer_service_window_expires_at
+              ? formatDate(state.channelState.customer_service_window_expires_at)
+              : "",
+            "Not available"
+          )}`,
+          `Last inbound: ${displayValue(
+            state.channelState.last_inbound_at ? formatDate(state.channelState.last_inbound_at) : "",
+            "Not available"
+          )}`,
+          `Last outbound: ${displayValue(
+            state.channelState.last_outbound_at ? formatDate(state.channelState.last_outbound_at) : "",
+            "Not available"
+          )}`,
+        ]
+      : [
+          "WhatsApp: no lead-side state recorded yet",
+          `Known contact: ${displayValue(state.selectedLead.whatsapp_phone || state.selectedLead.phone, "Not captured")}`,
+        ];
+
+    const futureChannels = [
+      "Facebook DM: staged for activation",
+      "Instagram DM: staged for activation",
+    ];
 
     el.channelStatePanel.textContent = [
-      `AI paused: ${state.channelState.ai_paused ? "yes" : "no"}`,
-      `Human status: ${displayValue(state.channelState.human_status, "auto")}`,
-      `Human owner: ${displayValue(state.channelState.human_owner, "Not assigned")}`,
-      `Reason: ${displayValue(state.channelState.takeover_reason, "Not set")}`,
-      `Window expires: ${displayValue(
-        state.channelState.customer_service_window_expires_at
-          ? formatDate(state.channelState.customer_service_window_expires_at)
-          : "",
-        "Not available"
-      )}`,
-      `Last inbound: ${displayValue(
-        state.channelState.last_inbound_at ? formatDate(state.channelState.last_inbound_at) : "",
-        "Not available"
-      )}`,
-      `Last outbound: ${displayValue(
-        state.channelState.last_outbound_at ? formatDate(state.channelState.last_outbound_at) : "",
-        "Not available"
-      )}`,
+      websiteState.join("\n"),
+      whatsappState.join("\n"),
+      futureChannels.join("\n"),
     ].join("\n\n");
     el.channelStatePanel.className = "value";
   }
@@ -1641,6 +1711,7 @@
     });
     renderFounderInbox();
     renderNotifications();
+    renderChannels();
     renderReports();
     renderBookings();
     renderCommercial();
@@ -1860,7 +1931,7 @@
   }
 
   async function loadLeads() {
-    const [leadData, traceData, notificationData, reportData, userData, demosData, proposalData, auditData] = await Promise.all([
+    const [leadData, traceData, notificationData, reportData, userData, demosData, proposalData, auditData, channelData] = await Promise.all([
       api("/api/lead-agents/leads", { method: "GET" }),
       hasPermission("view_traces")
         ? api("/api/lead-agents/admin/traces", { method: "GET" })
@@ -1883,6 +1954,9 @@
       hasPermission("view_audit")
         ? api("/api/lead-agents/admin/audit", { method: "GET" })
         : Promise.resolve({ audit: [] }),
+      hasPermission("view_reports")
+        ? api("/api/lead-agents/admin/channels", { method: "GET" })
+        : Promise.resolve({ channels: [] }),
     ]);
     state.leads = leadData.leads || [];
     state.traces = traceData.traces || [];
@@ -1892,6 +1966,7 @@
     state.allDemos = demosData.demos || [];
     state.allProposals = proposalData.proposals || [];
     state.audit = auditData.audit || [];
+    state.channelOverview = channelData || { channels: [] };
 
     if (
       state.selectedLeadId &&
@@ -1911,6 +1986,7 @@
     renderNotifications();
     renderFounderInbox();
     renderBookings();
+    renderChannels();
     renderCommercial();
     renderTeamPanel();
     renderAudit();
@@ -2513,6 +2589,7 @@
     state.traces = [];
     state.notifications = [];
     state.report = null;
+    state.channelOverview = null;
     state.allDemos = [];
     state.proposals = [];
     state.allProposals = [];

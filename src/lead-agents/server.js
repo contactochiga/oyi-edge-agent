@@ -78,6 +78,93 @@ function absoluteUrl(req, pathname, token) {
   return `${base}${base.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
 }
 
+async function buildChannelOverview(store, config) {
+  const [leads, notifications] = await Promise.all([
+    store.listLeads ? store.listLeads() : [],
+    store.listNotifications ? store.listNotifications(500) : [],
+  ]);
+
+  function leadCount(match) {
+    return leads.filter(match).length;
+  }
+
+  function notificationCount(channel) {
+    return notifications.filter((notification) => {
+      return (
+        notification.type === "inbound_message" &&
+        (notification.status || "open") === "open" &&
+        String(notification.channel || notification.metadata?.source || "")
+          .toLowerCase()
+          .includes(channel)
+      );
+    }).length;
+  }
+
+  const whatsappReady = Boolean(
+    config.whatsappVerifyToken &&
+      config.whatsappAccessToken &&
+      config.whatsappPhoneNumberId &&
+      config.whatsappBusinessAccountId
+  );
+
+  return {
+    channels: [
+      {
+        key: "website",
+        name: "Website Widget",
+        status: "active",
+        lead_count: leadCount((lead) =>
+          ["website", "website_chat", "website_widget"].includes(
+            String(lead.primary_channel || lead.source || "").toLowerCase()
+          )
+        ),
+        open_notifications: notificationCount("website"),
+        description: "Live widget intake on Ochiga and Oyi websites.",
+        note: "Inbound widget chats create lead records, notifications, and live conversation threads.",
+      },
+      {
+        key: "whatsapp",
+        name: "WhatsApp Business",
+        status: whatsappReady ? "active" : "needs_config",
+        lead_count: leadCount(
+          (lead) =>
+            String(lead.primary_channel || "").toLowerCase() === "whatsapp" ||
+            Boolean(lead.whatsapp_phone)
+        ),
+        open_notifications: notificationCount("whatsapp"),
+        description: "Meta webhook intake, reply orchestration, and human takeover controls.",
+        note: whatsappReady
+          ? "Webhook and outbound credentials are configured. New inbound messages should notify and open the thread directly."
+          : "Webhook or outbound credentials are incomplete. Finish Meta configuration before go-live.",
+      },
+      {
+        key: "facebook",
+        name: "Facebook Messenger",
+        status: "staged",
+        lead_count: leadCount(
+          (lead) =>
+            String(lead.primary_channel || lead.source || "").toLowerCase() === "facebook"
+        ),
+        open_notifications: notificationCount("facebook"),
+        description: "Reserved pipeline area for Messenger direct message intake.",
+        note: "UI and CRM staging are ready. Adapter and webhook activation are still pending.",
+      },
+      {
+        key: "instagram",
+        name: "Instagram DM",
+        status: "staged",
+        lead_count: leadCount(
+          (lead) =>
+            String(lead.primary_channel || lead.source || "").toLowerCase() === "instagram"
+        ),
+        open_notifications: notificationCount("instagram"),
+        description: "Reserved pipeline area for Instagram DM intake.",
+        note: "UI and CRM staging are ready. Adapter and webhook activation are still pending.",
+      },
+    ],
+  };
+}
+
 async function appendAudit(store, authContext, action, targetType, targetId, metadata) {
   if (!store.appendAuditEvent) return null;
   return store.appendAuditEvent({
@@ -1402,6 +1489,21 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           {
             report: await store.getReportingSummary(),
           },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/channels") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_reports");
+        json(
+          res,
+          200,
+          await buildChannelOverview(store, config),
           { "x-request-id": ctx.requestId }
         );
         return;
