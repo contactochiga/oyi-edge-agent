@@ -657,16 +657,14 @@ class SupabaseLeadAgentsStore {
 
   async upsertOfficeCollections(input) {
     const collections = input || {};
-    await Promise.all([
-      this.upsertRows("office_packages", collections.packages),
-      this.upsertRows("office_estates", collections.estates),
-      this.upsertRows("office_buildings", collections.buildings),
-      this.upsertRows("office_homes", collections.homes),
-      this.upsertRows("office_devices", collections.devices),
-      this.upsertRows("office_wallets", collections.wallets),
-      this.upsertRows("office_analytics", collections.analytics),
-      this.upsertRows("office_support_mappings", collections.support_mappings),
-    ]);
+    await this.upsertRows("office_packages", collections.packages);
+    await this.upsertRows("office_estates", collections.estates);
+    await this.upsertRows("office_buildings", collections.buildings);
+    await this.upsertRows("office_homes", collections.homes);
+    await this.upsertRows("office_devices", collections.devices);
+    await this.upsertRows("office_wallets", collections.wallets);
+    await this.upsertRows("office_analytics", collections.analytics);
+    await this.upsertRows("office_support_mappings", collections.support_mappings);
     return this.getOfficeSnapshot();
   }
 
