@@ -42,21 +42,13 @@ class SupabaseLeadAgentsStore {
     if (!Array.isArray(rows) || rows.length === 0) {
       return [];
     }
-    try {
-      const response = await this.client.post(`/${tableName}`, rows, {
-        headers: {
-          ...this.selectHeaders(),
-          Prefer: "resolution=merge-duplicates,return=representation",
-        },
-      });
-      return Array.isArray(response.data) ? response.data : [];
-    } catch (error) {
-      const status = error?.response?.status;
-      if (status === 400 || status === 404 || status === 406) {
-        return [];
-      }
-      throw error;
-    }
+    const response = await this.client.post(`/${tableName}`, rows, {
+      headers: {
+        ...this.selectHeaders(),
+        Prefer: "resolution=merge-duplicates,return=representation",
+      },
+    });
+    return Array.isArray(response.data) ? response.data : [];
   }
 
   normalizeLead(row) {

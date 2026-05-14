@@ -365,12 +365,19 @@ create table if not exists office_devices (
   home_id text references office_homes(id) on delete set null,
   name text not null,
   category text not null,
+  provider text,
   protocol text,
   status text not null default 'online',
+  battery_level numeric,
   last_seen_at timestamptz,
+  metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table office_devices add column if not exists provider text;
+alter table office_devices add column if not exists battery_level numeric;
+alter table office_devices add column if not exists metadata jsonb not null default '{}'::jsonb;
 
 drop trigger if exists office_devices_set_updated_at on office_devices;
 create trigger office_devices_set_updated_at
