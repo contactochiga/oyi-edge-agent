@@ -52,7 +52,7 @@ function setCorsHeaders(req, res, allowedOrigins) {
 
   res.setHeader("access-control-allow-origin", allowOrigin);
   res.setHeader("vary", "origin");
-  res.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
+  res.setHeader("access-control-allow-methods", "GET,POST,PATCH,DELETE,OPTIONS");
   res.setHeader(
     "access-control-allow-headers",
     "authorization,content-type,x-api-key,x-request-id"
@@ -111,8 +111,23 @@ function contentTypeForFile(filePath) {
       return "text/css; charset=utf-8";
     case ".json":
       return "application/json; charset=utf-8";
+    case ".gltf":
+      return "model/gltf+json; charset=utf-8";
+    case ".glb":
+      return "model/gltf-binary";
+    case ".bin":
+      return "application/octet-stream";
     case ".png":
       return "image/png";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".webp":
+      return "image/webp";
+    case ".svg":
+      return "image/svg+xml; charset=utf-8";
+    case ".pdf":
+      return "application/pdf";
     default:
       return "application/octet-stream";
   }

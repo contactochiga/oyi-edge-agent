@@ -213,6 +213,9 @@ create table if not exists admin_users (
   role text not null default 'admin',
   status text not null default 'active',
   display_name text,
+  passport_photo_url text,
+  qr_credential text,
+  permission_scopes text[] not null default '{}'::text[],
   last_login_at timestamptz,
   password_changed_at timestamptz,
   created_at timestamptz not null default now(),
@@ -221,6 +224,9 @@ create table if not exists admin_users (
 
 alter table admin_users add column if not exists last_login_at timestamptz;
 alter table admin_users add column if not exists password_changed_at timestamptz;
+alter table admin_users add column if not exists passport_photo_url text;
+alter table admin_users add column if not exists qr_credential text;
+alter table admin_users add column if not exists permission_scopes text[] not null default '{}'::text[];
 
 drop trigger if exists admin_users_set_updated_at on admin_users;
 create trigger admin_users_set_updated_at
@@ -263,6 +269,174 @@ create table if not exists password_reset_tokens (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create table if not exists office_packages (
+  id text primary key,
+  name text not null,
+  code text not null,
+  status text not null default 'active',
+  setup_fee numeric not null default 0,
+  monthly_fee numeric not null default 0,
+  estate_limit integer,
+  building_limit integer,
+  home_limit integer,
+  device_limit integer,
+  api_access boolean not null default false,
+  support_tier text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists office_packages_set_updated_at on office_packages;
+create trigger office_packages_set_updated_at
+before update on office_packages
+for each row
+execute function set_updated_at();
+
+create table if not exists office_estates (
+  id text primary key,
+  name text not null,
+  package_id text references office_packages(id) on delete set null,
+  status text not null default 'active',
+  subscription_status text not null default 'live',
+  location text,
+  buildings_count integer not null default 0,
+  homes_count integer not null default 0,
+  devices_count integer not null default 0,
+  resident_count integer not null default 0,
+  wallet_balance numeric not null default 0,
+  monthly_recurring_revenue numeric not null default 0,
+  support_open integer not null default 0,
+  support_escalated integer not null default 0,
+  connected_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists office_estates_set_updated_at on office_estates;
+create trigger office_estates_set_updated_at
+before update on office_estates
+for each row
+execute function set_updated_at();
+
+create table if not exists office_buildings (
+  id text primary key,
+  estate_id text references office_estates(id) on delete cascade,
+  name text not null,
+  type text,
+  homes_count integer not null default 0,
+  devices_count integer not null default 0,
+  permitted_users integer not null default 0,
+  live_cameras integer not null default 0,
+  occupancy_pct numeric not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists office_buildings_set_updated_at on office_buildings;
+create trigger office_buildings_set_updated_at
+before update on office_buildings
+for each row
+execute function set_updated_at();
+
+create table if not exists office_homes (
+  id text primary key,
+  estate_id text references office_estates(id) on delete cascade,
+  building_id text references office_buildings(id) on delete cascade,
+  name text not null,
+  residents_count integer not null default 0,
+  devices_count integer not null default 0,
+  wallet_balance numeric not null default 0,
+  automation_state text not null default 'standby',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists office_homes_set_updated_at on office_homes;
+create trigger office_homes_set_updated_at
+before update on office_homes
+for each row
+execute function set_updated_at();
+
+create table if not exists office_devices (
+  id text primary key,
+  estate_id text references office_estates(id) on delete cascade,
+  building_id text references office_buildings(id) on delete cascade,
+  home_id text references office_homes(id) on delete set null,
+  name text not null,
+  category text not null,
+  protocol text,
+  status text not null default 'online',
+  last_seen_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists office_devices_set_updated_at on office_devices;
+create trigger office_devices_set_updated_at
+before update on office_devices
+for each row
+execute function set_updated_at();
+
+create table if not exists office_wallets (
+  id text primary key,
+  scope_type text not null,
+  scope_id text not null,
+  label text not null,
+  balance numeric not null default 0,
+  currency text not null default 'NGN',
+  pending_charges numeric not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists office_wallets_set_updated_at on office_wallets;
+create trigger office_wallets_set_updated_at
+before update on office_wallets
+for each row
+execute function set_updated_at();
+
+create table if not exists office_analytics (
+  id text primary key,
+  surface text not null,
+  label text not null,
+  period text not null default '24h',
+  sessions integer not null default 0,
+  unique_visitors integer not null default 0,
+  conversions integer not null default 0,
+  active_agent text,
+  top_source text,
+  top_location text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists office_analytics_set_updated_at on office_analytics;
+create trigger office_analytics_set_updated_at
+before update on office_analytics
+for each row
+execute function set_updated_at();
+
+create table if not exists office_support_mappings (
+  id text primary key,
+  estate_id text references office_estates(id) on delete cascade,
+  building_id text references office_buildings(id) on delete set null,
+  home_id text references office_homes(id) on delete set null,
+  title text not null,
+  category text not null,
+  channel text not null default 'office',
+  priority text not null default 'medium',
+  status text not null default 'open',
+  assigned_team text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists office_support_mappings_set_updated_at on office_support_mappings;
+create trigger office_support_mappings_set_updated_at
+before update on office_support_mappings
+for each row
+execute function set_updated_at();
 
 create index if not exists password_reset_tokens_email_created_at_idx
 on password_reset_tokens (email, created_at desc);

@@ -3,6 +3,7 @@ require("dotenv").config({ path: ".env.lead-agents.local", override: true });
 const http = require("http");
 const path = require("path");
 const crypto = require("crypto");
+const fs = require("fs/promises");
 const { createConfig } = require("./config");
 const { log } = require("./logger");
 const { createStore } = require("./store-factory");
@@ -27,6 +28,15 @@ const { normalizeEmail, normalizeLeadInput, normalizeLeadPatch } = require("./no
 const { WhatsAppCloudAdapter } = require("./whatsapp");
 const { buildCalendarLinks, parsePreferredSchedule } = require("./scheduling");
 const { buildProposal, inferCommercialFacts } = require("./commercial");
+const { createDigitalTwinRuntime } = require("./digital-twin");
+const { createPlanStudioRuntime } = require("./plan-studio");
+const { createOfficeSyncService } = require("./office-sync");
+const {
+  passwordResetEmail,
+  sendOfficeEmail,
+  staffInviteEmail,
+} = require("./email");
+const { credentialPayloadForUser, qrSvg } = require("./qr");
 const {
   createRequestContext,
   getPathname,
@@ -70,12 +80,390 @@ function hashOpaqueToken(token) {
   return crypto.createHash("sha256").update(String(token || "")).digest("hex");
 }
 
+function createEventBus() {
+  const clients = new Set();
+  function send(res, event, payload) {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(payload || {})}\n\n`);
+  }
+  return {
+    add(res, session) {
+      clients.add(res);
+      send(res, "ready", {
+        message: "ochiga_office_stream_ready",
+        email: session?.email || "",
+        ts: new Date().toISOString(),
+      });
+      return () => {
+        clients.delete(res);
+      };
+    },
+    publish(event, payload) {
+      const data = {
+        ...payload,
+        event,
+        ts: new Date().toISOString(),
+      };
+      for (const res of clients) {
+        try {
+          send(res, event, data);
+        } catch {
+          clients.delete(res);
+        }
+      }
+    },
+  };
+}
+
+function parseDataUrl(value) {
+  const match = String(value || "").match(/^data:([^;,]+)?(;base64)?,([\s\S]*)$/);
+  if (!match) return null;
+  const mimeType = match[1] || "application/octet-stream";
+  const isBase64 = Boolean(match[2]);
+  const body = match[3] || "";
+  return {
+    mimeType,
+    buffer: isBase64 ? Buffer.from(body, "base64") : Buffer.from(decodeURIComponent(body), "utf8"),
+  };
+}
+
+function extensionForMime(mimeType) {
+  const clean = String(mimeType || "").toLowerCase();
+  if (clean.includes("jpeg") || clean.includes("jpg")) return ".jpg";
+  if (clean.includes("png")) return ".png";
+  if (clean.includes("webp")) return ".webp";
+  if (clean.includes("svg")) return ".svg";
+  if (clean.includes("pdf")) return ".pdf";
+  return ".bin";
+}
+
+function integrationStatus(config) {
+  return {
+    facility: {
+      key: "facility",
+      name: "Oyi Facility API",
+      configured: Boolean(config.officeFacilityBaseUrl),
+      base_url: config.officeFacilityBaseUrl || "",
+      export_path: config.officeFacilityExportPath || "/office/export",
+      auth: config.officeFacilityBearerToken ? "bearer" : config.officeFacilityApiKey ? "api_key" : "none",
+      sync_target: "facility",
+    },
+    consumer: {
+      key: "consumer",
+      name: "Consumer Smart Building API",
+      configured: Boolean(config.officeConsumerBaseUrl),
+      base_url: config.officeConsumerBaseUrl || "",
+      export_path: config.officeConsumerExportPath || "/office/export",
+      auth: config.officeConsumerBearerToken ? "bearer" : config.officeConsumerApiKey ? "api_key" : "none",
+      sync_target: "consumer",
+    },
+    email: {
+      key: "email",
+      name: "Office Email",
+      configured: Boolean(config.officeEmailProvider && config.resendApiKey),
+      provider: config.officeEmailProvider || "none",
+      from: config.officeEmailFrom,
+    },
+    storage: {
+      key: "storage",
+      name: "Office Storage",
+      configured: Boolean(config.officeStorageDir),
+      driver: "local",
+      path: config.officeStorageDir,
+    },
+    events: {
+      key: "events",
+      name: "Live Office Events",
+      configured: true,
+      driver: "server_sent_events",
+      endpoint: "/api/lead-agents/admin/events",
+    },
+    whatsapp: {
+      key: "whatsapp",
+      name: "WhatsApp Cloud",
+      configured: Boolean(config.whatsappAccessToken && config.whatsappPhoneNumberId),
+      provider: "meta",
+    },
+  };
+}
+
+async function storeOfficeFile(config, input) {
+  const parsed = parseDataUrl(input.data_url || input.dataUrl || "");
+  if (!parsed) {
+    const error = new Error("data_url is required");
+    error.statusCode = 400;
+    throw error;
+  }
+  const purpose = String(input.purpose || "document").toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
+  const id = `${purpose}_${Date.now().toString(36)}_${crypto.randomBytes(6).toString("hex")}`;
+  const ext = extensionForMime(input.mime_type || parsed.mimeType);
+  await fs.mkdir(config.officeStorageDir, { recursive: true });
+  const filename = `${id}${ext}`;
+  const filePath = path.join(config.officeStorageDir, filename);
+  await fs.writeFile(filePath, parsed.buffer);
+  return {
+    id,
+    filename,
+    mime_type: input.mime_type || parsed.mimeType,
+    size: parsed.buffer.length,
+    purpose,
+    url: `/api/lead-agents/admin/storage/${encodeURIComponent(filename)}`,
+    created_at: new Date().toISOString(),
+  };
+}
+
 function absoluteUrl(req, pathname, token) {
   const proto = req.headers["x-forwarded-proto"] || "https";
   const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
   const base = `${proto}://${host}${pathname}`;
   if (!token) return base;
   return `${base}${base.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+}
+
+function extractTextFromResponse(response) {
+  if (response && typeof response.output_text === "string" && response.output_text.trim()) {
+    return response.output_text.trim();
+  }
+  const messages = Array.isArray(response?.output)
+    ? response.output.filter((item) => item.type === "message")
+    : [];
+  const chunks = [];
+  for (const message of messages) {
+    for (const content of message.content || []) {
+      if (typeof content?.text === "string" && content.text.trim()) {
+        chunks.push(content.text.trim());
+      }
+    }
+  }
+  return chunks.join("\n").trim();
+}
+
+function extractJsonObject(text) {
+  const source = String(text || "").trim();
+  if (!source) return null;
+  const fenced = source.match(/```json\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1].trim() : source;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return null;
+  try {
+    return JSON.parse(candidate.slice(start, end + 1));
+  } catch (error) {
+    return null;
+  }
+}
+
+async function enhancePlanStudioGeometry({ openaiClient, config, imageDataUrl, heuristicGeometry }) {
+  const response = await openaiClient.createResponse({
+    model: config.openaiModel,
+    input: [
+      {
+        role: "system",
+        content: [
+          {
+            type: "input_text",
+            text:
+              "You analyze architectural floor plan images. Return JSON only. Refine room segmentation, room names, openings, and circulation. Preserve normalized coordinates between 0 and 1. Prefer conservative corrections over invented detail.",
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: [
+              "Given this floor plan image and the initial heuristic geometry, return a JSON object with keys:",
+              "confidence, content_bounds, zones, pathways, openings.",
+              "zones: array of {id,label,kind,x,y,width,height}",
+              "pathways: array of {id,label,kind,x1,y1,x2,y2}",
+              "openings: array of {id,label,kind,x,y,orientation}",
+              "Use OCR to read room names where possible.",
+              "Identify door openings explicitly when visible.",
+              "Split internal rooms such as baths, kitchens, stores, utility, corridor, core, bedrooms, living, dining where image evidence supports it.",
+              `Initial heuristic geometry: ${JSON.stringify(heuristicGeometry)}`,
+            ].join("\n"),
+          },
+          {
+            type: "input_image",
+            image_url: imageDataUrl,
+            detail: "high",
+          },
+        ],
+      },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "plan_studio_geometry",
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            confidence: { type: "number" },
+            content_bounds: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                x: { type: "number" },
+                y: { type: "number" },
+                width: { type: "number" },
+                height: { type: "number" },
+              },
+              required: ["x", "y", "width", "height"],
+            },
+            zones: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  id: { type: "string" },
+                  label: { type: "string" },
+                  kind: { type: "string" },
+                  x: { type: "number" },
+                  y: { type: "number" },
+                  width: { type: "number" },
+                  height: { type: "number" },
+                },
+                required: ["id", "label", "kind", "x", "y", "width", "height"],
+              },
+            },
+            pathways: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  id: { type: "string" },
+                  label: { type: "string" },
+                  kind: { type: "string" },
+                  x1: { type: "number" },
+                  y1: { type: "number" },
+                  x2: { type: "number" },
+                  y2: { type: "number" },
+                },
+                required: ["id", "label", "kind", "x1", "y1", "x2", "y2"],
+              },
+            },
+            openings: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  id: { type: "string" },
+                  label: { type: "string" },
+                  kind: { type: "string" },
+                  x: { type: "number" },
+                  y: { type: "number" },
+                  orientation: { type: "string" },
+                },
+                required: ["id", "label", "kind", "x", "y", "orientation"],
+              },
+            },
+          },
+          required: ["confidence", "content_bounds", "zones", "pathways", "openings"],
+        },
+      },
+    },
+  });
+
+  const structured =
+    response?.output?.[0]?.content?.[0]?.json ||
+    extractJsonObject(extractTextFromResponse(response));
+  if (!structured || typeof structured !== "object") {
+    const error = new Error("Plan parsing did not return valid JSON");
+    error.statusCode = 502;
+    throw error;
+  }
+  structured.source = "openai-vision";
+  return structured;
+}
+
+function fallbackPlanStudioReply(project, question) {
+  const geometry = project.analysis?.geometry || {};
+  const summary = project.analysis?.summary || {};
+  const zones = Array.isArray(geometry.zones) ? geometry.zones : [];
+  const openings = Array.isArray(geometry.openings) ? geometry.openings : [];
+  const pathways = Array.isArray(geometry.pathways) ? geometry.pathways : [];
+  const importantZones = zones
+    .slice(0, 6)
+    .map((zone) => `${zone.label} (${zone.kind})`)
+    .join(", ");
+  const prompt = String(question || "").toLowerCase();
+
+  if (prompt.includes("opportunit") || prompt.includes("smart")) {
+    return [
+      `This plan currently exposes ${summary.cctv || 0} CCTV points, ${summary.access_points || 0} access points, ${summary.sensors || 0} sensors, and ${summary.power_outlets || 0} power outlets in the draft smart layer.`,
+      `The strongest smart-building opportunities are access control around the detected entry/core zones, CCTV on circulation junctions, occupancy-driven lighting, and structured network/PoE along the ${pathways.length} detected path${pathways.length === 1 ? "" : "s"}.`,
+      importantZones ? `The main parsed spaces are ${importantZones}.` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  if (prompt.includes("decision")) {
+    return [
+      `The next design decisions are to validate room names, confirm the ${openings.length} detected opening${openings.length === 1 ? "" : "s"}, approve corridor/core geometry, and decide which smart layers should be prioritized first for the project.`,
+      `After that, the team should lock device density for security, electrical, fire safety, HVAC, and network disciplines.`,
+    ].join(" ");
+  }
+
+  return [
+    `This uploaded plan has been parsed into ${zones.length} space zone${zones.length === 1 ? "" : "s"}, ${pathways.length} circulation path${pathways.length === 1 ? "" : "s"}, and ${openings.length} opening${openings.length === 1 ? "" : "s"}.`,
+    importantZones ? `The main detected spaces are ${importantZones}.` : "",
+    `The current smart-infrastructure draft suggests ${summary.cctv || 0} CCTV points, ${summary.access_points || 0} access points, ${summary.sensors || 0} sensors, and ${summary.power_outlets || 0} power outlets.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+async function answerPlanStudioQuestion({ openaiClient, config, project, question }) {
+  const fallback = fallbackPlanStudioReply(project, question);
+  try {
+    const response = await openaiClient.createResponse({
+      model: config.openaiModel,
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "You are an expert smart-building planning agent. Explain plans in plain English, identify spaces, call out geometry uncertainty, and recommend realistic smart infrastructure layers. Keep answers concise but concrete.",
+            },
+          ],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: [
+                `Project: ${project.name}`,
+                `Question: ${question}`,
+                `Geometry: ${JSON.stringify(project.analysis?.geometry || {})}`,
+                `Summary: ${JSON.stringify(project.analysis?.summary || {})}`,
+                `Recommendations: ${JSON.stringify(project.analysis?.recommendations || [])}`,
+                `Discipline reviews: ${JSON.stringify(project.discipline_reviews || {})}`,
+              ].join("\n"),
+            },
+            project.image_data_url
+              ? {
+                  type: "input_image",
+                  image_url: project.image_data_url,
+                  detail: "high",
+                }
+              : null,
+          ].filter(Boolean),
+        },
+      ],
+    });
+    return extractTextFromResponse(response) || fallback;
+  } catch (error) {
+    return fallback;
+  }
 }
 
 async function buildChannelOverview(store, config) {
@@ -435,12 +823,22 @@ async function enrichAuthContext(authContext, store) {
     ...authContext,
     user,
     role: user.role || authContext.role,
-    permissions: permissionsForRole(user.role || authContext.role),
+    permissionScopes: Array.isArray(user.permission_scopes) ? user.permission_scopes : [],
+    permissions: permissionsForRole(
+      user.role || authContext.role,
+      Array.isArray(user.permission_scopes) ? user.permission_scopes : []
+    ),
   };
 }
 
-function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
+function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, openaiClient }) {
   const startedAt = Date.now();
+  const eventBus = createEventBus();
+  const digitalTwinRuntime = createDigitalTwinRuntime();
+  const planStudioRuntime = createPlanStudioRuntime({
+    storePath: path.join(process.cwd(), "data", "plan-studio-store.json"),
+  });
+  const officeSync = createOfficeSyncService({ config, store });
   const widgetIndexPath = path.join(process.cwd(), "public", "widget", "index.html");
   const widgetScriptPath = path.join(
     process.cwd(),
@@ -465,6 +863,36 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
     "public",
     "assets",
     "ochiga-logo.png"
+  );
+  const digitalTwinIndexPath = path.join(
+    process.cwd(),
+    "public",
+    "digital-twin",
+    "index.html"
+  );
+  const digitalTwinScriptPath = path.join(
+    process.cwd(),
+    "public",
+    "digital-twin",
+    "app.js"
+  );
+  const digitalTwinModelDir = path.join(
+    process.cwd(),
+    "public",
+    "digital-twin",
+    "model"
+  );
+  const planStudioIndexPath = path.join(
+    process.cwd(),
+    "public",
+    "plan-studio",
+    "index.html"
+  );
+  const planStudioScriptPath = path.join(
+    process.cwd(),
+    "public",
+    "plan-studio",
+    "app.js"
   );
 
   return http.createServer(async (req, res) => {
@@ -494,6 +922,28 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
         pathname === "/widget/" ||
         pathname === "/widget.js" ||
         pathname === "/api/lead-agents/public/chat";
+      const isPublicDigitalTwinPath =
+        pathname === "/digital-twin" ||
+        pathname === "/digital-twin/" ||
+        pathname === "/digital-twin/app.js" ||
+        pathname === "/digital-twin/model/scene-definition.json" ||
+        pathname === "/digital-twin/model/twin.gltf" ||
+        pathname === "/digital-twin/model/twin.bin" ||
+        pathname === "/digital-twin/model/twin.glb" ||
+        pathname === "/api/digital-twin/scene" ||
+        pathname === "/api/digital-twin/device-action" ||
+        pathname === "/api/digital-twin/edge-sync";
+      const isPublicPlanStudioPath =
+        pathname === "/plan-studio" ||
+        pathname === "/plan-studio/" ||
+        pathname === "/plan-studio/app.js" ||
+        pathname === "/api/plan-studio/projects" ||
+        pathname === "/api/plan-studio/project" ||
+        pathname === "/api/plan-studio/analyze" ||
+        pathname === "/api/plan-studio/agent" ||
+        pathname === "/api/plan-studio/discipline" ||
+        pathname === "/api/plan-studio/parse" ||
+        pathname === "/api/plan-studio/geometry";
       const isPublicDashboardPath =
         pathname === "/dashboard" ||
         pathname === "/dashboard/" ||
@@ -508,6 +958,8 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
       if (
         pathname !== "/healthz" &&
         !isPublicWidgetPath &&
+        !isPublicDigitalTwinPath &&
+        !isPublicPlanStudioPath &&
         !isPublicDashboardPath &&
         !isPublicAdminSessionPath &&
         !isPublicWhatsappPath
@@ -634,7 +1086,12 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
               role: sessionUser.role,
               display_name: sessionUser.display_name || sessionUser.email,
               status: sessionUser.status || "active",
-              permissions: permissionsForRole(sessionUser.role),
+              permission_scopes: Array.isArray(sessionUser.permission_scopes)
+                ? sessionUser.permission_scopes
+                : [],
+              passport_photo_url: sessionUser.passport_photo_url || "",
+              qr_credential: sessionUser.qr_credential || "",
+              permissions: permissionsForRole(sessionUser.role, sessionUser.permission_scopes),
             },
           },
           {
@@ -689,7 +1146,12 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
               role: currentUser.role,
               display_name: currentUser.display_name || currentUser.email,
               status: currentUser.status || "active",
-              permissions: permissionsForRole(currentUser.role),
+              permission_scopes: Array.isArray(currentUser.permission_scopes)
+                ? currentUser.permission_scopes
+                : [],
+              passport_photo_url: currentUser.passport_photo_url || "",
+              qr_credential: currentUser.qr_credential || "",
+              permissions: permissionsForRole(currentUser.role, currentUser.permission_scopes),
             },
           },
           { "x-request-id": ctx.requestId }
@@ -771,7 +1233,10 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
               role: user.role,
               display_name: user.display_name || user.email,
               status: user.status || "active",
-              permissions: permissionsForRole(user.role),
+              permission_scopes: Array.isArray(user.permission_scopes) ? user.permission_scopes : [],
+              passport_photo_url: user.passport_photo_url || "",
+              qr_credential: user.qr_credential || "",
+              permissions: permissionsForRole(user.role, user.permission_scopes),
             },
           },
           {
@@ -865,6 +1330,251 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           return;
         }
         await serveFile(res, widgetScriptPath);
+        return;
+      }
+
+      if (pathname === "/digital-twin" || pathname === "/digital-twin/") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, digitalTwinIndexPath);
+        return;
+      }
+
+      if (pathname === "/digital-twin/app.js") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, digitalTwinScriptPath);
+        return;
+      }
+
+      if (pathname === "/plan-studio" || pathname === "/plan-studio/") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, planStudioIndexPath);
+        return;
+      }
+
+      if (pathname === "/plan-studio/app.js") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, planStudioScriptPath);
+        return;
+      }
+
+      if (pathname.startsWith("/digital-twin/model/")) {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        const filename = pathname.slice("/digital-twin/model/".length);
+        const allowedFiles = new Set([
+          "scene-definition.json",
+          "twin.gltf",
+          "twin.bin",
+          "twin.glb",
+        ]);
+        if (!allowedFiles.has(filename)) {
+          notFound(res);
+          return;
+        }
+        await serveFile(res, path.join(digitalTwinModelDir, filename));
+        return;
+      }
+
+      if (pathname === "/api/digital-twin/scene") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        json(res, 200, digitalTwinRuntime.getScene(), {
+          "x-request-id": ctx.requestId,
+        });
+        return;
+      }
+
+      if (pathname === "/api/digital-twin/device-action") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        const body = await readJsonBody(req);
+        if (!body.device_id || !body.action) {
+          json(res, 400, { error: "device_id and action are required" });
+          return;
+        }
+        const result = digitalTwinRuntime.dispatchAction(body.device_id, body.action);
+        json(res, 200, result, {
+          "x-request-id": ctx.requestId,
+        });
+        return;
+      }
+
+      if (pathname === "/api/digital-twin/edge-sync") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        const result = digitalTwinRuntime.syncEdge();
+        json(res, 200, result, {
+          "x-request-id": ctx.requestId,
+        });
+        return;
+      }
+
+      if (pathname === "/api/plan-studio/projects") {
+        if (req.method === "GET") {
+          const projects = await planStudioRuntime.listProjects();
+          json(res, 200, { projects }, { "x-request-id": ctx.requestId });
+          return;
+        }
+        if (req.method === "POST") {
+          const body = await readJsonBody(req, 12 * 1024 * 1024);
+          if (!body.image_data_url || !body.file_name) {
+            json(res, 400, { error: "image_data_url and file_name are required" });
+            return;
+          }
+          const project = await planStudioRuntime.saveProject(body);
+          json(res, 200, { project }, { "x-request-id": ctx.requestId });
+          return;
+        }
+        methodNotAllowed(res, "GET,POST");
+        return;
+      }
+
+      if (pathname === "/api/plan-studio/project") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        const url = new URL(req.url, "http://localhost");
+        const projectId = url.searchParams.get("id");
+        if (!projectId) {
+          json(res, 400, { error: "id is required" });
+          return;
+        }
+        const project = await planStudioRuntime.getProject(projectId);
+        if (!project) {
+          notFound(res);
+          return;
+        }
+        json(res, 200, { project }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      if (pathname === "/api/plan-studio/analyze") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        const body = await readJsonBody(req);
+        if (!body.project_id) {
+          json(res, 400, { error: "project_id is required" });
+          return;
+        }
+        const project = await planStudioRuntime.analyzeProject(
+          body.project_id,
+          body.parsed_geometry
+        );
+        if (!project) {
+          notFound(res);
+          return;
+        }
+        json(res, 200, { project }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      if (pathname === "/api/plan-studio/parse") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        const body = await readJsonBody(req, 12 * 1024 * 1024);
+        if (!body.image_data_url) {
+          json(res, 400, { error: "image_data_url is required" });
+          return;
+        }
+        const parsed_geometry = await enhancePlanStudioGeometry({
+          openaiClient,
+          config,
+          imageDataUrl: body.image_data_url,
+          heuristicGeometry: body.parsed_geometry || {},
+        });
+        json(res, 200, { parsed_geometry }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      if (pathname === "/api/plan-studio/agent") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        const body = await readJsonBody(req, 12 * 1024 * 1024);
+        if (!body.project_id || !body.question) {
+          json(res, 400, { error: "project_id and question are required" });
+          return;
+        }
+        const project = await planStudioRuntime.getProject(body.project_id);
+        if (!project) {
+          notFound(res);
+          return;
+        }
+        const reply = await answerPlanStudioQuestion({
+          openaiClient,
+          config,
+          project,
+          question: body.question,
+        });
+        json(res, 200, { reply }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      if (pathname === "/api/plan-studio/discipline") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        const body = await readJsonBody(req);
+        if (!body.project_id || !body.discipline) {
+          json(res, 400, { error: "project_id and discipline are required" });
+          return;
+        }
+        const project = await planStudioRuntime.updateDisciplineReview(
+          body.project_id,
+          body.discipline,
+          body
+        );
+        if (!project) {
+          notFound(res);
+          return;
+        }
+        json(res, 200, { project }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      if (pathname === "/api/plan-studio/geometry") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        const body = await readJsonBody(req, 12 * 1024 * 1024);
+        if (!body.project_id || !body.geometry_truth) {
+          json(res, 400, { error: "project_id and geometry_truth are required" });
+          return;
+        }
+        const project = await planStudioRuntime.updateGeometryTruth(body.project_id, body);
+        if (!project) {
+          notFound(res);
+          return;
+        }
+        json(res, 200, { project }, { "x-request-id": ctx.requestId });
         return;
       }
 
@@ -1466,6 +2176,10 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           notFound(res);
           return;
         }
+        eventBus.publish("office.notification", {
+          actor: authContext?.email || "",
+          notification,
+        });
         json(
           res,
           200,
@@ -1488,6 +2202,207 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           200,
           {
             report: await store.getReportingSummary(),
+          },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/office/overview") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_reports");
+        json(
+          res,
+          200,
+          {
+            office: await store.getOfficeSnapshot(),
+          },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/events") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_office");
+        res.writeHead(200, {
+          "content-type": "text/event-stream; charset=utf-8",
+          "cache-control": "no-cache, no-transform",
+          connection: "keep-alive",
+          "x-request-id": ctx.requestId,
+        });
+        const removeClient = eventBus.add(res, authContext);
+        const heartbeat = setInterval(() => {
+          res.write(`event: heartbeat\n`);
+          res.write(`data: ${JSON.stringify({ ts: new Date().toISOString() })}\n\n`);
+        }, 25000);
+        req.on("close", () => {
+          clearInterval(heartbeat);
+          removeClient();
+        });
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/office/sync") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_office");
+        const body = await readJsonBody(req);
+        const target = String(body?.target || "all").toLowerCase();
+        let result;
+        if (target === "facility") {
+          result = await officeSync.syncFacility();
+        } else if (target === "consumer") {
+          result = await officeSync.syncConsumer();
+        } else {
+          result = await officeSync.syncAll();
+        }
+        await appendAudit(store, authContext, "office_sync_run", "office_sync", target, {
+          target,
+          result_summary: result?.collections || result?.results || {},
+        });
+        eventBus.publish("office.sync", {
+          target,
+          actor: authContext?.email || "",
+          result_summary: result?.collections || result?.results || {},
+        });
+        json(res, 200, { ok: true, result }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/office/import") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_office");
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        const source = String(body.source || "manual").toLowerCase();
+        const result = await officeSync.ingestCollections(
+          source,
+          body.payload || body.collections || body
+        );
+        await appendAudit(store, authContext, "office_import_ingested", "office_import", source, {
+          source,
+          collections: result.collections,
+        });
+        eventBus.publish("office.import", {
+          source,
+          actor: authContext?.email || "",
+          collections: result.collections,
+        });
+        json(res, 200, { ok: true, result }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/permissions") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_users");
+        json(
+          res,
+          200,
+          {
+            roles: {
+              admin: permissionsForRole("admin"),
+              founder: permissionsForRole("founder"),
+              operator: permissionsForRole("operator"),
+              sales: permissionsForRole("sales"),
+              viewer: permissionsForRole("viewer"),
+            },
+            scopes: permissionsForRole("admin"),
+          },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/integrations") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_integrations");
+        json(
+          res,
+          200,
+          {
+            integrations: integrationStatus(config),
+          },
+          { "x-request-id": ctx.requestId }
+        );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/storage") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_storage");
+        const body = await readJsonBody(req, 16 * 1024 * 1024);
+        requireObject(body, "body");
+        const file = await storeOfficeFile(config, body);
+        await appendAudit(store, authContext, "office_file_uploaded", "office_file", file.id, {
+          filename: file.filename,
+          mime_type: file.mime_type,
+          size: file.size,
+          purpose: file.purpose,
+        });
+        eventBus.publish("office.storage", {
+          actor: authContext?.email || "",
+          file,
+        });
+        json(res, 201, { file }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      const storageMatch = pathname.match(/^\/api\/lead-agents\/admin\/storage\/([^/]+)$/);
+      if (storageMatch) {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_storage");
+        const filename = path.basename(decodeURIComponent(storageMatch[1]));
+        await serveFile(res, path.join(config.officeStorageDir, filename));
+        return;
+      }
+
+      const officeCollectionRoutes = {
+        "/api/lead-agents/admin/office/packages": "listOfficePackages",
+        "/api/lead-agents/admin/office/estates": "listOfficeEstates",
+        "/api/lead-agents/admin/office/buildings": "listOfficeBuildings",
+        "/api/lead-agents/admin/office/homes": "listOfficeHomes",
+        "/api/lead-agents/admin/office/devices": "listOfficeDevices",
+        "/api/lead-agents/admin/office/wallets": "listOfficeWallets",
+        "/api/lead-agents/admin/office/analytics": "listOfficeAnalytics",
+        "/api/lead-agents/admin/office/support-mappings": "listOfficeSupportMappings",
+      };
+      if (officeCollectionRoutes[pathname]) {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_reports");
+        const methodName = officeCollectionRoutes[pathname];
+        const collection = typeof store[methodName] === "function" ? await store[methodName]() : [];
+        json(
+          res,
+          200,
+          {
+            collection,
           },
           { "x-request-id": ctx.requestId }
         );
@@ -1551,15 +2466,45 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
             role: body.role || "viewer",
             display_name: body.display_name || body.email,
             status: body.status || "active",
+            passport_photo_url: body.passport_photo_url || "",
+            qr_credential: body.qr_credential || "",
+            permission_scopes: Array.isArray(body.permission_scopes) ? body.permission_scopes : [],
           });
           await appendAudit(store, authContext, "admin_user_created", "admin_user", user.id, {
             email: user.email,
             role: user.role,
           });
+          eventBus.publish("office.staff", {
+            action: "created",
+            actor: authContext?.email || "",
+            user: {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+              status: user.status,
+            },
+          });
           json(res, 201, { user }, { "x-request-id": ctx.requestId });
           return;
         }
         methodNotAllowed(res, "GET,POST");
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/users/qr") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_users");
+        const requestUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+        const svg = qrSvg(requestUrl.searchParams.get("data") || "ochiga-office", { size: 144 });
+        res.writeHead(200, {
+          "content-type": "image/svg+xml; charset=utf-8",
+          "cache-control": "private, max-age=300",
+          "x-request-id": ctx.requestId,
+        });
+        res.end(svg);
         return;
       }
 
@@ -1585,9 +2530,31 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           invited_by: authContext?.email || "",
           expires_at: new Date(Date.now() + (Number(body.expires_in_hours || 72) * 60 * 60 * 1000)).toISOString(),
         });
+        const inviteUrl = absoluteUrl(req, "/dashboard?mode=invite", rawToken);
+        const inviteMessage = staffInviteEmail({
+          displayName: invite.display_name || invite.email,
+          inviteUrl,
+          role: invite.role,
+        });
+        const emailDelivery = await sendOfficeEmail(config, {
+          to: invite.email,
+          ...inviteMessage,
+        });
         await appendAudit(store, authContext, "admin_invite_created", "admin_invite", invite.id, {
           email: invite.email,
           role: invite.role,
+          email_delivery: emailDelivery,
+        });
+        eventBus.publish("office.staff", {
+          action: "invited",
+          actor: authContext?.email || "",
+          invite: {
+            id: invite.id,
+            email: invite.email,
+            role: invite.role,
+            status: invite.status,
+            email_delivery: emailDelivery,
+          },
         });
         json(
           res,
@@ -1595,7 +2562,8 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           {
             invite,
             invite_token: rawToken,
-            invite_url: absoluteUrl(req, "/dashboard?mode=invite", rawToken),
+            invite_url: inviteUrl,
+            email_delivery: emailDelivery,
           },
           { "x-request-id": ctx.requestId }
         );
@@ -1615,6 +2583,9 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
         if (body.display_name !== undefined) patch.display_name = body.display_name;
         if (body.role !== undefined) patch.role = body.role;
         if (body.status !== undefined) patch.status = body.status;
+        if (body.passport_photo_url !== undefined) patch.passport_photo_url = body.passport_photo_url;
+        if (body.qr_credential !== undefined) patch.qr_credential = body.qr_credential;
+        if (Array.isArray(body.permission_scopes)) patch.permission_scopes = body.permission_scopes;
         if (body.password) {
           patch.password_hash = hashPassword(body.password);
           patch.password_changed_at = new Date().toISOString();
@@ -1625,6 +2596,61 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           return;
         }
         await appendAudit(store, authContext, "admin_user_updated", "admin_user", user.id, patch);
+        eventBus.publish("office.staff", {
+          action: "updated",
+          actor: authContext?.email || "",
+          user: {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            status: user.status,
+          },
+        });
+        json(res, 200, { user }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      const adminUserPhotoMatch = pathname.match(/^\/api\/lead-agents\/admin\/users\/([^/]+)\/photo$/);
+      if (adminUserPhotoMatch) {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_users");
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        let passportPhotoUrl = body.passport_photo_url || "";
+        if (!passportPhotoUrl && body.photo_data_url) {
+          const storedPhoto = await storeOfficeFile(config, {
+            data_url: body.photo_data_url,
+            purpose: "staff_passport",
+            mime_type: body.mime_type,
+          });
+          passportPhotoUrl = storedPhoto.url;
+        }
+        if (!passportPhotoUrl) {
+          json(res, 400, { error: "passport_photo_url or photo_data_url is required" });
+          return;
+        }
+        const user = await store.updateAdminUser(adminUserPhotoMatch[1], {
+          passport_photo_url: passportPhotoUrl,
+        });
+        if (!user) {
+          notFound(res);
+          return;
+        }
+        await appendAudit(store, authContext, "admin_user_photo_updated", "admin_user", user.id, {
+          email: user.email,
+        });
+        eventBus.publish("office.staff", {
+          action: "photo_updated",
+          actor: authContext?.email || "",
+          user: {
+            id: user.id,
+            email: user.email,
+            passport_photo_url: user.passport_photo_url,
+          },
+        });
         json(res, 200, { user }, { "x-request-id": ctx.requestId });
         return;
       }
@@ -1650,9 +2676,28 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           requested_by: authContext?.email || "",
           expires_at: new Date(Date.now() + (Number(body?.expires_in_hours || 24) * 60 * 60 * 1000)).toISOString(),
         });
+        const resetUrl = absoluteUrl(req, "/dashboard?mode=reset", rawToken);
+        const resetMessage = passwordResetEmail({
+          displayName: user.display_name || user.email,
+          resetUrl,
+        });
+        const emailDelivery = await sendOfficeEmail(config, {
+          to: user.email,
+          ...resetMessage,
+        });
         await appendAudit(store, authContext, "password_reset_issued", "admin_user", user.id, {
           email: user.email,
           reset_id: reset.id,
+          email_delivery: emailDelivery,
+        });
+        eventBus.publish("office.staff", {
+          action: "password_reset_issued",
+          actor: authContext?.email || "",
+          user: {
+            id: user.id,
+            email: user.email,
+          },
+          email_delivery: emailDelivery,
         });
         json(
           res,
@@ -1660,7 +2705,8 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter }) {
           {
             reset,
             reset_token: rawToken,
-            reset_url: absoluteUrl(req, "/dashboard?mode=reset", rawToken),
+            reset_url: resetUrl,
+            email_delivery: emailDelivery,
           },
           { "x-request-id": ctx.requestId }
         );
@@ -1720,7 +2766,14 @@ async function start() {
     maxRequests: config.rateLimitMaxRequests,
   });
 
-  const server = buildServer({ config, store, runtime, rateLimiter, whatsappAdapter });
+  const server = buildServer({
+    config,
+    store,
+    runtime,
+    rateLimiter,
+    whatsappAdapter,
+    openaiClient,
+  });
 
   await new Promise((resolve, reject) => {
     server.once("error", reject);

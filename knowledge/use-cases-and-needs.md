@@ -26,8 +26,13 @@ Utilities and payments:
 - site-level utility and payment-related workflows may be relevant in Ochiga positioning, but agents should stay high level unless more specific product truth is later documented
 
 Digital twin language:
-- if "live digital twins" is mentioned, agents should keep it high level and avoid technical depth unless approved documentation is added later
+- if "live digital twins" is mentioned, agents should keep it high level unless the request clearly matches the approved building-twin proposal in `digital-twin-building-blueprint.md`
 - safe explanation: a live operational view of physical infrastructure and site activity
+
+When the request matches a building-scale twin:
+- it is safe to describe a phased path from floor plan to navigable 3D model to live system integration
+- it is safe to discuss clickable controls for spaces, devices, and equipment panels at a proposal level
+- do not present the proposal architecture as already-shipped product truth without human confirmation
 
 Safe next-step phrasing:
 - "That sounds relevant for access and operational visibility."

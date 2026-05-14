@@ -20,6 +20,15 @@ Recommended demo order:
 - explain how the system spans operator tooling, resident workflows, edge connectivity, and infrastructure control
 - use this to build credibility
 
+Optional digital twin sequence for qualified building leads:
+
+5. Building twin walkthrough
+- start with the full building view and show exterior context
+- move into the core, corridors, and selected units
+- click a device or control point so the camera focuses on it and opens a control panel
+- show one or two believable control flows such as access, lighting, camera view, or elevator state
+- explain that the twin becomes more valuable when linked to the live edge and operator workflows
+
 Good demo objective:
 - help the buyer see how fragmented workflows become coordinated in one system
 

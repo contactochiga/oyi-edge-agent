@@ -37,6 +37,9 @@ function createAdminSessionToken(adminUser, config) {
       email: normalizeEmail(adminUser.email),
       role: adminUser.role || "admin",
       user_id: adminUser.id || "",
+      permission_scopes: Array.isArray(adminUser.permission_scopes)
+        ? adminUser.permission_scopes
+        : [],
       exp: Date.now() + config.sessionTtlMs,
     })
   ).toString("base64url");
@@ -76,6 +79,7 @@ function readAdminSession(req, config) {
     email: normalizeEmail(decoded.email),
     role: decoded.role || "admin",
     userId: decoded.user_id || "",
+    permissionScopes: Array.isArray(decoded.permission_scopes) ? decoded.permission_scopes : [],
     expiresAt: decoded.exp,
   };
 }
@@ -130,6 +134,22 @@ const ROLE_PERMISSIONS = {
     "manage_notifications",
     "escalate_founder",
     "change_password",
+    "view_office",
+    "manage_office",
+    "view_estates",
+    "manage_estates",
+    "view_buildings",
+    "manage_buildings",
+    "view_devices",
+    "manage_devices",
+    "view_wallets",
+    "manage_wallets",
+    "view_documents",
+    "manage_documents",
+    "view_integrations",
+    "manage_integrations",
+    "view_storage",
+    "manage_storage",
   ],
   founder: [
     "view_dashboard",
@@ -144,6 +164,22 @@ const ROLE_PERMISSIONS = {
     "manage_notifications",
     "escalate_founder",
     "change_password",
+    "view_office",
+    "manage_office",
+    "view_estates",
+    "manage_estates",
+    "view_buildings",
+    "manage_buildings",
+    "view_devices",
+    "manage_devices",
+    "view_wallets",
+    "manage_wallets",
+    "view_documents",
+    "manage_documents",
+    "view_integrations",
+    "manage_integrations",
+    "view_storage",
+    "manage_storage",
   ],
   operator: [
     "view_dashboard",
@@ -156,6 +192,20 @@ const ROLE_PERMISSIONS = {
     "manage_notifications",
     "escalate_founder",
     "change_password",
+    "view_office",
+    "manage_office",
+    "view_estates",
+    "manage_estates",
+    "view_buildings",
+    "manage_buildings",
+    "view_devices",
+    "manage_devices",
+    "view_documents",
+    "manage_documents",
+    "view_integrations",
+    "manage_integrations",
+    "view_storage",
+    "manage_storage",
   ],
   sales: [
     "view_dashboard",
@@ -165,12 +215,29 @@ const ROLE_PERMISSIONS = {
     "manage_demos",
     "manage_notifications",
     "change_password",
+    "view_office",
+    "view_estates",
+    "view_buildings",
+    "view_devices",
+    "view_documents",
+    "view_integrations",
+    "view_storage",
   ],
-  viewer: ["view_dashboard", "view_reports", "change_password"],
+  viewer: [
+    "view_dashboard",
+    "view_reports",
+    "change_password",
+    "view_office",
+    "view_estates",
+    "view_buildings",
+    "view_devices",
+    "view_documents",
+  ],
 };
 
-function permissionsForRole(role) {
-  return ROLE_PERMISSIONS[String(role || "viewer")] || ROLE_PERMISSIONS.viewer;
+function permissionsForRole(role, extraScopes) {
+  const base = ROLE_PERMISSIONS[String(role || "viewer")] || ROLE_PERMISSIONS.viewer;
+  return Array.from(new Set(base.concat(Array.isArray(extraScopes) ? extraScopes : [])));
 }
 
 function authorizeRole(session, allowedRoles) {
@@ -199,7 +266,7 @@ function authorizePermission(session, permission) {
   if (session.type === "api_key") {
     return session;
   }
-  if (permissionsForRole(session.role).includes(permission)) {
+  if (permissionsForRole(session.role, session.permissionScopes).includes(permission)) {
     return session;
   }
   const error = new Error("forbidden");
@@ -219,7 +286,8 @@ function enforceAuth(req, config) {
       email: session.email,
       role: session.role,
       userId: session.userId,
-      permissions: permissionsForRole(session.role),
+      permissionScopes: session.permissionScopes,
+      permissions: permissionsForRole(session.role, session.permissionScopes),
     };
   }
 

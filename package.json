@@ -7,6 +7,7 @@
     "start": "node agent.js",
     "lead-agents:start": "node lead-agents-server.js",
     "lead-agents:apply-schema": "node scripts/apply-supabase-schema.js",
+    "digital-twin:export": "node scripts/export-digital-twin-assets.js",
     "check": "node --check agent.js",
     "test": "npm run check",
     "lead-agents:test": "node scripts/test-lead-agents.js",

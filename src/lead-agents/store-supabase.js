@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { normalizeEmail, normalizeLeadInput, normalizeLeadPatch, normalizeText } = require("./normalize-lead");
+const { buildOfficeSnapshot, createOfficeSeedData } = require("./office-data");
 
 class SupabaseLeadAgentsStore {
   constructor({ url, serviceRoleKey, requestTimeoutMs }) {
@@ -22,6 +23,40 @@ class SupabaseLeadAgentsStore {
     return {
       Prefer: "return=representation",
     };
+  }
+
+  async safeGet(pathname) {
+    try {
+      const response = await this.client.get(pathname);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 400 || status === 404 || status === 406) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async upsertRows(tableName, rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return [];
+    }
+    try {
+      const response = await this.client.post(`/${tableName}`, rows, {
+        headers: {
+          ...this.selectHeaders(),
+          Prefer: "resolution=merge-duplicates,return=representation",
+        },
+      });
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 400 || status === 404 || status === 406) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   normalizeLead(row) {
@@ -467,6 +502,9 @@ class SupabaseLeadAgentsStore {
         role: input.role || "admin",
         status: input.status || "active",
         display_name: input.display_name || "",
+        passport_photo_url: input.passport_photo_url || "",
+        qr_credential: input.qr_credential || "",
+        permission_scopes: Array.isArray(input.permission_scopes) ? input.permission_scopes : [],
       },
       {
         headers: this.selectHeaders(),
@@ -593,6 +631,107 @@ class SupabaseLeadAgentsStore {
     return response.data;
   }
 
+  async listOfficePackages() {
+    return this.safeGet("/office_packages?order=name.asc");
+  }
+
+  async listOfficeEstates() {
+    return this.safeGet("/office_estates?order=name.asc");
+  }
+
+  async listOfficeBuildings() {
+    return this.safeGet("/office_buildings?order=name.asc");
+  }
+
+  async listOfficeHomes() {
+    return this.safeGet("/office_homes?order=name.asc");
+  }
+
+  async listOfficeDevices() {
+    return this.safeGet("/office_devices?order=name.asc");
+  }
+
+  async listOfficeWallets() {
+    return this.safeGet("/office_wallets?order=label.asc");
+  }
+
+  async listOfficeAnalytics() {
+    return this.safeGet("/office_analytics?order=label.asc");
+  }
+
+  async listOfficeSupportMappings() {
+    return this.safeGet("/office_support_mappings?order=updated_at.desc");
+  }
+
+  async upsertOfficeCollections(input) {
+    const collections = input || {};
+    await Promise.all([
+      this.upsertRows("office_packages", collections.packages),
+      this.upsertRows("office_estates", collections.estates),
+      this.upsertRows("office_buildings", collections.buildings),
+      this.upsertRows("office_homes", collections.homes),
+      this.upsertRows("office_devices", collections.devices),
+      this.upsertRows("office_wallets", collections.wallets),
+      this.upsertRows("office_analytics", collections.analytics),
+      this.upsertRows("office_support_mappings", collections.support_mappings),
+    ]);
+    return this.getOfficeSnapshot();
+  }
+
+  async getOfficeSnapshot() {
+    const [packages, estates, buildings, homes, devices, wallets, analytics, supportMappings] =
+      await Promise.all([
+        this.listOfficePackages(),
+        this.listOfficeEstates(),
+        this.listOfficeBuildings(),
+        this.listOfficeHomes(),
+        this.listOfficeDevices(),
+        this.listOfficeWallets(),
+        this.listOfficeAnalytics(),
+        this.listOfficeSupportMappings(),
+      ]);
+
+    const officeCollections =
+      packages.length ||
+      estates.length ||
+      buildings.length ||
+      homes.length ||
+      devices.length ||
+      wallets.length ||
+      analytics.length ||
+      supportMappings.length
+        ? {
+            packages,
+            estates,
+            buildings,
+            homes,
+            devices,
+            wallets,
+            analytics,
+            support_mappings: supportMappings,
+          }
+        : createOfficeSeedData();
+
+    const [report, leads, notifications, adminUsers, audit, traces] = await Promise.all([
+      this.getReportingSummary(),
+      this.listLeads(),
+      this.listNotifications(500),
+      this.listAdminUsers(),
+      this.listAuditEvents(200),
+      this.listTraces(200),
+    ]);
+
+    return buildOfficeSnapshot({
+      ...officeCollections,
+      leads,
+      report,
+      notifications,
+      adminUsers,
+      audit,
+      traces,
+    });
+  }
+
   async getReportingSummary() {
     const [leads, demos, notifications, proposals] = await Promise.all([
       this.listLeads(),
@@ -654,17 +793,41 @@ class SupabaseLeadAgentsStore {
   }
 
   async stats() {
-    const [leads, conversations, demos, proposals, notifications, traces, adminUsers, auditEvents] =
-      await Promise.all([
-        this.client.get("/leads?select=id"),
-        this.client.get("/conversations?select=id"),
-        this.client.get("/demos?select=id"),
-        this.client.get("/proposals?select=id"),
-        this.client.get("/notifications?select=id"),
-        this.client.get("/traces?select=id"),
-        this.client.get("/admin_users?select=id"),
-        this.client.get("/audit_events?select=id"),
-      ]);
+    const [
+      leads,
+      conversations,
+      demos,
+      proposals,
+      notifications,
+      traces,
+      adminUsers,
+      auditEvents,
+      estates,
+      packages,
+      buildings,
+      homes,
+      devices,
+      wallets,
+      analytics,
+      supportMappings,
+    ] = await Promise.all([
+      this.client.get("/leads?select=id"),
+      this.client.get("/conversations?select=id"),
+      this.client.get("/demos?select=id"),
+      this.client.get("/proposals?select=id"),
+      this.client.get("/notifications?select=id"),
+      this.client.get("/traces?select=id"),
+      this.client.get("/admin_users?select=id"),
+      this.client.get("/audit_events?select=id"),
+      this.safeGet("/office_estates?select=id"),
+      this.safeGet("/office_packages?select=id"),
+      this.safeGet("/office_buildings?select=id"),
+      this.safeGet("/office_homes?select=id"),
+      this.safeGet("/office_devices?select=id"),
+      this.safeGet("/office_wallets?select=id"),
+      this.safeGet("/office_analytics?select=id"),
+      this.safeGet("/office_support_mappings?select=id"),
+    ]);
 
     return {
       leads: leads.data.length,
@@ -675,6 +838,14 @@ class SupabaseLeadAgentsStore {
       traces: traces.data.length,
       admin_users: adminUsers.data.length,
       audit_events: auditEvents.data.length,
+      estates: estates.length,
+      packages: packages.length,
+      buildings: buildings.length,
+      homes: homes.length,
+      devices: devices.length,
+      wallets: wallets.length,
+      analytics: analytics.length,
+      support_mappings: supportMappings.length,
     };
   }
 }

@@ -2,6 +2,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
 const { normalizeEmail, normalizeLeadInput, normalizeLeadPatch, normalizeText } = require("./normalize-lead");
+const { buildOfficeSnapshot, createOfficeSeedData } = require("./office-data");
 
 class FileLeadAgentsStore {
   constructor(filePath) {
@@ -21,6 +22,14 @@ class FileLeadAgentsStore {
       timeline_events: [],
       lead_channel_states: [],
       inbound_events: [],
+      office_packages: [],
+      office_estates: [],
+      office_buildings: [],
+      office_homes: [],
+      office_devices: [],
+      office_wallets: [],
+      office_analytics: [],
+      office_support_mappings: [],
     };
     this.pendingWrite = Promise.resolve();
   }
@@ -49,11 +58,25 @@ class FileLeadAgentsStore {
           ? parsed.lead_channel_states
           : [],
         inbound_events: Array.isArray(parsed.inbound_events) ? parsed.inbound_events : [],
+        office_packages: Array.isArray(parsed.office_packages) ? parsed.office_packages : [],
+        office_estates: Array.isArray(parsed.office_estates) ? parsed.office_estates : [],
+        office_buildings: Array.isArray(parsed.office_buildings) ? parsed.office_buildings : [],
+        office_homes: Array.isArray(parsed.office_homes) ? parsed.office_homes : [],
+        office_devices: Array.isArray(parsed.office_devices) ? parsed.office_devices : [],
+        office_wallets: Array.isArray(parsed.office_wallets) ? parsed.office_wallets : [],
+        office_analytics: Array.isArray(parsed.office_analytics) ? parsed.office_analytics : [],
+        office_support_mappings: Array.isArray(parsed.office_support_mappings)
+          ? parsed.office_support_mappings
+          : [],
       };
+      if (await this.ensureOfficeSeedData()) {
+        await this.persist();
+      }
     } catch (err) {
       if (err.code !== "ENOENT") {
         throw err;
       }
+      await this.ensureOfficeSeedData();
       await this.persist();
     }
   }
@@ -67,6 +90,31 @@ class FileLeadAgentsStore {
 
   nowIso() {
     return new Date().toISOString();
+  }
+
+  async ensureOfficeSeedData() {
+    const hasOfficeData =
+      this.state.office_packages.length ||
+      this.state.office_estates.length ||
+      this.state.office_buildings.length ||
+      this.state.office_homes.length ||
+      this.state.office_devices.length ||
+      this.state.office_wallets.length ||
+      this.state.office_analytics.length ||
+      this.state.office_support_mappings.length;
+    if (hasOfficeData) {
+      return false;
+    }
+    const seed = createOfficeSeedData(this.nowIso());
+    this.state.office_packages = seed.packages;
+    this.state.office_estates = seed.estates;
+    this.state.office_buildings = seed.buildings;
+    this.state.office_homes = seed.homes;
+    this.state.office_devices = seed.devices;
+    this.state.office_wallets = seed.wallets;
+    this.state.office_analytics = seed.analytics;
+    this.state.office_support_mappings = seed.support_mappings;
+    return true;
   }
 
   withDefaults(input) {
@@ -541,6 +589,9 @@ class FileLeadAgentsStore {
         role: input.role || "admin",
         status: input.status || "active",
         display_name: input.display_name || "",
+        passport_photo_url: input.passport_photo_url || "",
+        qr_credential: input.qr_credential || "",
+        permission_scopes: Array.isArray(input.permission_scopes) ? input.permission_scopes : [],
         last_login_at: input.last_login_at || null,
         password_changed_at: input.password_changed_at || null,
         created_at: this.nowIso(),
@@ -676,6 +727,100 @@ class FileLeadAgentsStore {
       .slice(0, limit);
   }
 
+  async listOfficePackages() {
+    return [...this.state.office_packages].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
+
+  async listOfficeEstates() {
+    return [...this.state.office_estates].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
+
+  async listOfficeBuildings() {
+    return [...this.state.office_buildings].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
+
+  async listOfficeHomes() {
+    return [...this.state.office_homes].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
+
+  async listOfficeDevices() {
+    return [...this.state.office_devices].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
+
+  async listOfficeWallets() {
+    return [...this.state.office_wallets].sort((a, b) => String(a.label).localeCompare(String(b.label)));
+  }
+
+  async listOfficeAnalytics() {
+    return [...this.state.office_analytics].sort((a, b) => String(a.label).localeCompare(String(b.label)));
+  }
+
+  async listOfficeSupportMappings() {
+    return [...this.state.office_support_mappings].sort((a, b) =>
+      String(b.updated_at || "").localeCompare(String(a.updated_at || ""))
+    );
+  }
+
+  async upsertOfficeCollections(input) {
+    const collections = input || {};
+    const collectionMap = {
+      packages: "office_packages",
+      estates: "office_estates",
+      buildings: "office_buildings",
+      homes: "office_homes",
+      devices: "office_devices",
+      wallets: "office_wallets",
+      analytics: "office_analytics",
+      support_mappings: "office_support_mappings",
+    };
+
+    Object.entries(collectionMap).forEach(([key, stateKey]) => {
+      const rows = Array.isArray(collections[key]) ? collections[key] : null;
+      if (!rows) return;
+      const existing = Array.isArray(this.state[stateKey]) ? this.state[stateKey] : [];
+      const merged = new Map(existing.map((item) => [String(item.id), item]));
+      rows.forEach((row) => {
+        if (!row || !row.id) return;
+        merged.set(String(row.id), {
+          ...(merged.get(String(row.id)) || {}),
+          ...row,
+          updated_at: row.updated_at || this.nowIso(),
+        });
+      });
+      this.state[stateKey] = Array.from(merged.values());
+    });
+
+    await this.persist();
+    return this.getOfficeSnapshot();
+  }
+
+  async getOfficeSnapshot() {
+    const [report, leads, notifications, adminUsers, audit, traces] = await Promise.all([
+      this.getReportingSummary(),
+      this.listLeads(),
+      this.listNotifications(500),
+      this.listAdminUsers(),
+      this.listAuditEvents(200),
+      this.listTraces(200),
+    ]);
+    return buildOfficeSnapshot({
+      packages: this.state.office_packages,
+      estates: this.state.office_estates,
+      buildings: this.state.office_buildings,
+      homes: this.state.office_homes,
+      devices: this.state.office_devices,
+      wallets: this.state.office_wallets,
+      analytics: this.state.office_analytics,
+      support_mappings: this.state.office_support_mappings,
+      leads,
+      report,
+      notifications,
+      adminUsers,
+      audit,
+      traces,
+    });
+  }
+
   async getReportingSummary() {
     const leads = await this.listLeads();
     const demos = this.state.demos;
@@ -743,6 +888,14 @@ class FileLeadAgentsStore {
       traces: this.state.traces.length,
       admin_users: this.state.admin_users.length,
       audit_events: this.state.audit_events.length,
+      estates: this.state.office_estates.length,
+      packages: this.state.office_packages.length,
+      buildings: this.state.office_buildings.length,
+      homes: this.state.office_homes.length,
+      devices: this.state.office_devices.length,
+      wallets: this.state.office_wallets.length,
+      analytics: this.state.office_analytics.length,
+      support_mappings: this.state.office_support_mappings.length,
     };
   }
 }

@@ -80,6 +80,19 @@ function createConfig() {
     whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || "",
     whatsappBusinessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "",
     whatsappApiVersion: process.env.WHATSAPP_API_VERSION || "v22.0",
+    officeFacilityBaseUrl: process.env.OFFICE_FACILITY_BASE_URL || "",
+    officeFacilityApiKey: process.env.OFFICE_FACILITY_API_KEY || "",
+    officeFacilityBearerToken: process.env.OFFICE_FACILITY_BEARER_TOKEN || "",
+    officeFacilityExportPath: process.env.OFFICE_FACILITY_EXPORT_PATH || "",
+    officeConsumerBaseUrl: process.env.OFFICE_CONSUMER_BASE_URL || "",
+    officeConsumerApiKey: process.env.OFFICE_CONSUMER_API_KEY || "",
+    officeConsumerBearerToken: process.env.OFFICE_CONSUMER_BEARER_TOKEN || "",
+    officeConsumerExportPath: process.env.OFFICE_CONSUMER_EXPORT_PATH || "",
+    officeEmailProvider: process.env.OFFICE_EMAIL_PROVIDER || "",
+    officeEmailFrom: process.env.OFFICE_EMAIL_FROM || "Ochiga Office <office@getoyi.com>",
+    resendApiKey: process.env.RESEND_API_KEY || "",
+    officeStorageDir:
+      process.env.OFFICE_STORAGE_DIR || path.join(cwd, "data", "office-storage"),
   };
 }
 
