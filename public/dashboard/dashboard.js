@@ -1886,7 +1886,7 @@
 	            <p class="subtext" style="margin:8px 0 0;">A production-ready document surface for generated files, signed agreements, billing records, and shared data.</p>
 	          </div>
 	          <div class="toolbar">
-	            <button class="primary" data-command-action="document_actions" type="button">+ Document Actions</button>
+	            <button class="primary" data-command-action="document_actions" type="button">+ Create / Upload</button>
 	          </div>
 	        </div>
 	        <div class="command-kpis">
@@ -1913,6 +1913,16 @@
 	          </section>
 	          <aside class="command-side">
 	            <article class="command-card">
+	              <div class="command-card-head"><h4>Document Studio</h4></div>
+	              <div class="document-template-grid">
+	                <div class="document-template-card"><strong>Invoice</strong><div class="subtext">Letterhead billing template</div></div>
+	                <div class="document-template-card"><strong>Contract</strong><div class="subtext">Estate/service agreement</div></div>
+	                <div class="document-template-card"><strong>Proposal</strong><div class="subtext">Magazine-style sales pack</div></div>
+	                <div class="document-template-card"><strong>Letter</strong><div class="subtext">Formal Office correspondence</div></div>
+	              </div>
+	              <div class="subtext" style="margin-top:10px;">Agent-assisted generation, document analysis, email send/receive, and templates are staged here as the Office document engine.</div>
+	            </article>
+	            <article class="command-card">
 	              <div class="command-card-head"><h4>Document Workflow</h4></div>
 	              <div class="mission-list">
 	                ${["Draft", "Review", "Sent", "Signed", "Archived"].map(function (stage, index) {
@@ -1925,6 +1935,8 @@
 	              <div class="shortcut-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
 	                <button class="shortcut-btn" data-command-action="create_invoice" type="button"><span>${officeIcon("wallet")}</span>Invoice</button>
 	                <button class="shortcut-btn" data-command-action="create_contract" type="button"><span>${officeIcon("estate")}</span>Contract</button>
+	                <button class="shortcut-btn" data-command-action="document_actions" type="button"><span>${officeIcon("trend")}</span>Proposal</button>
+	                <button class="shortcut-btn" data-command-action="document_actions" type="button"><span>${officeIcon("website")}</span>Email</button>
 	              </div>
 	            </article>
 	          </aside>
@@ -1974,6 +1986,16 @@
 	            </div>
 	          </section>
 	          <aside class="command-side">
+	            <article class="command-card">
+	              <div class="command-card-head"><h4>Customer Reach</h4></div>
+	              <div class="shortcut-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+	                <button class="shortcut-btn" data-command-action="create_ticket" type="button"><span>${officeIcon("support")}</span>Message</button>
+	                <button class="shortcut-btn" data-command-action="create_ticket" type="button"><span>${officeIcon("whatsapp")}</span>WhatsApp</button>
+	                <button class="shortcut-btn" data-command-action="create_ticket" type="button"><span>${officeIcon("lead")}</span>Call</button>
+	                <button class="shortcut-btn" data-command-action="create_ticket" type="button"><span>${officeIcon("camera")}</span>Video</button>
+	              </div>
+	              <div class="subtext" style="margin-top:10px;">Twilio/live support channels can attach here for direct customer contact from Office.</div>
+	            </article>
 	            <article class="command-card">
 	              <div class="command-card-head"><h4>Pressure Breakdown</h4></div>
 	              <div class="mission-list">
@@ -2131,10 +2153,11 @@
 	        <div class="command-kpis">
 	          ${[
 	            ["Total Estates", estates.length],
-	            ["Total Buildings", buildings.length],
-	            ["Total Units", homes.length],
-	            ["Hardware Devices", hardwareDevices.length],
-	            ["Wallet Float", formatCompactMoney(totalWallet)],
+	            ["Live Estates", estates.filter(function (estate) { return ["active", "live"].includes(String(estate.status || estate.subscription_status || "").toLowerCase()); }).length],
+	            ["Estate Wallet Float", formatCompactMoney(totalWallet)],
+	            ["Support Pressure", supportMappings.length],
+	            ["Estate Communities", estates.reduce(function (sum, estate) { return sum + Number(countSignals(estate, ["community_posts", "community_count", "community_activity", "community_members"], 0)); }, 0)],
+	            ["Packages", packages.length],
 	          ].map(function (item) {
 	            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Synced from Office data</div></div>`;
 	          }).join("")}
@@ -2142,8 +2165,10 @@
 	        <div class="command-layout">
 	          <div class="command-main">
 	            <section class="estate-command-map estate-map-with-detail">
+	              <div class="estate-map-placeholder" aria-hidden="true"></div>
 	              ${mapMarkup || '<div class="office-detail-empty" style="position:absolute;left:16px;top:16px;">Estate map will activate when facility sync publishes estate records.</div>'}
-	              <article class="estate-map-detail-drawer">
+	            </section>
+	            <article class="command-card estate-map-detail-drawer estate-selected-card">
 	            ${selectedEstate && selectedStats ? `
 	              <div class="command-card-head">
 	                <div>
@@ -2170,8 +2195,7 @@
 	                <span class="office-batch">Community <strong>${escapeHtml(String(countSignals(selectedEstate, ["community_posts", "community_count", "community_activity", "community_members"], selectedStats.estateHomes.length)))}</strong></span>
 	              </div>
 	            ` : '<div class="office-detail-empty">Select an estate marker to inspect its command dashboard.</div>'}
-	              </article>
-	            </section>
+	            </article>
 	            <section class="estate-split-grid">
 	              <article class="command-card estate-list-panel estate-registry-wide">
 	                <div class="command-card-head"><h4>Estate Registry</h4><button class="ghost compact" type="button">All Estates</button></div>
@@ -2224,7 +2248,7 @@
 	    const wallets = asList(collections.wallets);
 	    const supportMappings = asList(collections.support_mappings);
 	
-	    const buildingCards = buildings.map(function (building) {
+	    const buildingRows = buildings.map(function (building) {
 	      const estate = findById(estates, building.estate_id);
       const buildingHomes = homes.filter(function (home) {
         return home.building_id === building.id;
@@ -2264,30 +2288,15 @@
         buildingSupport.length
       );
 
-	      return `
-	        <article class="agent-mini-card">
-	          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
-	            <div>
-	              <strong>${escapeHtml(building.name || "Unnamed building")}</strong>
-	              <div class="subtext">${escapeHtml(displayValue(estate?.name, "Estate pending"))} · ${escapeHtml(displayValue(building.type, "Building"))}</div>
-	            </div>
-	            <span class="office-system-badge ${buildingIsLive ? "" : "warning"}">${escapeHtml(buildingStatus)}</span>
-	          </div>
-	          <div class="office-ops-mini-grid" style="margin-top:10px;grid-template-columns:repeat(3,minmax(0,1fr));">
-	            ${metricTile("Homes", building.homes_count || buildingHomes.length)}
-	            ${metricTile("Hardware", building.devices_count || buildingDevices.length)}
-	            ${metricTile("Online", onlineDevices)}
-	            ${metricTile("Wallet", formatCompactMoney(walletBalance))}
-	            ${metricTile("Support", buildingSupport.length)}
-	            ${metricTile("Community", communitySignals)}
-	          </div>
-	          <div class="office-batch-row">
-	            <span class="office-batch">Utilities <strong>${escapeHtml(String(utilitySignals))}</strong></span>
-	            <span class="office-batch">Surface talks <strong>${escapeHtml(String(webPresenceSignals))}</strong></span>
-	            <span class="office-batch">Occupancy <strong>${escapeHtml(String(building.occupancy_pct || 0))}%</strong></span>
-	          </div>
-	        </article>
-	      `;
+	      return `<tr class="smart-registry-row" data-building-select="${escapeHtml(building.id || "")}">
+	        <td><strong>${escapeHtml(building.name || "Unnamed building")}</strong><div class="subtext">${escapeHtml(displayValue(estate?.name, "Estate pending"))} · ${escapeHtml(displayValue(building.type, "Building"))}</div></td>
+	        <td><span class="office-system-badge ${buildingIsLive ? "" : "warning"}">${escapeHtml(buildingStatus)}</span></td>
+	        <td>${escapeHtml(String(building.homes_count || buildingHomes.length))}</td>
+	        <td>${escapeHtml(String(building.occupancy_pct || 0))}%</td>
+	        <td>${escapeHtml(formatCompactMoney(walletBalance))}</td>
+	        <td>${escapeHtml(String(buildingSupport.length))}</td>
+	        <td>${assetActionMarkup("building", building.id || "", buildingIsLive)}</td>
+	      </tr>`;
 	    }).join("");
 	
 	    el.smartBuildingsPanel.innerHTML = `
@@ -2304,19 +2313,23 @@
 	          ${[
 	            ["Buildings", buildings.length],
 	            ["Homes", homes.length],
-	            ["Hardware Devices", hardwareDevices.length],
 	            ["Wallets", wallets.length],
 	            ["Support Cases", supportMappings.length],
 	            ["Estates Linked", estates.length],
+	            ["Avg Occupancy", `${Math.round(buildings.reduce(function (sum, building) { return sum + Number(building.occupancy_pct || 0); }, 0) / Math.max(1, buildings.length))}%`],
 	          ].map(function (item) {
 	            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Synced from Office data</div></div>`;
 	          }).join("")}
 	        </div>
 	        <div class="command-layout">
 	          <div class="command-main">
-	            <div class="agent-strip">
-	              ${buildingCards || '<div class="office-detail-empty">Smart building data will appear here once the consumer and smart building systems sync into Office.</div>'}
-	            </div>
+	            <section class="command-card building-detail-card">
+	              <div class="command-card-head"><h4>Smart Building Registry</h4><button class="ghost compact" data-command-action="add_building" type="button">+ Add Building</button></div>
+	              <table class="command-table">
+	                <thead><tr><th>Building</th><th>Status</th><th>Homes</th><th>Occupancy</th><th>Wallet</th><th>Support</th><th>Actions</th></tr></thead>
+	                <tbody>${buildingRows || '<tr><td colspan="7"><div class="office-detail-empty">Smart building data will appear here once the consumer and smart building systems sync into Office.</div></td></tr>'}</tbody>
+	              </table>
+	            </section>
 	          </div>
 	          ${commandActivityRail({
 	            title: "Smart Building Activity",
@@ -2362,15 +2375,16 @@
 	    const onlineDevices = online;
 	    const offlineDevices = offline;
     const activeAlerts = offlineDevices + normalizedDevices.filter(function (device) {
-      return Number(device.battery || 100) < 30;
+      return Number(device.battery_level || device.battery || 100) < 30;
     }).length;
 	    const batteryDevices = normalizedDevices.filter(function (device) {
-	      return device.battery !== undefined && device.battery !== null && device.battery !== "";
+	      const battery = device.battery_level ?? device.battery;
+	      return battery !== undefined && battery !== null && battery !== "";
 	    });
 	    const avgBattery = batteryDevices.length
 	      ? Math.round(
 	          batteryDevices.reduce(function (sum, device) {
-	            return sum + Number(device.battery || 0);
+	            return sum + Number((device.battery_level ?? device.battery) || 0);
 	          }, 0) / batteryDevices.length
 	        )
 	      : null;
@@ -2417,15 +2431,17 @@
       const status = String(device.status || "unknown");
       const isLive = ["online", "active", "live"].includes(status.toLowerCase());
       const location = [estate?.name, building?.name, home?.name, device.location].filter(Boolean).join(" · ") || "Location pending";
+      const battery = device.battery_level ?? device.battery;
       return `<tr>
         <td><strong>${escapeHtml(device.name || device.id || "Hardware device")}</strong><div class="subtext">${escapeHtml(device.id || device.serial || "ID pending")}</div></td>
         <td>${escapeHtml(device.category || "General")}</td>
         <td>${escapeHtml(location)}</td>
         <td><span class="office-system-badge ${isLive ? "" : "warning"}">${escapeHtml(status)}</span></td>
-        <td>${escapeHtml(String(device.battery || "--"))}${device.battery ? "%" : ""}</td>
+        <td>${escapeHtml(String(battery || "--"))}${battery ? "%" : ""}</td>
         <td>${escapeHtml(displayValue(formatDate(device.last_seen_at || device.updated_at), "Pending"))}</td>
+        <td>${assetActionMarkup("device", device.id || "", isLive)}</td>
       </tr>`;
-	    }).join("") || '<tr><td colspan="6"><div class="office-detail-empty">No hardware devices have synced into Office yet.</div></td></tr>';
+	    }).join("") || '<tr><td colspan="7"><div class="office-detail-empty">No hardware devices have synced into Office yet.</div></td></tr>';
 
     el.devicePanel.innerHTML = `
       <div class="command-page">
@@ -2466,7 +2482,7 @@
               <input class="search-input" type="search" placeholder="Search devices..." style="max-width:220px;padding:9px 11px;border-radius:10px;" />
             </div>
             <table class="command-table">
-              <thead><tr><th>Device</th><th>Category</th><th>Location</th><th>Status</th><th>Battery</th><th>Last Seen</th></tr></thead>
+              <thead><tr><th>Device</th><th>Category</th><th>Location</th><th>Status</th><th>Battery</th><th>Last Seen</th><th>Actions</th></tr></thead>
               <tbody>${deviceRows}</tbody>
             </table>
           </section>
@@ -2481,19 +2497,25 @@
               </div>
             </article>
             <article class="command-card">
-              <div class="command-card-head"><h4>Recent Alerts</h4></div>
+              <div class="command-card-head"><h4>Camera Edge Preview</h4></div>
+              <div class="device-camera-preview">Camera edge stream ready</div>
+              <div class="subtext" style="margin-top:10px;">Live camera tiles will mount here when the Edge camera stream adapter is enabled.</div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Device History</h4></div>
               <div class="mission-list">
                 ${normalizedDevices.filter(function (device) {
-                  return String(device.status || "").toLowerCase() !== "online" || Number(device.battery || 100) < 30;
-                }).slice(0, 4).map(function (device) {
-	                  return `<div class="command-list-row device-alert-row"><strong>${escapeHtml(device.name || "Device alert")}</strong><div class="subtext">${escapeHtml(device.status || "attention required")}</div></div>`;
-                }).join("") || '<div class="subtext">No active device alerts.</div>'}
+                  return String(device.status || "").toLowerCase() !== "online" || Number((device.battery_level ?? device.battery) || 100) < 30 || device.last_seen_at;
+                }).slice(0, 5).map(function (device) {
+	                  return `<div class="command-list-row device-alert-row"><strong>${escapeHtml(device.name || "Device alert")}</strong><div class="subtext">${escapeHtml(device.status || "attention required")} · ${escapeHtml(displayValue(formatDate(device.last_seen_at || device.updated_at), "history pending"))}</div></div>`;
+                }).join("") || '<div class="subtext">No device history has synced yet.</div>'}
               </div>
             </article>
           </aside>
         </div>
       </div>
     `;
+    bindOfficeAssetActions(el.devicePanel);
   }
 
   function officeIcon(name) {
