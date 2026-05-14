@@ -2,7 +2,7 @@ services:
   - type: web
     name: ochiga-lead-agents
     runtime: node
-    plan: starter
+    plan: free
     rootDir: .
     buildCommand: npm install
     startCommand: npm run lead-agents:start
@@ -29,7 +29,17 @@ services:
         value: 60000
       - key: LEAD_AGENTS_RATE_LIMIT_MAX_REQUESTS
         value: 60
+      - key: OFFICE_EMAIL_FROM
+        value: Ochiga Office <office@ochiga.com.ng>
+      - key: OFFICE_STORAGE_DIR
+        value: /var/data/office-storage
       - key: LEAD_AGENTS_ALLOWED_ORIGINS
+        sync: false
+      - key: LEAD_AGENTS_ADMIN_EMAIL
+        sync: false
+      - key: LEAD_AGENTS_ADMIN_PASSWORD
+        sync: false
+      - key: LEAD_AGENTS_SESSION_SECRET
         sync: false
       - key: OPENAI_API_KEY
         sync: false
@@ -39,6 +49,26 @@ services:
         sync: false
       - key: LEAD_AGENTS_API_KEYS
         sync: false
+      - key: OFFICE_FACILITY_BASE_URL
+        sync: false
+      - key: OFFICE_FACILITY_EXPORT_PATH
+        sync: false
+      - key: OFFICE_FACILITY_API_KEY
+        sync: false
+      - key: OFFICE_FACILITY_BEARER_TOKEN
+        sync: false
+      - key: OFFICE_CONSUMER_BASE_URL
+        sync: false
+      - key: OFFICE_CONSUMER_EXPORT_PATH
+        sync: false
+      - key: OFFICE_CONSUMER_API_KEY
+        sync: false
+      - key: OFFICE_CONSUMER_BEARER_TOKEN
+        sync: false
+      - key: OFFICE_EMAIL_PROVIDER
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
       - key: FOUNDER_ALERT_WEBHOOK_URL
         sync: false
       - key: FOUNDER_ALERT_WEBHOOK_SECRET
@@ -46,4 +76,16 @@ services:
       - key: DEMO_WEBHOOK_URL
         sync: false
       - key: DEMO_WEBHOOK_SECRET
+        sync: false
+      - key: SALES_ALERT_WEBHOOK_URL
+        sync: false
+      - key: SALES_ALERT_WEBHOOK_SECRET
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_BUSINESS_ACCOUNT_ID
         sync: false
