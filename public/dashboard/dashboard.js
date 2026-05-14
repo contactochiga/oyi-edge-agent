@@ -1512,6 +1512,8 @@
         fields: [
           text("name", "Estate name", "Green Canopy Estate"),
           text("location", "Location", "Lekki, Lagos"),
+          text("latitude", "Latitude", "6.4698"),
+          text("longitude", "Longitude", "3.5852"),
           text("package_name", "Package", "Professional"),
           formSelect("status", "Status", [
             { label: "Active", value: "active" },
@@ -1700,6 +1702,8 @@
           id: slugId("estate", name),
           name,
           location: String(formData.get("location") || ""),
+          latitude: Number(formData.get("latitude") || 0) || null,
+          longitude: Number(formData.get("longitude") || 0) || null,
           subscription_status: String(formData.get("status") || "active"),
           package_name: String(formData.get("package_name") || ""),
           created_at: now,
@@ -1739,21 +1743,22 @@
         : action === "create_contract"
           ? "Contract"
           : String(formData.get("type") || "Document");
-      payload = {
-        analytics: [{
-          id: slugId("document", title),
-          record_type: "document",
+      await api("/api/lead-agents/admin/documents/generate", {
+        method: "POST",
+        body: JSON.stringify({
           title,
-          type,
-          owner: state.adminEmail || "Office",
+          document_type: type.toLowerCase(),
           status: String(formData.get("status") || "draft"),
-          value: Number(formData.get("value") || 0),
-          file_name: String(formData.get("file_name") || ""),
+          amount: Number(formData.get("value") || 0),
           file_url: fileUrl,
-          created_at: now,
-          updated_at: now,
-        }],
-      };
+          email_to: String(formData.get("email_to") || ""),
+          recipient: String(formData.get("recipient") || ""),
+          body: String(formData.get("body") || ""),
+        }),
+      });
+      setBulkStatus(`${type} generated and stored in Office documents.`);
+      await loadLeads();
+      return;
     } else if (action === "open_permissions") {
       const estateId = String(formData.get("estate_id") || "");
       payload = {
@@ -1810,6 +1815,9 @@
           { label: "Signed", value: "signed" },
         ]),
         `<label class="command-form-field wide"><span>File name / upload reference</span><input name="file_name" type="text" placeholder="contract-green-canopy.pdf" /></label>`,
+        `<label class="command-form-field"><span>Recipient</span><input name="recipient" type="text" placeholder="Green Canopy Estate" /></label>`,
+        `<label class="command-form-field"><span>Email to</span><input name="email_to" type="email" placeholder="client@example.com" /></label>`,
+        `<label class="command-form-field wide"><span>Document body</span><textarea name="body" placeholder="Scope, payment terms, service levels, notes..."></textarea></label>`,
         `<label class="command-form-field wide"><span>Optional file data URL</span><textarea name="data_url" placeholder="Paste a data:application/pdf;base64,... or data:image/png;base64,... payload for local Office storage"></textarea></label>`,
       ].join(""),
     });
@@ -1838,17 +1846,14 @@
 	    const collections = officeCollections();
 	    const proposals = asList(state.allProposals);
 	    const audit = asList(state.audit);
-	    const officeDocs = asList(collections.analytics)
-	      .filter(function (record) {
-	        return String(record.record_type || "").toLowerCase() === "document";
-	      })
+	    const officeDocs = asList(collections.documents)
 	      .map(function (record) {
 	        return {
 	          title: record.title || record.file_name || "Office document",
-	          type: record.type || "Document",
+	          type: record.document_type || record.type || "Document",
 	          owner: record.owner || record.created_by || "Office",
 	          status: record.status || "draft",
-	          value: record.value || 0,
+	          value: record.amount || record.value || 0,
 	          created_at: record.updated_at || record.created_at,
 	        };
 	      });
@@ -2010,21 +2015,31 @@
 	    `;
 	  }
 
-  function bindOfficeAssetActions(root) {
-    Array.from((root || document).querySelectorAll("[data-office-asset-action]")).forEach(function (node) {
-      node.addEventListener("click", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        const parts = String(node.getAttribute("data-office-asset-action") || "").split(":");
-        const kind = parts[0] || "asset";
-        const action = parts[1] || "update";
-        const assetId = parts[2] || "";
-        setBulkStatus(
-          `${kind} ${assetId} marked for ${action}. Backend entitlement/status mutation is the next production hook.`
-        );
-      });
-    });
-  }
+	  function bindOfficeAssetActions(root) {
+	    Array.from((root || document).querySelectorAll("[data-office-asset-action]")).forEach(function (node) {
+	      node.addEventListener("click", function (event) {
+	        event.preventDefault();
+	        event.stopPropagation();
+	        const parts = String(node.getAttribute("data-office-asset-action") || "").split(":");
+	        const kind = parts[0] || "asset";
+	        const action = parts[1] || "update";
+	        const assetId = parts[2] || "";
+	        if (!assetId) return;
+	        setBulkStatus(`${kind} ${assetId} ${action} running...`);
+	        api(`/api/lead-agents/admin/office/assets/${encodeURIComponent(kind)}/${encodeURIComponent(assetId)}/action`, {
+	          method: "POST",
+	          body: JSON.stringify({ action }),
+	        })
+	          .then(function () {
+	            setBulkStatus(`${kind} ${assetId} ${action} completed.`);
+	            return loadLeads();
+	          })
+	          .catch(function (error) {
+	            setBulkStatus(error.message || `${kind} ${action} failed.`, true);
+	          });
+	      });
+	    });
+	  }
 
   function countSignals(record, keys, fallback) {
     const source = record || {};

@@ -29,6 +29,7 @@ class FileLeadAgentsStore {
       office_devices: [],
       office_wallets: [],
       office_analytics: [],
+      office_documents: [],
       office_support_mappings: [],
     };
     this.pendingWrite = Promise.resolve();
@@ -65,6 +66,7 @@ class FileLeadAgentsStore {
         office_devices: Array.isArray(parsed.office_devices) ? parsed.office_devices : [],
         office_wallets: Array.isArray(parsed.office_wallets) ? parsed.office_wallets : [],
         office_analytics: Array.isArray(parsed.office_analytics) ? parsed.office_analytics : [],
+        office_documents: Array.isArray(parsed.office_documents) ? parsed.office_documents : [],
         office_support_mappings: Array.isArray(parsed.office_support_mappings)
           ? parsed.office_support_mappings
           : [],
@@ -101,6 +103,7 @@ class FileLeadAgentsStore {
       this.state.office_devices.length ||
       this.state.office_wallets.length ||
       this.state.office_analytics.length ||
+      this.state.office_documents.length ||
       this.state.office_support_mappings.length;
     if (hasOfficeData) {
       return false;
@@ -113,6 +116,7 @@ class FileLeadAgentsStore {
     this.state.office_devices = seed.devices;
     this.state.office_wallets = seed.wallets;
     this.state.office_analytics = seed.analytics;
+    this.state.office_documents = seed.documents || [];
     this.state.office_support_mappings = seed.support_mappings;
     return true;
   }
@@ -761,6 +765,59 @@ class FileLeadAgentsStore {
     );
   }
 
+  async listOfficeDocuments() {
+    return [...this.state.office_documents].sort((a, b) =>
+      String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || ""))
+    );
+  }
+
+  async updateOfficeAsset(kind, id, patch) {
+    const map = {
+      estate: "office_estates",
+      building: "office_buildings",
+      device: "office_devices",
+    };
+    const stateKey = map[String(kind || "").toLowerCase()];
+    if (!stateKey || !id) return null;
+    const index = this.state[stateKey].findIndex((item) => String(item.id) === String(id));
+    if (index === -1) return null;
+    this.state[stateKey][index] = {
+      ...this.state[stateKey][index],
+      ...patch,
+      metadata: {
+        ...(this.state[stateKey][index].metadata || {}),
+        ...(patch.metadata || {}),
+      },
+      updated_at: this.nowIso(),
+    };
+    await this.persist();
+    return this.state[stateKey][index];
+  }
+
+  async createOfficeDocument(input) {
+    const nowIso = this.nowIso();
+    const document = {
+      id: input.id || crypto.randomUUID(),
+      title: input.title,
+      document_type: input.document_type || input.type || "document",
+      status: input.status || "draft",
+      owner: input.owner || "",
+      related_type: input.related_type || "",
+      related_id: input.related_id || "",
+      amount: Number(input.amount || input.value || 0),
+      currency: input.currency || "NGN",
+      file_url: input.file_url || "",
+      html_url: input.html_url || "",
+      email_to: input.email_to || "",
+      metadata: input.metadata || {},
+      created_at: input.created_at || nowIso,
+      updated_at: nowIso,
+    };
+    this.state.office_documents.push(document);
+    await this.persist();
+    return document;
+  }
+
   async upsertOfficeCollections(input) {
     const collections = input || {};
     const collectionMap = {
@@ -771,6 +828,7 @@ class FileLeadAgentsStore {
       devices: "office_devices",
       wallets: "office_wallets",
       analytics: "office_analytics",
+      documents: "office_documents",
       support_mappings: "office_support_mappings",
     };
 
@@ -811,6 +869,7 @@ class FileLeadAgentsStore {
       devices: this.state.office_devices,
       wallets: this.state.office_wallets,
       analytics: this.state.office_analytics,
+      documents: this.state.office_documents,
       support_mappings: this.state.office_support_mappings,
       leads,
       report,

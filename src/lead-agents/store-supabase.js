@@ -655,6 +655,49 @@ class SupabaseLeadAgentsStore {
     return this.safeGet("/office_support_mappings?order=updated_at.desc");
   }
 
+  async listOfficeDocuments() {
+    return this.safeGet("/office_documents?order=updated_at.desc");
+  }
+
+  async updateOfficeAsset(kind, id, patch) {
+    const tableMap = {
+      estate: "office_estates",
+      building: "office_buildings",
+      device: "office_devices",
+    };
+    const table = tableMap[String(kind || "").toLowerCase()];
+    if (!table || !id) return null;
+    const response = await this.client.patch(`/${table}?id=eq.${encodeURIComponent(id)}`, patch, {
+      headers: this.selectHeaders(),
+    });
+    return response.data[0] || null;
+  }
+
+  async createOfficeDocument(input) {
+    const response = await this.client.post(
+      "/office_documents",
+      {
+        id: input.id,
+        title: input.title,
+        document_type: input.document_type || input.type || "document",
+        status: input.status || "draft",
+        owner: input.owner || "",
+        related_type: input.related_type || "",
+        related_id: input.related_id || "",
+        amount: input.amount || input.value || 0,
+        currency: input.currency || "NGN",
+        file_url: input.file_url || "",
+        html_url: input.html_url || "",
+        email_to: input.email_to || "",
+        metadata: input.metadata || {},
+      },
+      {
+        headers: this.selectHeaders(),
+      }
+    );
+    return response.data[0] || null;
+  }
+
   async upsertOfficeCollections(input) {
     const collections = input || {};
     await this.upsertRows("office_packages", collections.packages);
@@ -664,12 +707,13 @@ class SupabaseLeadAgentsStore {
     await this.upsertRows("office_devices", collections.devices);
     await this.upsertRows("office_wallets", collections.wallets);
     await this.upsertRows("office_analytics", collections.analytics);
+    await this.upsertRows("office_documents", collections.documents);
     await this.upsertRows("office_support_mappings", collections.support_mappings);
     return this.getOfficeSnapshot();
   }
 
   async getOfficeSnapshot() {
-    const [packages, estates, buildings, homes, devices, wallets, analytics, supportMappings] =
+    const [packages, estates, buildings, homes, devices, wallets, analytics, documents, supportMappings] =
       await Promise.all([
         this.listOfficePackages(),
         this.listOfficeEstates(),
@@ -678,6 +722,7 @@ class SupabaseLeadAgentsStore {
         this.listOfficeDevices(),
         this.listOfficeWallets(),
         this.listOfficeAnalytics(),
+        this.listOfficeDocuments(),
         this.listOfficeSupportMappings(),
       ]);
 
@@ -689,6 +734,7 @@ class SupabaseLeadAgentsStore {
       devices.length ||
       wallets.length ||
       analytics.length ||
+      documents.length ||
       supportMappings.length
         ? {
             packages,
@@ -698,6 +744,7 @@ class SupabaseLeadAgentsStore {
             devices,
             wallets,
             analytics,
+            documents,
             support_mappings: supportMappings,
           }
         : createOfficeSeedData();
@@ -799,6 +846,7 @@ class SupabaseLeadAgentsStore {
       devices,
       wallets,
       analytics,
+      documents,
       supportMappings,
     ] = await Promise.all([
       this.client.get("/leads?select=id"),
@@ -816,6 +864,7 @@ class SupabaseLeadAgentsStore {
       this.safeGet("/office_devices?select=id"),
       this.safeGet("/office_wallets?select=id"),
       this.safeGet("/office_analytics?select=id"),
+      this.safeGet("/office_documents?select=id"),
       this.safeGet("/office_support_mappings?select=id"),
     ]);
 
@@ -835,6 +884,7 @@ class SupabaseLeadAgentsStore {
       devices: devices.length,
       wallets: wallets.length,
       analytics: analytics.length,
+      documents: documents.length,
       support_mappings: supportMappings.length,
     };
   }

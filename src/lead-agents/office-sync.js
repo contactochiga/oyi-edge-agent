@@ -36,6 +36,7 @@ function normalizeCollectionPayload(payload) {
     devices: Array.isArray(payload.devices) ? payload.devices : [],
     wallets: Array.isArray(payload.wallets) ? payload.wallets : [],
     analytics: Array.isArray(payload.analytics) ? payload.analytics : [],
+    documents: Array.isArray(payload.documents) ? payload.documents : [],
     support_mappings: Array.isArray(payload.support_mappings) ? payload.support_mappings : [],
   };
 }
@@ -156,6 +157,9 @@ function buildFacilityCollections({ overview, estates, homesByEstate }) {
       status: estate.membership_status || estate.status || "active",
       subscription_status: estate.subscription_status || "live",
       location: estate.address || estate.location || "",
+      latitude: estate.latitude ?? estate.lat ?? estate.geo?.latitude ?? estate.geo?.lat ?? null,
+      longitude: estate.longitude ?? estate.lng ?? estate.geo?.longitude ?? estate.geo?.lng ?? null,
+      health_score: estate.health_score ?? estate.health_pct ?? null,
       buildings_count: buildingsForEstate.length || (estateHomes.length ? 1 : 0),
       homes_count: estateHomes.length,
       devices_count: buildingsForEstate.reduce((sum, item) => sum + toNumber(item.devices_count), 0),
@@ -169,6 +173,12 @@ function buildFacilityCollections({ overview, estates, homesByEstate }) {
         toNumber(estate.open_support) +
         (String(overview?.estate_id || "") === estateId ? toNumber(overview?.alerts) : 0),
       support_escalated: toNumber(estate.escalated_support),
+      metadata: {
+        source: "facility",
+        community_posts: toNumber(estate.community_posts || estate.community_count),
+        utility_count: toNumber(estate.utility_count || estate.utilities_count),
+        manager_name: estate.manager_name || estate.manager || "",
+      },
       connected_at: estate.created_at || nowIso,
       updated_at: nowIso,
     });

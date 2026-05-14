@@ -91,6 +91,10 @@ function createConfig() {
     officeEmailProvider: process.env.OFFICE_EMAIL_PROVIDER || "",
     officeEmailFrom: process.env.OFFICE_EMAIL_FROM || "Ochiga Office <office@getoyi.com>",
     resendApiKey: process.env.RESEND_API_KEY || "",
+    mapProvider: process.env.OFFICE_MAP_PROVIDER || "static",
+    mapboxPublicToken: process.env.MAPBOX_PUBLIC_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "",
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+    officeDocumentBrandName: process.env.OFFICE_DOCUMENT_BRAND_NAME || "OCHIGA OFFICE",
     officeStorageDir:
       process.env.OFFICE_STORAGE_DIR || path.join(cwd, "data", "office-storage"),
   };

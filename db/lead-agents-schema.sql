@@ -300,6 +300,9 @@ create table if not exists office_estates (
   status text not null default 'active',
   subscription_status text not null default 'live',
   location text,
+  latitude numeric,
+  longitude numeric,
+  health_score numeric,
   buildings_count integer not null default 0,
   homes_count integer not null default 0,
   devices_count integer not null default 0,
@@ -308,10 +311,16 @@ create table if not exists office_estates (
   monthly_recurring_revenue numeric not null default 0,
   support_open integer not null default 0,
   support_escalated integer not null default 0,
+  metadata jsonb not null default '{}'::jsonb,
   connected_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table office_estates add column if not exists latitude numeric;
+alter table office_estates add column if not exists longitude numeric;
+alter table office_estates add column if not exists health_score numeric;
+alter table office_estates add column if not exists metadata jsonb not null default '{}'::jsonb;
 
 drop trigger if exists office_estates_set_updated_at on office_estates;
 create trigger office_estates_set_updated_at
@@ -324,14 +333,19 @@ create table if not exists office_buildings (
   estate_id text references office_estates(id) on delete cascade,
   name text not null,
   type text,
+  status text not null default 'active',
   homes_count integer not null default 0,
   devices_count integer not null default 0,
   permitted_users integer not null default 0,
   live_cameras integer not null default 0,
   occupancy_pct numeric not null default 0,
+  metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table office_buildings add column if not exists status text not null default 'active';
+alter table office_buildings add column if not exists metadata jsonb not null default '{}'::jsonb;
 
 drop trigger if exists office_buildings_set_updated_at on office_buildings;
 create trigger office_buildings_set_updated_at
@@ -378,6 +392,33 @@ create table if not exists office_devices (
 alter table office_devices add column if not exists provider text;
 alter table office_devices add column if not exists battery_level numeric;
 alter table office_devices add column if not exists metadata jsonb not null default '{}'::jsonb;
+
+create table if not exists office_documents (
+  id text primary key,
+  title text not null,
+  document_type text not null default 'document',
+  status text not null default 'draft',
+  owner text,
+  related_type text,
+  related_id text,
+  amount numeric not null default 0,
+  currency text not null default 'NGN',
+  file_url text,
+  html_url text,
+  email_to text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists office_documents_set_updated_at on office_documents;
+create trigger office_documents_set_updated_at
+before update on office_documents
+for each row
+execute function set_updated_at();
+
+create index if not exists office_documents_type_status_idx
+on office_documents (document_type, status, updated_at desc);
 
 drop trigger if exists office_devices_set_updated_at on office_devices;
 create trigger office_devices_set_updated_at

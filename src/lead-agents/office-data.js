@@ -67,6 +67,9 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
       status: "active",
       subscription_status: "live",
       location: "Lekki, Lagos",
+      latitude: 6.4698,
+      longitude: 3.5852,
+      health_score: 92,
       buildings_count: 12,
       homes_count: 164,
       devices_count: 486,
@@ -85,6 +88,9 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
       status: "active",
       subscription_status: "live",
       location: "Abuja",
+      latitude: 9.0765,
+      longitude: 7.3986,
+      health_score: 88,
       buildings_count: 6,
       homes_count: 92,
       devices_count: 204,
@@ -103,6 +109,9 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
       status: "active",
       subscription_status: "rollout",
       location: "Victoria Island, Lagos",
+      latitude: 6.4281,
+      longitude: 3.4219,
+      health_score: 64,
       buildings_count: 18,
       homes_count: 286,
       devices_count: 932,
@@ -122,6 +131,7 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
       estate_id: "estate_green_canopy",
       name: "Canopy Towers",
       type: "apartment",
+      status: "active",
       homes_count: 44,
       devices_count: 132,
       permitted_users: 68,
@@ -134,6 +144,7 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
       estate_id: "estate_green_canopy",
       name: "Garden Villas",
       type: "villa cluster",
+      status: "active",
       homes_count: 36,
       devices_count: 88,
       permitted_users: 54,
@@ -146,6 +157,7 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
       estate_id: "estate_riverbank",
       name: "Riverbank Homes",
       type: "terrace homes",
+      status: "active",
       homes_count: 52,
       devices_count: 104,
       permitted_users: 47,
@@ -158,6 +170,7 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
       estate_id: "estate_atlas_district",
       name: "Atlas Heights",
       type: "mixed use tower",
+      status: "warning",
       homes_count: 84,
       devices_count: 312,
       permitted_users: 126,
@@ -170,6 +183,7 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
       estate_id: "estate_atlas_district",
       name: "Atlas Gardens",
       type: "smart homes",
+      status: "active",
       homes_count: 61,
       devices_count: 188,
       permitted_users: 93,
@@ -424,6 +438,22 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
     },
   ];
 
+  const documents = [
+    {
+      id: "doc_seed_proposal",
+      title: "Green Canopy Estate Deployment Proposal",
+      document_type: "proposal",
+      status: "draft",
+      owner: "Office",
+      related_type: "estate",
+      related_id: "estate_green_canopy",
+      amount: 8000000,
+      currency: "NGN",
+      created_at: nowIso,
+      updated_at: nowIso,
+    },
+  ];
+
   return {
     packages,
     estates,
@@ -432,6 +462,7 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
     devices,
     wallets,
     analytics,
+    documents,
     support_mappings: supportMappings,
   };
 }
@@ -446,6 +477,7 @@ function buildOfficeSnapshot(input) {
     source.devices?.length ||
     source.wallets?.length ||
     source.analytics?.length ||
+    source.documents?.length ||
     source.support_mappings?.length
       ? source
       : createOfficeSeedData();
@@ -457,6 +489,7 @@ function buildOfficeSnapshot(input) {
   const devices = officeData.devices || [];
   const wallets = officeData.wallets || [];
   const analytics = officeData.analytics || [];
+  const documents = officeData.documents || [];
   const supportMappings = officeData.support_mappings || [];
   const leads = source.leads || [];
   const report = source.report || {};
@@ -569,6 +602,7 @@ function buildOfficeSnapshot(input) {
       devices,
       wallets,
       analytics,
+      documents,
       support_mappings: supportMappings,
     },
     totals: {
@@ -579,6 +613,7 @@ function buildOfficeSnapshot(input) {
       devices: devices.length,
       wallets: wallets.length,
       analytics: analytics.length,
+      documents: documents.length,
       support_mappings: supportMappings.length,
       online_devices: onlineDevices,
       flagged_devices: flaggedDevices,
@@ -589,6 +624,8 @@ function buildOfficeSnapshot(input) {
       conversions: totalConversions,
       monthly_recurring_revenue: mrr,
       crm_records: totals.leads || leads.length || 0,
+      invoices: documents.filter((item) => String(item.document_type || item.type).toLowerCase() === "invoice").length,
+      contracts: documents.filter((item) => String(item.document_type || item.type).toLowerCase() === "contract").length,
     },
     domains: {
       summary: {
