@@ -2019,6 +2019,45 @@
 	        transform: perspective(700px) rotateX(56deg) scale(1.08);
 	        transform-origin: 50% 70%;
 	      }
+	      .estate-google-map {
+	        position: absolute;
+	        inset: 0;
+	        z-index: 0;
+	        display: none;
+	        min-height: 100%;
+	        background: #07101f;
+	      }
+	      .estate-google-map.is-loading::after,
+	      .map-provider-note {
+	        position: absolute;
+	        left: 16px;
+	        top: 16px;
+	        z-index: 3;
+	        max-width: 320px;
+	        padding: 10px 12px;
+	        border-radius: 10px;
+	        background: rgba(7,11,24,0.84);
+	        border: 1px solid rgba(149,166,255,0.18);
+	        color: rgba(236,242,255,0.76);
+	        font-size: 11px;
+	        line-height: 1.45;
+	      }
+	      .estate-google-map.is-loading::after {
+	        content: "Loading Google estate map...";
+	      }
+	      .estate-command-map.has-live-map::after {
+	        content: "Google Maps estate layer";
+	      }
+	      .estate-command-map.has-live-map .estate-google-map {
+	        display: block;
+	      }
+	      .estate-command-map.has-live-map .estate-map-placeholder,
+	      .estate-command-map.has-live-map .estate-map-zone {
+	        display: none;
+	      }
+	      .estate-command-map.has-live-map .estate-map-chip {
+	        display: none;
+	      }
 	      .estate-map-zone {
 	        position: absolute;
 	        left: var(--x);

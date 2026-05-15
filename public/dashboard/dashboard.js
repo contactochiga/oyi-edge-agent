@@ -26,6 +26,8 @@
     channelOverview: null,
     officeStats: null,
     officeData: null,
+    mapConfig: null,
+    googleMapsPromise: null,
     allDemos: [],
     proposals: [],
     allProposals: [],
@@ -533,6 +535,43 @@
 
   function officeCollections() {
     return state.officeData && state.officeData.collections ? state.officeData.collections : {};
+  }
+
+  function numberOrNull(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+
+  function estateCoordinate(estate) {
+    const source = estate || {};
+    const metadata = source.metadata || {};
+    const lat = numberOrNull(source.latitude ?? source.lat ?? metadata.latitude ?? metadata.lat);
+    const lng = numberOrNull(source.longitude ?? source.lng ?? metadata.longitude ?? metadata.lng);
+    if (lat === null || lng === null) return null;
+    return { lat, lng };
+  }
+
+  function loadGoogleMaps(apiKey) {
+    if (window.google && window.google.maps) {
+      return Promise.resolve(window.google.maps);
+    }
+    if (state.googleMapsPromise) {
+      return state.googleMapsPromise;
+    }
+    state.googleMapsPromise = new Promise(function (resolve, reject) {
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}`;
+      script.async = true;
+      script.defer = true;
+      script.onload = function () {
+        resolve(window.google.maps);
+      };
+      script.onerror = function () {
+        reject(new Error("Google Maps could not load. Check API restrictions and enabled APIs."));
+      };
+      document.head.appendChild(script);
+    });
+    return state.googleMapsPromise;
   }
 
   function findById(rows, id) {
@@ -2074,6 +2113,86 @@
 	    return officeIcon("estate");
 	  }
 
+	  function renderEstateGoogleMap(estates, selectedEstate, domain) {
+	    const mapHost = document.getElementById("estateGoogleMap");
+	    if (!mapHost) return;
+	    const mapConfig = state.mapConfig || {};
+	    const googleConfig = mapConfig.google_maps || {};
+	    const provider = String(mapConfig.provider || "static").toLowerCase();
+	    const apiKey = googleConfig.api_key || "";
+	    const markerRecords = asList(estates)
+	      .map(function (estate) {
+	        const position = estateCoordinate(estate);
+	        return position ? { estate, position } : null;
+	      })
+	      .filter(Boolean);
+	
+	    if (provider !== "google" || !apiKey) {
+	      mapHost.innerHTML = '<div class="map-provider-note">Static estate layer active. Add GOOGLE_MAPS_API_KEY and set OFFICE_MAP_PROVIDER=google to activate Google Maps.</div>';
+	      return;
+	    }
+	    if (!markerRecords.length) {
+	      mapHost.innerHTML = '<div class="map-provider-note">Google Maps is configured, but synced estates do not yet include latitude/longitude.</div>';
+	      return;
+	    }
+	
+	    const mapShell = mapHost.closest(".estate-command-map");
+	    if (mapShell) mapShell.classList.add("has-live-map");
+	    mapHost.classList.add("is-loading");
+	    mapHost.innerHTML = "";
+	
+	    loadGoogleMaps(apiKey)
+	      .then(function (maps) {
+	        const selectedPosition = selectedEstate ? estateCoordinate(selectedEstate) : null;
+	        const center = selectedPosition || markerRecords[0].position;
+	        const map = new maps.Map(mapHost, {
+	          center,
+	          zoom: markerRecords.length > 1 ? 11 : 14,
+	          mapTypeControl: false,
+	          streetViewControl: false,
+	          fullscreenControl: true,
+	          styles: [
+	            { elementType: "geometry", stylers: [{ color: "#08111f" }] },
+	            { elementType: "labels.text.fill", stylers: [{ color: "#d8e6ff" }] },
+	            { elementType: "labels.text.stroke", stylers: [{ color: "#07101f" }] },
+	            { featureType: "road", elementType: "geometry", stylers: [{ color: "#162641" }] },
+	            { featureType: "water", elementType: "geometry", stylers: [{ color: "#06172f" }] },
+	            { featureType: "poi", stylers: [{ visibility: "off" }] },
+	          ],
+	        });
+	        const bounds = new maps.LatLngBounds();
+	        markerRecords.forEach(function (record) {
+	          const status = String(record.estate.health_status || record.estate.status || record.estate.subscription_status || "healthy");
+	          const tone = estateToneFromStatus(status);
+	          const marker = new maps.Marker({
+	            position: record.position,
+	            map,
+	            title: record.estate.name || "Estate",
+	            icon: {
+	              path: maps.SymbolPath.CIRCLE,
+	              scale: 8,
+	              fillColor: tone === "critical" ? "#ff416d" : tone === "warning" ? "#ffc247" : "#28e68d",
+	              fillOpacity: 0.96,
+	              strokeColor: "#07101f",
+	              strokeWeight: 2,
+	            },
+	          });
+	          marker.addListener("click", function () {
+	            state.selectedOfficeEstateId = record.estate.id || "";
+	            renderEstateFacilitiesWorkspace(domain);
+	          });
+	          bounds.extend(record.position);
+	        });
+	        if (markerRecords.length > 1) map.fitBounds(bounds, 56);
+	        mapHost.classList.remove("is-loading");
+	      })
+	      .catch(function (error) {
+	        if (mapShell) mapShell.classList.remove("has-live-map");
+	        mapHost.classList.remove("is-loading");
+	        mapHost.innerHTML = `<div class="map-provider-note">${escapeHtml(error.message || "Google Maps failed to load.")}</div>`;
+	      });
+	  }
+
 	  function renderEstateFacilitiesWorkspace(domain) {
 	    if (!el.facilityPanel || !domain) return;
 	    const collections = officeCollections();
@@ -2180,6 +2299,7 @@
 	        <div class="command-layout">
 	          <div class="command-main">
 	            <section class="estate-command-map estate-map-with-detail">
+	              <div class="estate-google-map" id="estateGoogleMap" aria-label="Live estate Google map"></div>
 	              <div class="estate-map-placeholder" aria-hidden="true"></div>
 	              ${mapMarkup || '<div class="office-detail-empty" style="position:absolute;left:16px;top:16px;">Estate map will activate when facility sync publishes estate records.</div>'}
 	            </section>
@@ -2250,6 +2370,7 @@
 	        renderEstateFacilitiesWorkspace(domain);
 	      });
 	    });
+	    renderEstateGoogleMap(estates, selectedEstate, domain);
 	    bindOfficeAssetActions(el.facilityPanel);
 	  }
 
@@ -4636,7 +4757,7 @@
   }
 
   async function loadLeads() {
-    const [leadData, traceData, notificationData, reportData, userData, demosData, proposalData, auditData, channelData, officeData, healthData] = await Promise.all([
+    const [leadData, traceData, notificationData, reportData, userData, demosData, proposalData, auditData, channelData, officeData, healthData, mapData] = await Promise.all([
       api("/api/lead-agents/leads", { method: "GET" }),
       hasPermission("view_traces")
         ? api("/api/lead-agents/admin/traces", { method: "GET" })
@@ -4670,6 +4791,11 @@
       api("/healthz", { method: "GET" }).catch(function () {
         return { stats: null };
       }),
+      hasPermission("view_estates")
+        ? api("/api/lead-agents/admin/maps/config", { method: "GET" }).catch(function () {
+            return { maps: null };
+          })
+        : Promise.resolve({ maps: null }),
     ]);
     state.leads = leadData.leads || [];
     state.traces = traceData.traces || [];
@@ -4682,6 +4808,7 @@
     state.channelOverview = channelData || { channels: [] };
     state.officeData = officeData.office || null;
     state.officeStats = healthData.stats || null;
+    state.mapConfig = mapData.maps || null;
     invalidateDerivedData();
 
     if (
