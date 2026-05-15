@@ -87,10 +87,148 @@
         margin-bottom: 14px;
       }
       .oma-panel.voice-chat {
+        background:
+          radial-gradient(circle at 50% 8%, rgba(242, 198, 109, 0.2), transparent 30%),
+          linear-gradient(180deg, #07110d 0%, #10291f 58%, #f8f3e8 58%, #fffdf9 100%);
         box-shadow:
           0 0 0 1px rgba(13, 92, 70, 0.18),
           0 0 55px rgba(13, 92, 70, 0.26),
           0 30px 80px rgba(10, 33, 25, 0.25);
+      }
+      .oma-voice-stage {
+        display: none;
+        position: relative;
+        min-height: 278px;
+        padding: 20px;
+        overflow: hidden;
+        color: #fff;
+        background:
+          radial-gradient(circle at 50% 48%, rgba(242, 198, 109, 0.24), transparent 18%),
+          radial-gradient(circle at 24% 26%, rgba(92, 211, 166, 0.22), transparent 26%),
+          radial-gradient(circle at 84% 20%, rgba(255, 255, 255, 0.12), transparent 24%),
+          linear-gradient(160deg, #07110d, #0c3126 62%, #06100c);
+      }
+      .oma-panel.voice-chat .oma-voice-stage {
+        display: grid;
+        place-items: center;
+      }
+      .oma-panel.voice-chat .oma-messages {
+        display: none;
+      }
+      .oma-call-grid {
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+        background-size: 34px 34px;
+        mask-image: radial-gradient(circle at center, black 0 45%, transparent 78%);
+        opacity: 0.58;
+      }
+      .oma-call-orb {
+        position: absolute;
+        width: 230px;
+        height: 230px;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle at 50% 44%, rgba(255,255,255,0.34), transparent 18%),
+          radial-gradient(circle at center, rgba(92, 211, 166, 0.32), rgba(13, 92, 70, 0.12) 46%, transparent 66%);
+        box-shadow: 0 0 48px rgba(92, 211, 166, 0.24), inset 0 0 60px rgba(255, 255, 255, 0.06);
+        animation: oma-orb-breathe 2.8s ease-in-out infinite;
+      }
+      .oma-call-card {
+        position: relative;
+        z-index: 2;
+        width: min(280px, 86%);
+        min-height: 220px;
+        border-radius: 30px;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        background: rgba(5, 12, 9, 0.38);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+        backdrop-filter: blur(18px);
+      }
+      .oma-call-avatar {
+        width: 74px;
+        height: 74px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        margin: 0 auto 12px;
+        background:
+          radial-gradient(circle at top, ${accentColor}, transparent 45%),
+          linear-gradient(145deg, ${primaryColor}, #041a14);
+        color: #fff;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+      }
+      .oma-call-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 800;
+      }
+      .oma-call-status {
+        display: block;
+        min-height: 18px;
+        margin-top: 6px;
+        color: rgba(255,255,255,0.72);
+        font-size: 12px;
+      }
+      .oma-call-wave {
+        height: 44px;
+        margin-top: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+      }
+      .oma-call-wave i {
+        width: 5px;
+        height: var(--oma-wave-height, 9px);
+        border-radius: 999px;
+        background: linear-gradient(180deg, #fff, ${accentColor});
+        opacity: var(--oma-wave-opacity, 0.68);
+        transition: height 70ms ease, opacity 70ms ease;
+      }
+      .oma-call-actions {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .oma-call-end {
+        border: 0;
+        width: 48px;
+        height: 48px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: #e5484d;
+        cursor: pointer;
+        box-shadow: 0 16px 34px rgba(229, 72, 77, 0.32);
+      }
+      .oma-call-chip {
+        padding: 9px 12px;
+        border-radius: 999px;
+        color: rgba(255,255,255,0.82);
+        background: rgba(255,255,255,0.08);
+        font-size: 11px;
+      }
+      @keyframes oma-orb-breathe {
+        0%, 100% {
+          transform: scale(0.96);
+          opacity: 0.78;
+        }
+        50% {
+          transform: scale(1.05);
+          opacity: 1;
+        }
       }
       .oma-panel.voice-chat .oma-composer {
         background:
@@ -420,6 +558,24 @@
             <button class="oma-close" type="button" aria-label="Close chat">×</button>
           </div>
         </div>
+        <div class="oma-voice-stage" id="oma-voice-stage" aria-live="polite">
+          <span class="oma-call-grid" aria-hidden="true"></span>
+          <span class="oma-call-orb" aria-hidden="true"></span>
+          <div class="oma-call-card">
+            <div>
+              <div class="oma-call-avatar">${agentName.slice(0, 2).toUpperCase()}</div>
+              <h3 class="oma-call-title">Voice chat with ${agentName}</h3>
+              <span class="oma-call-status" id="oma-call-status">Launching secure voice session...</span>
+              <span class="oma-call-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <div class="oma-call-actions">
+                <span class="oma-call-chip">Live agent conversation</span>
+                <button class="oma-call-end" id="oma-call-end" type="button" aria-label="End voice chat">
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="oma-messages" id="oma-messages"></div>
         <div class="oma-composer">
           <div class="oma-activity" id="oma-activity">
@@ -467,6 +623,8 @@
   const activity = shadow.getElementById("oma-activity");
   const activityText = shadow.getElementById("oma-activity-text");
   const waveBars = Array.from(shadow.querySelectorAll(".oma-wave i"));
+  const callStatus = shadow.getElementById("oma-call-status");
+  const callWaveBars = Array.from(shadow.querySelectorAll(".oma-call-wave i"));
   const form = shadow.getElementById("oma-form");
   const input = shadow.getElementById("oma-input");
   const send = shadow.getElementById("oma-send");
@@ -475,6 +633,7 @@
   const attachments = shadow.getElementById("oma-attachments");
   const mic = shadow.getElementById("oma-mic");
   const voice = shadow.getElementById("oma-voice");
+  const callEnd = shadow.getElementById("oma-call-end");
 
   const micIcon =
     '<svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>';
@@ -500,6 +659,9 @@
   function setActivity(text, options) {
     const config = options || {};
     activityText.textContent = text || `${agentName} is ready.`;
+    if (callStatus && (config.voice || voiceConversationActive)) {
+      callStatus.textContent = text || `${agentName} is listening.`;
+    }
     activity.classList.toggle("visible", Boolean(text));
     activity.classList.toggle("voice", Boolean(config.voice));
     activity.classList.toggle("recording", Boolean(config.recording));
@@ -512,6 +674,12 @@
       const height = 5 + normalized * 19 * spread[index];
       bar.style.setProperty("--oma-wave-height", `${height.toFixed(1)}px`);
       bar.style.setProperty("--oma-wave-opacity", String(0.48 + normalized * 0.5));
+    });
+    callWaveBars.forEach(function (bar, index) {
+      const spreadValue = [0.36, 0.62, 0.88, 1, 0.78, 0.56, 0.34][index] || 0.5;
+      const height = 8 + normalized * 34 * spreadValue;
+      bar.style.setProperty("--oma-wave-height", `${height.toFixed(1)}px`);
+      bar.style.setProperty("--oma-wave-opacity", String(0.5 + normalized * 0.45));
     });
   }
 
@@ -603,6 +771,9 @@
     if (mode === "conversation") {
       setVoiceButton("stop");
       panel.classList.add("voice-chat");
+      if (callStatus) {
+        callStatus.textContent = "Launching secure voice session...";
+      }
     }
   }
 
@@ -631,6 +802,24 @@
     } catch (_) {
       resetRecordingUi();
     }
+  }
+
+  function endVoiceConversation(message) {
+    voiceConversationActive = false;
+    voice.classList.remove("active", "listening");
+    setVoiceButton("speak");
+    panel.classList.remove("voice-chat");
+    stopActivityCycle();
+    setActivity(message || "Live speak mode paused.", {});
+    if (recognition) {
+      try {
+        recognition.stop();
+      } catch (_) {}
+    }
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    resetRecordingUi();
   }
 
   function stopActivityCycle() {
@@ -1013,26 +1202,18 @@
       return;
     }
     if (voiceConversationActive) {
-      voiceConversationActive = false;
-      voice.classList.remove("active", "listening");
-      setVoiceButton("speak");
-      panel.classList.remove("voice-chat");
-      stopActivityCycle();
-      setActivity("Live speak mode paused.", {});
-      if (recognition) {
-        try {
-          recognition.stop();
-        } catch (_) {}
-      }
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-      resetRecordingUi();
+      endVoiceConversation("Live speak mode paused.");
       return;
     }
     voiceConversationActive = true;
     startVoiceCapture("conversation");
   });
+
+  if (callEnd) {
+    callEnd.addEventListener("click", function () {
+      endVoiceConversation("Voice chat ended.");
+    });
+  }
 
   form.addEventListener("submit", function (event) {
     event.preventDefault();
