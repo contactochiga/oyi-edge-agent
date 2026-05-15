@@ -315,6 +315,7 @@
     officeWelcomeTitle: document.getElementById("officeWelcomeTitle"),
     officeHealthMetric: document.getElementById("officeHealthMetric"),
     officeHealthLegend: document.getElementById("officeHealthLegend"),
+    officeCityMap: document.getElementById("officeCityMap"),
     officeMapLabels: document.getElementById("officeMapLabels"),
     supportOverviewGraph: document.getElementById("supportOverviewGraph"),
     estateDistributionTotal: document.getElementById("estateDistributionTotal"),
@@ -2224,6 +2225,79 @@
 	      });
 	  }
 
+	  function renderOverviewGoogleMap(estates) {
+	    const mapHost = el.officeCityMap;
+	    if (!mapHost) return;
+	    const mapConfig = state.mapConfig || {};
+	    const googleConfig = mapConfig.google_maps || {};
+	    const provider = String(mapConfig.provider || "static").toLowerCase();
+	    const apiKey = googleConfig.api_key || "";
+	    const markerRecords = asList(estates)
+	      .map(function (estate) {
+	        const position = estateCoordinate(estate);
+	        return position ? { estate, position } : null;
+	      })
+	      .filter(Boolean);
+	    if (provider !== "google" || !apiKey || !markerRecords.length) return;
+	    mapHost.classList.add("has-live-google", "is-loading");
+	    mapHost.innerHTML = "";
+	    loadGoogleMaps(apiKey)
+	      .then(function (maps) {
+	        const map = new maps.Map(mapHost, {
+	          center: markerRecords[0].position,
+	          zoom: markerRecords.length > 1 ? 10 : 14,
+	          mapTypeControl: false,
+	          streetViewControl: false,
+	          fullscreenControl: true,
+	          styles: [
+	            { elementType: "geometry", stylers: [{ color: "#08111f" }] },
+	            { elementType: "labels.text.fill", stylers: [{ color: "#d8e6ff" }] },
+	            { elementType: "labels.text.stroke", stylers: [{ color: "#07101f" }] },
+	            { featureType: "road", elementType: "geometry", stylers: [{ color: "#162641" }] },
+	            { featureType: "water", elementType: "geometry", stylers: [{ color: "#06172f" }] },
+	            { featureType: "poi", stylers: [{ visibility: "off" }] },
+	          ],
+	        });
+	        const bounds = new maps.LatLngBounds();
+	        markerRecords.forEach(function (record) {
+	          const status = String(record.estate.health_status || record.estate.status || record.estate.subscription_status || "healthy");
+	          const tone = estateToneFromStatus(status);
+	          const marker = new maps.Marker({
+	            position: record.position,
+	            map,
+	            title: record.estate.name || "Estate",
+	            icon: {
+	              path: maps.SymbolPath.CIRCLE,
+	              scale: 7,
+	              fillColor: tone === "critical" ? "#ff416d" : tone === "warning" ? "#ffc247" : "#28e68d",
+	              fillOpacity: 0.98,
+	              strokeColor: "#07101f",
+	              strokeWeight: 2,
+	            },
+	          });
+	          const info = new maps.InfoWindow({
+	            content: `<div style="font-family:Inter,Arial,sans-serif;min-width:180px;color:#0f172a;"><strong>${escapeHtml(record.estate.name || "Estate")}</strong><br><span>${escapeHtml(displayValue(record.estate.location, "Location pending"))}</span><br><span>Status: ${escapeHtml(status)}</span></div>`,
+	          });
+	          marker.addListener("click", function () {
+	            state.selectedOfficeEstateId = record.estate.id || "";
+	            info.open({ map, anchor: marker });
+	          });
+	          marker.addListener("dblclick", function () {
+	            state.workspaceTab = "facility";
+	            state.overviewFocus = "facility";
+	            state.selectedOfficeEstateId = record.estate.id || "";
+	            renderWorkspaceTabs();
+	          });
+	          bounds.extend(record.position);
+	        });
+	        if (markerRecords.length > 1) map.fitBounds(bounds, 48);
+	        mapHost.classList.remove("is-loading");
+	      })
+	      .catch(function () {
+	        mapHost.classList.remove("has-live-google", "is-loading");
+	      });
+	  }
+
 	  function renderEstateFacilitiesWorkspace(domain) {
 	    if (!el.facilityPanel || !domain) return;
 	    const collections = officeCollections();
@@ -2838,12 +2912,14 @@
 	        .join("") || '<div class="subtext" style="position:absolute;left:16px;top:16px;">Estate map labels will appear when facility sync publishes estates.</div>';
       Array.from(el.officeMapLabels.querySelectorAll("[data-office-target]")).forEach(function (node) {
         node.addEventListener("click", function () {
+          state.selectedOfficeEstateId = node.getAttribute("data-estate-id") || state.selectedOfficeEstateId || "";
           state.workspaceTab = "facility";
           state.overviewFocus = "facility";
           renderWorkspaceTabs();
         });
       });
     }
+    renderOverviewGoogleMap(estates);
     if (el.supportOverviewGraph) {
       const points = [openSupport, warningCount, criticalCount, state.notifications.length, supportMappings.length, devices.filter(function (device) { return String(device.status || "").toLowerCase() === "offline"; }).length, openSupport + criticalCount];
       const maxPoint = Math.max(1, ...points);

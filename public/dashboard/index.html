@@ -951,7 +951,7 @@
         isolation: isolate;
       }
       .mapbox-ready::after {
-        content: "Mapbox-ready estate layer";
+        content: "Map-ready estate layer";
         position: absolute;
         right: 12px;
         bottom: 10px;
@@ -960,6 +960,17 @@
         font-size: 10px;
         letter-spacing: 0.04em;
         text-transform: uppercase;
+      }
+      .city-map.has-live-google {
+        background: #07101f;
+      }
+      .city-map.has-live-google::after {
+        content: "Google live estate layer";
+        pointer-events: none;
+        z-index: 4;
+      }
+      .city-map.has-live-google > div {
+        min-height: 260px;
       }
       .city-glow {
         position: absolute;
