@@ -1580,6 +1580,24 @@
       });
       return;
     }
+    if (action === "geocode_estates") {
+      openCommandModal({
+        action,
+        eyebrow: "Estate Maps",
+        title: "Geocode estate locations",
+        subtitle: "Uses the configured Google Maps Geocoding API to add latitude and longitude to estate records missing map coordinates.",
+        submitLabel: "Geocode estates",
+        fields: [
+          `<label class="command-form-field"><span>Limit</span><input name="limit" type="number" min="1" max="100" value="50" /></label>`,
+          `<label class="command-form-field"><span>Country bias</span><input name="country" type="text" value="Nigeria" /></label>`,
+          formSelect("force", "Mode", [
+            { label: "Only missing coordinates", value: "false" },
+            { label: "Refresh all coordinates", value: "true" },
+          ]),
+        ].join(""),
+      });
+      return;
+    }
     if (action === "add_building") {
       openCommandModal({
         action,
@@ -1796,6 +1814,19 @@
         }),
       });
       setBulkStatus(`${type} generated and stored in Office documents.`);
+      await loadLeads();
+      return;
+    } else if (action === "geocode_estates") {
+      const result = await api("/api/lead-agents/admin/maps/geocode", {
+        method: "POST",
+        body: JSON.stringify({
+          limit: Number(formData.get("limit") || 50),
+          country: String(formData.get("country") || "Nigeria"),
+          force: String(formData.get("force") || "false") === "true",
+        }),
+      });
+      const summary = result?.result || {};
+      setBulkStatus(`Estate geocoding complete: ${summary.updated || 0} updated, ${summary.failed || 0} failed.`);
       await loadLeads();
       return;
     } else if (action === "open_permissions") {
@@ -2277,6 +2308,7 @@
 	          <div class="toolbar">
 	            <button class="primary" data-command-action="add_estate" type="button">+ Add Estate</button>
 	            <button class="ghost" data-command-action="import_estates" type="button">Import Estates</button>
+	            <button class="ghost" data-command-action="geocode_estates" type="button">Geocode Map</button>
 	          </div>
 	        </div>
 	        <div class="estate-tabs">

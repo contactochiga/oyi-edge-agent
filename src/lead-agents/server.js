@@ -347,6 +347,92 @@ function assetPatchForAction(kind, action, body) {
   return Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
 }
 
+async function geocodeAddress(config, address) {
+  if (!config.googleMapsApiKey) {
+    const error = new Error("GOOGLE_MAPS_API_KEY is not configured");
+    error.statusCode = 400;
+    throw error;
+  }
+  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  url.searchParams.set("address", address);
+  url.searchParams.set("key", config.googleMapsApiKey);
+  const response = await fetch(url);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.status !== "OK") {
+    return {
+      ok: false,
+      status: payload.status || response.status,
+      error_message: payload.error_message || "",
+    };
+  }
+  const result = payload.results?.[0];
+  const location = result?.geometry?.location;
+  if (!location || !Number.isFinite(Number(location.lat)) || !Number.isFinite(Number(location.lng))) {
+    return { ok: false, status: "NO_LOCATION" };
+  }
+  return {
+    ok: true,
+    latitude: Number(location.lat),
+    longitude: Number(location.lng),
+    formatted_address: result.formatted_address || address,
+    place_id: result.place_id || "",
+  };
+}
+
+async function geocodeOfficeEstates({ config, store, limit = 50, force = false, country = "Nigeria" }) {
+  const estates = typeof store.listOfficeEstates === "function" ? await store.listOfficeEstates() : [];
+  const safeCountry = String(country || "Nigeria").trim();
+  const candidates = estates
+    .filter((estate) => {
+      if (
+        !force &&
+        estate.latitude !== null &&
+        estate.latitude !== undefined &&
+        estate.longitude !== null &&
+        estate.longitude !== undefined
+      ) {
+        return false;
+      }
+      return Boolean(String(estate.location || estate.name || "").trim());
+    })
+    .slice(0, Math.max(1, Math.min(Number(limit || 50), 100)));
+  const results = [];
+  for (const estate of candidates) {
+    const address = [estate.name, estate.location, safeCountry].filter(Boolean).join(", ");
+    const geocode = await geocodeAddress(config, address);
+    if (geocode.ok) {
+      const updated = await store.updateOfficeAsset("estate", estate.id, {
+        latitude: geocode.latitude,
+        longitude: geocode.longitude,
+        metadata: {
+          ...(estate.metadata || {}),
+          geocoded_address: geocode.formatted_address,
+          google_place_id: geocode.place_id,
+          geocoded_at: new Date().toISOString(),
+        },
+      });
+      results.push({
+        id: estate.id,
+        name: estate.name,
+        ok: true,
+        latitude: geocode.latitude,
+        longitude: geocode.longitude,
+        updated: Boolean(updated),
+      });
+    } else {
+      results.push({ id: estate.id, name: estate.name, ok: false, status: geocode.status, error_message: geocode.error_message });
+    }
+  }
+  return {
+    total_estates: estates.length,
+    total_candidates: candidates.length,
+    skipped: Math.max(0, estates.length - candidates.length),
+    updated: results.filter((item) => item.ok).length,
+    failed: results.filter((item) => !item.ok).length,
+    results,
+  };
+}
+
 function absoluteUrl(req, pathname, token) {
   const proto = req.headers["x-forwarded-proto"] || "https";
   const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
@@ -2487,6 +2573,38 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         }
         authorizePermission(authContext, "view_estates");
         json(res, 200, { maps: publicMapConfig(config) }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/maps/geocode") {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_estates");
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        const result = await geocodeOfficeEstates({
+          config,
+          store,
+          force: parseBoolean(body.force, false),
+          limit: body.limit,
+          country: body.country || "Nigeria",
+        });
+        await appendAudit(store, authContext, "office_estates_geocoded", "office_maps", "google", {
+          provider: "google",
+          force: parseBoolean(body.force, false),
+          total_candidates: result.total_candidates,
+          updated: result.updated,
+          failed: result.failed,
+        });
+        eventBus.publish("office.maps", {
+          actor: authContext?.email || "",
+          provider: "google",
+          updated: result.updated,
+          failed: result.failed,
+        });
+        json(res, 200, { ok: true, result }, { "x-request-id": ctx.requestId });
         return;
       }
 
