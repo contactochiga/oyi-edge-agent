@@ -82,12 +82,20 @@ function createConfig() {
     whatsappApiVersion: process.env.WHATSAPP_API_VERSION || "v22.0",
     metaAppId: process.env.META_APP_ID || "",
     metaAppSecret: process.env.META_APP_SECRET || "",
+    metaAccessToken: process.env.META_ACCESS_TOKEN || "",
     instagramBusinessAccountId: process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID || "",
+    instagramAccessToken: process.env.INSTAGRAM_ACCESS_TOKEN || "",
     facebookPageId: process.env.FACEBOOK_PAGE_ID || "",
+    facebookPageAccessToken:
+      process.env.FACEBOOK_PAGE_ACCESS_TOKEN ||
+      process.env.FACEBOOK_ACCESS_TOKEN ||
+      process.env.FACEBOOK_TOKEN ||
+      "",
     linkedinClientId: process.env.LINKEDIN_CLIENT_ID || "",
     linkedinClientSecret: process.env.LINKEDIN_CLIENT_SECRET || "",
     linkedinOrganizationId: process.env.LINKEDIN_ORGANIZATION_ID || "",
     linkedinRedirectUri: process.env.LINKEDIN_REDIRECT_URI || "",
+    linkedinAccessToken: process.env.LINKEDIN_ACCESS_TOKEN || "",
     googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID || "",
     googleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET || "",
     googleAdsDeveloperToken: process.env.GOOGLE_ADS_DEVELOPER_TOKEN || "",

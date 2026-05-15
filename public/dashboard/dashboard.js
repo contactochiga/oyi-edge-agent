@@ -2834,20 +2834,20 @@
       {
         name: "Instagram",
         icon: "instagram",
-        connected: integrationConnected("meta") && integrationSubReady("meta", "instagram_ready"),
-        detail: integrationSubReady("meta", "instagram_ready") ? "Business account linked" : "Needs Instagram business ID",
+        connected: integrationSubReady("meta", "instagram_ready"),
+        detail: integrationSubReady("meta", "instagram_ready") ? "Business account + token ready" : "Needs IG ID + access token",
       },
       {
         name: "Facebook Messenger",
         icon: "messenger",
-        connected: integrationConnected("meta") && integrationSubReady("meta", "facebook_page_ready"),
-        detail: integrationSubReady("meta", "facebook_page_ready") ? "Page linked" : "Needs Facebook page ID",
+        connected: integrationSubReady("meta", "facebook_page_ready"),
+        detail: integrationSubReady("meta", "facebook_page_ready") ? "Page + token ready" : "Needs Page ID + page token",
       },
       {
         name: "LinkedIn",
         icon: "linkedin",
-        connected: integrationConnected("linkedin"),
-        detail: integrationConnected("linkedin") ? "OAuth app configured" : "Needs LinkedIn client keys",
+        connected: integrationConnected("linkedin") && integrationSubReady("linkedin", "api_token_ready"),
+        detail: integrationSubReady("linkedin", "api_token_ready") ? "OAuth app + access token ready" : "App configured; needs OAuth token",
       },
       {
         name: "TikTok",

@@ -210,13 +210,21 @@ function integrationStatus(config) {
       name: "Meta App",
       configured: Boolean(config.metaAppId && config.metaAppSecret),
       provider: "meta",
-      instagram_ready: Boolean(config.instagramBusinessAccountId),
-      facebook_page_ready: Boolean(config.facebookPageId),
+      app_ready: Boolean(config.metaAppId && config.metaAppSecret),
+      api_token_ready: Boolean(config.metaAccessToken),
+      instagram_ready: Boolean(
+        config.instagramBusinessAccountId &&
+          (config.instagramAccessToken || config.facebookPageAccessToken || config.metaAccessToken)
+      ),
+      facebook_page_ready: Boolean(config.facebookPageId && config.facebookPageAccessToken),
       missing: [
         ["META_APP_ID", config.metaAppId],
         ["META_APP_SECRET", config.metaAppSecret],
+        ["META_ACCESS_TOKEN", config.metaAccessToken],
         ["INSTAGRAM_BUSINESS_ACCOUNT_ID", config.instagramBusinessAccountId],
+        ["INSTAGRAM_ACCESS_TOKEN or FACEBOOK_PAGE_ACCESS_TOKEN", config.instagramAccessToken || config.facebookPageAccessToken],
         ["FACEBOOK_PAGE_ID", config.facebookPageId],
+        ["FACEBOOK_PAGE_ACCESS_TOKEN", config.facebookPageAccessToken],
       ].filter(([, value]) => !value).map(([key]) => key),
     },
     linkedin: {
@@ -224,12 +232,15 @@ function integrationStatus(config) {
       name: "LinkedIn Marketing / Analytics",
       configured: Boolean(config.linkedinClientId && config.linkedinClientSecret),
       provider: "linkedin",
+      app_ready: Boolean(config.linkedinClientId && config.linkedinClientSecret),
       organization_ready: Boolean(config.linkedinOrganizationId),
+      api_token_ready: Boolean(config.linkedinAccessToken),
       redirect_uri: config.linkedinRedirectUri || "",
       missing: [
         ["LINKEDIN_CLIENT_ID", config.linkedinClientId],
         ["LINKEDIN_CLIENT_SECRET", config.linkedinClientSecret],
         ["LINKEDIN_ORGANIZATION_ID", config.linkedinOrganizationId],
+        ["LINKEDIN_ACCESS_TOKEN", config.linkedinAccessToken],
       ].filter(([, value]) => !value).map(([key]) => key),
     },
     google_oauth: {
