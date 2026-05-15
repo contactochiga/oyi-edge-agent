@@ -189,8 +189,76 @@ function integrationStatus(config) {
     whatsapp: {
       key: "whatsapp",
       name: "WhatsApp Cloud",
-      configured: Boolean(config.whatsappAccessToken && config.whatsappPhoneNumberId),
+      configured: Boolean(
+        config.whatsappVerifyToken &&
+          config.whatsappAccessToken &&
+          config.whatsappPhoneNumberId &&
+          config.whatsappBusinessAccountId
+      ),
       provider: "meta",
+      webhook: "/webhooks/whatsapp",
+      api_version: config.whatsappApiVersion,
+      missing: [
+        ["WHATSAPP_VERIFY_TOKEN", config.whatsappVerifyToken],
+        ["WHATSAPP_ACCESS_TOKEN", config.whatsappAccessToken],
+        ["WHATSAPP_PHONE_NUMBER_ID", config.whatsappPhoneNumberId],
+        ["WHATSAPP_BUSINESS_ACCOUNT_ID", config.whatsappBusinessAccountId],
+      ].filter(([, value]) => !value).map(([key]) => key),
+    },
+    meta: {
+      key: "meta",
+      name: "Meta App",
+      configured: Boolean(config.metaAppId && config.metaAppSecret),
+      provider: "meta",
+      instagram_ready: Boolean(config.instagramBusinessAccountId),
+      facebook_page_ready: Boolean(config.facebookPageId),
+      missing: [
+        ["META_APP_ID", config.metaAppId],
+        ["META_APP_SECRET", config.metaAppSecret],
+        ["INSTAGRAM_BUSINESS_ACCOUNT_ID", config.instagramBusinessAccountId],
+        ["FACEBOOK_PAGE_ID", config.facebookPageId],
+      ].filter(([, value]) => !value).map(([key]) => key),
+    },
+    linkedin: {
+      key: "linkedin",
+      name: "LinkedIn Marketing / Analytics",
+      configured: Boolean(config.linkedinClientId && config.linkedinClientSecret),
+      provider: "linkedin",
+      organization_ready: Boolean(config.linkedinOrganizationId),
+      redirect_uri: config.linkedinRedirectUri || "",
+      missing: [
+        ["LINKEDIN_CLIENT_ID", config.linkedinClientId],
+        ["LINKEDIN_CLIENT_SECRET", config.linkedinClientSecret],
+        ["LINKEDIN_ORGANIZATION_ID", config.linkedinOrganizationId],
+      ].filter(([, value]) => !value).map(([key]) => key),
+    },
+    google_oauth: {
+      key: "google_oauth",
+      name: "Google OAuth",
+      configured: Boolean(config.googleOAuthClientId && config.googleOAuthClientSecret),
+      provider: "google",
+      missing: [
+        ["GOOGLE_OAUTH_CLIENT_ID", config.googleOAuthClientId],
+        ["GOOGLE_OAUTH_CLIENT_SECRET", config.googleOAuthClientSecret],
+      ].filter(([, value]) => !value).map(([key]) => key),
+    },
+    google_marketing: {
+      key: "google_marketing",
+      name: "Google Analytics / Ads",
+      configured: Boolean(
+        config.googleAdsDeveloperToken ||
+          config.googleAdsCustomerId ||
+          config.googleAnalyticsPropertyId ||
+          config.googleAnalyticsMeasurementId
+      ),
+      provider: "google",
+      ads_ready: Boolean(config.googleAdsDeveloperToken && config.googleAdsCustomerId),
+      analytics_ready: Boolean(config.googleAnalyticsPropertyId || config.googleAnalyticsMeasurementId),
+      missing: [
+        ["GOOGLE_ADS_DEVELOPER_TOKEN", config.googleAdsDeveloperToken],
+        ["GOOGLE_ADS_CUSTOMER_ID", config.googleAdsCustomerId],
+        ["GOOGLE_ANALYTICS_PROPERTY_ID", config.googleAnalyticsPropertyId],
+      ].filter(([, value]) => !value).map(([key]) => key),
     },
   };
 }

@@ -26,6 +26,7 @@
     channelOverview: null,
     officeStats: null,
     officeData: null,
+    integrations: null,
     mapConfig: null,
     googleMapsPromise: null,
     allDemos: [],
@@ -326,6 +327,7 @@
     overviewAiInsights: document.getElementById("overviewAiInsights"),
     overviewDomainGrid: document.getElementById("overviewDomainGrid"),
     overviewFocusPanel: document.getElementById("overviewFocusPanel"),
+    settingsIntegrationHub: document.getElementById("settingsIntegrationHub"),
     facilityPanel: document.getElementById("facilityPanel"),
     smartBuildingsPanel: document.getElementById("smartBuildingsPanel"),
     devicePanel: document.getElementById("devicePanel"),
@@ -2809,6 +2811,32 @@
 	    return "";
 	  }
 
+  function renderIntegrationHub() {
+    if (!el.settingsIntegrationHub) return;
+    const integrations = state.integrations || {};
+    const rows = [
+      integrations.maps || { name: "Estate Map Provider", configured: Boolean(state.mapConfig?.google_maps?.configured) },
+      integrations.google_oauth || { name: "Google OAuth", configured: false },
+      integrations.google_marketing || { name: "Google Analytics / Ads", configured: false },
+      integrations.whatsapp || { name: "WhatsApp Cloud", configured: false },
+      integrations.meta || { name: "Meta App", configured: false },
+      integrations.linkedin || { name: "LinkedIn Marketing / Analytics", configured: false },
+      integrations.email || { name: "Office Email", configured: false },
+      integrations.facility || { name: "Oyi Facility API", configured: false },
+      integrations.consumer || { name: "Consumer Smart Building API", configured: false },
+    ];
+    el.settingsIntegrationHub.innerHTML = rows
+      .map(function (item) {
+        const missing = Array.isArray(item.missing) && item.missing.length
+          ? `Missing ${item.missing.length}`
+          : item.configured
+            ? "Connected"
+            : "Needs env";
+        return `<span class="office-batch ${item.configured ? "" : "warning"}">${escapeHtml(item.name || item.key || "Integration")} <strong>${escapeHtml(missing)}</strong></span>`;
+      })
+      .join("");
+  }
+
   function renderOverview() {
     const overview = buildOverviewDomains();
     const totals = overview.totals;
@@ -4606,6 +4634,7 @@
     renderAudit();
     renderTraceExplorer();
     renderTimeline();
+    renderIntegrationHub();
     renderSectionNav();
     updateHeaderActions();
     updateDetailRailState();
@@ -4865,7 +4894,21 @@
   }
 
   async function loadLeads() {
-    const [leadData, traceData, notificationData, reportData, userData, demosData, proposalData, auditData, channelData, officeData, healthData, mapData] = await Promise.all([
+    const [
+      leadData,
+      traceData,
+      notificationData,
+      reportData,
+      userData,
+      demosData,
+      proposalData,
+      auditData,
+      channelData,
+      officeData,
+      healthData,
+      mapData,
+      integrationData,
+    ] = await Promise.all([
       api("/api/lead-agents/leads", { method: "GET" }),
       hasPermission("view_traces")
         ? api("/api/lead-agents/admin/traces", { method: "GET" })
@@ -4904,6 +4947,11 @@
             return { maps: null };
           })
         : Promise.resolve({ maps: null }),
+      hasPermission("view_integrations")
+        ? api("/api/lead-agents/admin/integrations", { method: "GET" }).catch(function () {
+            return { integrations: null };
+          })
+        : Promise.resolve({ integrations: null }),
     ]);
     state.leads = leadData.leads || [];
     state.traces = traceData.traces || [];
@@ -4917,6 +4965,7 @@
     state.officeData = officeData.office || null;
     state.officeStats = healthData.stats || null;
     state.mapConfig = mapData.maps || null;
+    state.integrations = integrationData.integrations || null;
     invalidateDerivedData();
 
     if (
