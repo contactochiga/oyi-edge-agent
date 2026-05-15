@@ -2811,6 +2811,77 @@
 	    return "";
 	  }
 
+  function integrationConnected(key, fallback) {
+    const integrations = state.integrations || {};
+    const item = integrations[key];
+    if (!item) return Boolean(fallback);
+    return Boolean(item.configured);
+  }
+
+  function integrationSubReady(key, field) {
+    const integrations = state.integrations || {};
+    return Boolean(integrations[key] && integrations[key][field]);
+  }
+
+  function crmIntegrationStatusRows() {
+    return [
+      {
+        name: "WhatsApp Business",
+        icon: "whatsapp",
+        connected: integrationConnected("whatsapp"),
+        detail: integrationConnected("whatsapp") ? "Webhook + Cloud API ready" : "Missing WhatsApp env",
+      },
+      {
+        name: "Instagram",
+        icon: "instagram",
+        connected: integrationConnected("meta") && integrationSubReady("meta", "instagram_ready"),
+        detail: integrationSubReady("meta", "instagram_ready") ? "Business account linked" : "Needs Instagram business ID",
+      },
+      {
+        name: "Facebook Messenger",
+        icon: "messenger",
+        connected: integrationConnected("meta") && integrationSubReady("meta", "facebook_page_ready"),
+        detail: integrationSubReady("meta", "facebook_page_ready") ? "Page linked" : "Needs Facebook page ID",
+      },
+      {
+        name: "LinkedIn",
+        icon: "linkedin",
+        connected: integrationConnected("linkedin"),
+        detail: integrationConnected("linkedin") ? "OAuth app configured" : "Needs LinkedIn client keys",
+      },
+      {
+        name: "TikTok",
+        icon: "tiktok",
+        connected: false,
+        detail: "Adapter pending",
+      },
+      {
+        name: "Google Ads",
+        icon: "google",
+        connected: integrationSubReady("google_marketing", "ads_ready"),
+        detail: integrationSubReady("google_marketing", "ads_ready") ? "Ads credentials ready" : "Needs Ads token/customer ID",
+      },
+      {
+        name: "Website Chat",
+        icon: "website",
+        connected: true,
+        detail: "Widget intake live",
+      },
+      {
+        name: "App Store",
+        icon: "website",
+        connected: false,
+        detail: "App analytics pending",
+      },
+      {
+        name: "Play Store",
+        icon: "google",
+        connected: false,
+        detail: "Play Console pending",
+      },
+    ];
+  }
+
   function renderIntegrationHub() {
     if (!el.settingsIntegrationHub) return;
     const integrations = state.integrations || {};
@@ -3170,17 +3241,7 @@
 	      ["App Store", derived.channelCounts.appStore, "website"],
 	      ["Play Store", derived.channelCounts.playStore, "google"],
 	    ];
-	    const integrationRows = [
-	      ["WhatsApp Business", "whatsapp"],
-	      ["Instagram", "instagram"],
-	      ["Facebook Messenger", "messenger"],
-	      ["LinkedIn", "linkedin"],
-	      ["TikTok", "tiktok"],
-	      ["Google Ads", "google"],
-	      ["Website Chat", "website"],
-	      ["App Store", "website"],
-	      ["Play Store", "google"],
-	    ];
+	    const integrationRows = crmIntegrationStatusRows();
 	    const visibleIntegrationRows = state.crmIntegrationsExpanded ? integrationRows : integrationRows.slice(0, 5);
     const stages = [
       ["New Lead", derived.statusCounts.new || 0],
@@ -3265,7 +3326,7 @@
 		              <div class="command-card-head"><h4>Channel Integration</h4><button class="ghost compact" data-crm-integrations-toggle type="button">${state.crmIntegrationsExpanded ? "Show less" : "View channels"}</button></div>
 	              <div class="mission-list">
 	                ${visibleIntegrationRows.map(function (row) {
-	                  return `<div class="device-category"><span style="display:inline-flex;align-items:center;gap:8px;"><span class="command-icon ${platformIconClass(row[0])}">${officeIcon(row[1])}</span>${escapeHtml(row[0])}</span><strong style="font-weight:400;color:var(--muted);">Connected</strong></div>`;
+	                  return `<div class="device-category"><span style="display:inline-flex;align-items:center;gap:8px;"><span class="command-icon ${platformIconClass(row.name)}">${officeIcon(row.icon)}</span><span><strong style="font-weight:400;color:var(--ink);">${escapeHtml(row.name)}</strong><div class="subtext">${escapeHtml(row.detail)}</div></span></span><strong style="font-weight:400;color:${row.connected ? "var(--green)" : "#ff6b8a"};">${row.connected ? "Connected" : "Disconnected"}</strong></div>`;
 	                }).join("")}
 	              </div>
             </article>
