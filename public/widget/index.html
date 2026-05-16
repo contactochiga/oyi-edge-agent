@@ -59,51 +59,159 @@
       .status-pill { display: inline-flex; align-items: center; gap: 8px; padding: 9px 13px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 12px; backdrop-filter: blur(14px); cursor: pointer; }
       .status-pill::before { content: ""; width: 7px; height: 7px; border-radius: 999px; background: var(--gold); box-shadow: 0 0 16px rgba(242,198,109,.7); }
       .status-pill.active::before { background: var(--green); box-shadow: 0 0 16px rgba(73,229,141,.8); }
-      .main-stage { min-height: 0; display: grid; place-items: center; position: relative; }
-      .orb-zone { position: relative; width: min(92vw, 760px); height: min(58vh, 540px); min-height: 390px; display: grid; place-items: center; }
-      .orb-zone::before { content: ""; position: absolute; width: min(64vw, 560px); height: min(64vw, 560px); max-height: 560px; border-radius: 999px; border: 1px solid rgba(255,255,255,.07); animation: rotateRing 18s linear infinite; }
+      .main-stage { min-height: 0; display: grid; place-items: center; position: relative; perspective: 1000px; }
+      .orb-zone { position: relative; width: min(92vw, 780px); height: min(58vh, 560px); min-height: 390px; display: grid; place-items: center; }
+      .orb-zone::before {
+        content: "";
+        position: absolute;
+        width: min(68vw, 620px);
+        height: min(68vw, 620px);
+        max-height: 620px;
+        border-radius: 999px;
+        border: 1px solid rgba(226,255,235,.055);
+        background: radial-gradient(circle, transparent 54%, rgba(73,229,141,.035) 72%, transparent 73%);
+        filter: blur(.2px);
+        animation: rotateRing 42s linear infinite;
+      }
       .agent-orb {
-        width: clamp(190px, 23vw, 300px);
-        height: clamp(190px, 23vw, 300px);
+        --planet-spin: 0deg;
+        --ring-drift: 0deg;
+        --wave-level: .18;
+        width: clamp(184px, 22vw, 292px);
+        height: clamp(184px, 22vw, 292px);
         border-radius: 999px;
         border: 0;
-        cursor: pointer;
+        cursor: grab;
         display: grid;
         place-items: center;
         color: #fff;
-        font-size: clamp(14px, 1.4vw, 17px);
-        letter-spacing: .22em;
-        text-transform: uppercase;
         position: fixed;
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
         z-index: 20;
-        background:
-          radial-gradient(circle at 46% 42%, rgba(255,255,255,.38), transparent 13%),
-          radial-gradient(circle at center, rgba(242,198,109,.24), rgba(13,92,70,.28) 48%, transparent 67%);
-        box-shadow: 0 0 90px rgba(242,198,109,.26), 0 0 150px rgba(13,92,70,.32), inset 0 0 88px rgba(255,255,255,.08);
-        animation: breathe 3.2s ease-in-out infinite;
-        transition: width .55s ease, height .55s ease, left .55s ease, top .55s ease, font-size .55s ease;
+        background: transparent;
+        box-shadow: none;
+        touch-action: none;
+        isolation: isolate;
+        animation: coreBreathe 5.8s ease-in-out infinite;
+        transition: width .55s ease, height .55s ease, left .55s ease, top .55s ease, filter .36s ease;
       }
-      .agent-orb.docked { left: calc(100vw - 65px); top: calc(100vh - 131px); width: 70px; height: 70px; z-index: 30; font-size: 9px; letter-spacing: .1em; }
-      .agent-orb.listening .brain-wave, .agent-orb.speaking .brain-wave { opacity: 1; }
-      .agent-orb.listening .brain-wave-track { animation: scanLine .95s linear infinite; }
-      .agent-orb.speaking .brain-wave i { animation: bounceLine .72s ease-in-out infinite; }
-      .agent-orb.listening .orb-wave { opacity: 0; }
-      .agent-orb::after { content: ""; position: absolute; inset: -20%; border-radius: inherit; border: 1px solid rgba(255,255,255,.12); }
-      .agent-orb::before { content: ""; position: absolute; inset: -42%; border-radius: inherit; border: 1px solid rgba(242,198,109,.1); animation: rotateRing 9s linear infinite; }
-      .agent-orb.docked::after { inset: -18%; border-color: rgba(73,229,141,.2); animation: rotateRingReverse 6.5s linear infinite; }
-      .orb-wave { position: absolute; inset: 34%; display: flex; align-items: center; justify-content: center; gap: 6px; opacity: 0; transition: opacity .18s ease; }
-      .orb-wave i { width: 4px; height: 18px; border-radius: 99px; background: #fff; animation: wave .9s ease-in-out infinite; }
-      .orb-wave i:nth-child(2) { animation-delay: 90ms; } .orb-wave i:nth-child(3) { animation-delay: 180ms; } .orb-wave i:nth-child(4) { animation-delay: 270ms; } .orb-wave i:nth-child(5) { animation-delay: 360ms; }
-      .brain-wave { position: absolute; left: 50%; top: 52%; width: 72%; height: 30px; transform: translate(-50%, -50%); opacity: .28; overflow: hidden; pointer-events: none; transition: opacity .2s ease; border-radius: 999px; mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
-      .brain-wave::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), rgba(242,198,109,.45), rgba(73,229,141,.38), transparent); }
-      .brain-wave-track { position: absolute; left: -26%; top: 0; width: 152%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; }
-      .brain-wave i { width: 3px; height: var(--h, 3px); border-radius: 999px; background: rgba(255,255,255,.88); box-shadow: 0 0 9px rgba(242,198,109,.34); transition: height 70ms linear, opacity 70ms linear; }
+      .agent-orb:active { cursor: grabbing; }
+      .agent-orb.docked { left: calc(100vw - 65px); top: calc(100vh - 131px); width: 70px; height: 70px; z-index: 30; }
+      .planet {
+        position: absolute;
+        inset: 9%;
+        border-radius: 999px;
+        overflow: hidden;
+        transform: rotate(var(--planet-spin));
+        background:
+          radial-gradient(circle at 31% 24%, rgba(255,248,224,.72), transparent 9%),
+          radial-gradient(ellipse at 62% 59%, rgba(152,56,28,.82) 0 9%, rgba(221,133,60,.65) 10% 15%, transparent 16%),
+          linear-gradient(92deg,
+            #3b2116 0 4%, #b76534 5% 11%, #f2be75 12% 17%, #6c3622 18% 24%,
+            #e2a35d 25% 32%, #fff0b7 33% 38%, #7d452b 39% 46%, #d58b49 47% 55%,
+            #422317 56% 62%, #f0c16f 63% 70%, #93502e 71% 78%, #ffe0a0 79% 86%, #5b2d1f 87% 100%);
+        background-size: 190% 100%;
+        box-shadow:
+          inset -42px -12px 60px rgba(7,10,8,.58),
+          inset 26px 10px 42px rgba(255,241,180,.18),
+          0 0 70px rgba(242,198,109,.2),
+          0 0 128px rgba(39,136,89,.18);
+        animation: jupiterClouds 32s linear infinite;
+        transition: box-shadow .38s ease, filter .38s ease;
+      }
+      .planet::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background:
+          linear-gradient(90deg, rgba(255,255,255,.06), transparent 18% 74%, rgba(0,0,0,.26)),
+          repeating-linear-gradient(178deg, rgba(255,244,199,.3) 0 4px, rgba(95,45,24,.22) 7px 13px, rgba(231,147,70,.2) 17px 23px);
+        mix-blend-mode: soft-light;
+        animation: jupiterBands 18s linear infinite;
+      }
+      .planet::after {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        background: radial-gradient(circle at 31% 24%, rgba(255,255,255,.24), transparent 17%), radial-gradient(circle at 69% 68%, transparent 48%, rgba(0,0,0,.44) 82%);
+      }
+      .agent-orb > span:not(.planet):not(.orbit-ring):not(.brain-wave):not(.atmosphere) { position: relative; z-index: 4; opacity: .78; font-size: clamp(12px, 1.1vw, 14px); letter-spacing: .24em; text-transform: uppercase; text-shadow: 0 0 18px rgba(0,0,0,.72); pointer-events: none; }
+      .atmosphere {
+        position: absolute;
+        inset: 3%;
+        border-radius: 999px;
+        background: radial-gradient(circle at center, transparent 54%, rgba(242,198,109,.14) 69%, rgba(73,229,141,.07) 82%, transparent 84%);
+        box-shadow: 0 0 48px rgba(242,198,109,.18), 0 0 118px rgba(16,118,82,.16);
+        filter: blur(.2px);
+        pointer-events: none;
+        z-index: 2;
+        transition: opacity .28s ease, box-shadow .28s ease;
+      }
+      .orbit-ring {
+        position: absolute;
+        border-radius: 999px;
+        border: 1px solid rgba(231,255,238,.11);
+        pointer-events: none;
+        z-index: 1;
+        transform: rotateX(66deg) rotateZ(calc(var(--ring-drift) + var(--ring-offset, 0deg)));
+        box-shadow: 0 0 18px rgba(73,229,141,.055), inset 0 0 18px rgba(242,198,109,.035);
+      }
+      .orbit-ring::before {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        border: 1px solid transparent;
+        border-top-color: rgba(242,198,109,.22);
+        border-right-color: rgba(73,229,141,.12);
+        opacity: .55;
+      }
+      .ring-one { inset: -18%; --ring-offset: 15deg; animation: orbitDrift 26s linear infinite; }
+      .ring-two { inset: -36%; --ring-offset: -22deg; animation: orbitDriftReverse 39s linear infinite; opacity: .74; }
+      .ring-three { inset: -55%; --ring-offset: 48deg; animation: orbitDrift 62s linear infinite; opacity: .44; }
+      .agent-orb.listening .planet {
+        filter: saturate(1.13) brightness(1.12);
+        box-shadow: inset -38px -12px 58px rgba(7,10,8,.48), inset 28px 12px 46px rgba(255,241,180,.24), 0 0 84px rgba(242,198,109,.28), 0 0 150px rgba(73,229,141,.22);
+      }
+      .agent-orb.thinking .planet {
+        filter: saturate(1.18) brightness(1.08);
+        animation-duration: 20s;
+        box-shadow: inset -40px -12px 60px rgba(7,10,8,.52), inset 28px 12px 50px rgba(255,241,180,.22), 0 0 92px rgba(242,198,109,.3), 0 0 132px rgba(88,166,255,.16);
+      }
+      .agent-orb.speaking .planet {
+        filter: saturate(1.2) brightness(1.14);
+        box-shadow: inset -38px -12px 60px rgba(7,10,8,.46), inset 30px 12px 52px rgba(255,241,180,.26), 0 0 96px rgba(242,198,109,.34), 0 0 140px rgba(73,229,141,.2);
+      }
+      .agent-orb.listening .orbit-ring, .agent-orb.thinking .orbit-ring, .agent-orb.speaking .orbit-ring { border-color: rgba(231,255,238,.18); }
+      .agent-orb.thinking .ring-one, .agent-orb.speaking .ring-one { animation-duration: 17s; }
+      .agent-orb.thinking .ring-two, .agent-orb.speaking .ring-two { animation-duration: 25s; }
+      .brain-wave {
+        position: absolute;
+        left: 50%;
+        top: 51.5%;
+        width: 82%;
+        height: 32px;
+        transform: translate(-50%, -50%) rotateX(64deg);
+        opacity: .18;
+        overflow: hidden;
+        pointer-events: none;
+        transition: opacity .2s ease, width .2s ease;
+        border-radius: 999px;
+        z-index: 5;
+        mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+      }
+      .agent-orb.listening .brain-wave, .agent-orb.speaking .brain-wave, .agent-orb.thinking .brain-wave { opacity: .9; width: calc(82% + var(--wave-level) * 18%); }
+      .brain-wave::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,245,205,.24), rgba(242,198,109,.68), rgba(73,229,141,.52), transparent); box-shadow: 0 0 16px rgba(242,198,109,.2); }
+      .brain-wave-track { position: absolute; left: -24%; top: 0; width: 148%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; animation: scanLine 1.45s linear infinite; }
+      .brain-wave i { width: 2px; height: var(--h, 3px); border-radius: 999px; background: rgba(255,250,225,.86); box-shadow: 0 0 10px rgba(242,198,109,.36); transition: height 70ms linear, opacity 70ms linear; opacity: calc(.35 + var(--wave-level) * .5); }
       .brain-wave i:nth-child(3n) { --h: 5px; } .brain-wave i:nth-child(4n) { --h: 4px; } .brain-wave i:nth-child(5n) { --h: 7px; }
-      @keyframes scanLine { from { transform: translateX(16%); } to { transform: translateX(-16%); } }
-      @keyframes bounceLine { 0%, 100% { height: 3px; opacity: .48; } 50% { height: var(--h, 14px); opacity: 1; } }
+      .agent-orb.speaking .brain-wave i, .agent-orb.thinking .brain-wave i { animation: bounceLine .84s ease-in-out infinite; }
+      @keyframes scanLine { from { transform: translateX(14%); } to { transform: translateX(-14%); } }
+      @keyframes bounceLine { 0%, 100% { height: 3px; opacity: .48; } 50% { height: var(--h, 13px); opacity: .95; } }
       .window-layer { position: fixed; inset: 84px 24px 118px 24px; z-index: 18; pointer-events: none; }
       .workspace { position: absolute; width: min(560px, calc(100vw - 72px)); height: min(500px, calc(100vh - 220px)); border: 1px solid var(--line); border-radius: 24px; background: rgba(3,10,8,.78); backdrop-filter: blur(24px); box-shadow: 0 34px 110px rgba(0,0,0,.38); overflow: hidden; display: grid; grid-template-rows: auto 1fr; opacity: 0; transform: translateY(16px) scale(.985); pointer-events: none; transition: opacity .28s ease, transform .28s ease; }
       .workspace.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
@@ -151,11 +259,16 @@
       .chat-log { padding: 14px; overflow: auto; display: grid; gap: 10px; }
       .bubble { padding: 10px 12px; border-radius: 16px; background: var(--panel); color: var(--muted); line-height: 1.45; font-size: 13px; }
       .bubble.user { background: rgba(242,198,109,.14); color: #fff; }
-      @keyframes breathe { 0%,100% { opacity: .84; box-shadow: 0 0 70px rgba(242,198,109,.2), 0 0 120px rgba(13,92,70,.25), inset 0 0 74px rgba(255,255,255,.07); } 50% { opacity: 1; box-shadow: 0 0 100px rgba(242,198,109,.3), 0 0 170px rgba(13,92,70,.36), inset 0 0 96px rgba(255,255,255,.1); } }
+      @keyframes coreBreathe { 0%,100% { filter: drop-shadow(0 0 26px rgba(242,198,109,.12)); } 50% { filter: drop-shadow(0 0 42px rgba(73,229,141,.14)); } }
+      @keyframes jupiterClouds { from { background-position: 0% 50%; } to { background-position: 190% 50%; } }
+      @keyframes jupiterBands { from { transform: translateX(0); } to { transform: translateX(-18%); } }
+      @keyframes orbitDrift { to { transform: rotateX(66deg) rotateZ(calc(var(--ring-drift) + var(--ring-offset, 0deg) + 360deg)); } }
+      @keyframes orbitDriftReverse { to { transform: rotateX(66deg) rotateZ(calc(var(--ring-drift) + var(--ring-offset, 0deg) - 360deg)); } }
       @keyframes rotateRing { to { transform: rotate(360deg); } }
       @keyframes rotateRingReverse { to { transform: rotate(-360deg); } }
-      @keyframes wave { 0%,100% { height: 10px; opacity: .45; } 50% { height: 30px; opacity: 1; } }
-      @media (max-width: 980px) { body { overflow: auto; } .oyi-screen { min-height: auto; } .orb-zone { height: 54vh; min-height: 360px; } .window-layer { inset: 72px 14px 118px 14px; } .workspace { width: calc(100vw - 28px); height: min(64vh, 620px); } .metric-grid, .camera-grid { grid-template-columns: repeat(2, 1fr); } .dock { grid-template-columns: 1fr auto; } .dock-log { grid-column: 1 / -1; } .agent-orb.docked { left: calc(100vw - 53px); top: calc(100vh - 147px); } }
+      @media (max-width: 980px) { body { overflow: auto; } .oyi-screen { min-height: auto; padding: 18px; } .orb-zone { height: 54vh; min-height: 340px; } .window-layer { inset: 72px 14px 118px 14px; } .workspace { width: calc(100vw - 28px); height: min(64vh, 620px); } .metric-grid, .camera-grid { grid-template-columns: repeat(2, 1fr); } .dock { grid-template-columns: 1fr auto; } .dock-log { grid-column: 1 / -1; } .agent-orb.docked { left: calc(100vw - 53px); top: calc(100vh - 147px); } }
+      @media (max-width: 520px) { .brand span { display: none; } .status-pill { padding: 8px 11px; font-size: 11px; } .agent-orb { width: clamp(168px, 58vw, 230px); height: clamp(168px, 58vw, 230px); } .ring-three { display: none; } .dock { border-radius: 20px; padding: 8px; } .command-input { padding: 12px 13px; font-size: 13px; } .round-btn { min-width: 44px; height: 44px; } }
+      @media (max-width: 260px) { .oyi-screen { padding: 10px; gap: 10px; } .topbar { justify-content: center; } .brand { display: none; } .agent-orb { width: 116px; height: 116px; } .ring-two, .ring-three { display: none; } .command-input { display: none; } .dock { justify-content: center; grid-template-columns: auto auto; } }
     </style>
     <script defer src="/_vercel/insights/script.js"></script>
   </head>
@@ -167,7 +280,15 @@
       </header>
       <section class="main-stage">
         <div class="orb-zone">
-          <button class="agent-orb" id="oyi-orb" type="button" aria-label="Start Oyi communication"><span>Oyi</span><span class="orb-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="brain-wave" aria-hidden="true"><span class="brain-wave-track"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span></button>
+          <button class="agent-orb" id="oyi-orb" type="button" aria-label="Start Oyi communication">
+            <span class="orbit-ring ring-three" aria-hidden="true"></span>
+            <span class="orbit-ring ring-two" aria-hidden="true"></span>
+            <span class="orbit-ring ring-one" aria-hidden="true"></span>
+            <span class="atmosphere" aria-hidden="true"></span>
+            <span class="planet" aria-hidden="true"></span>
+            <span>Oyi</span>
+            <span class="brain-wave" aria-hidden="true"><span class="brain-wave-track"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span>
+          </button>
         </div>
       </section>
       <div class="window-layer" id="window-layer" aria-label="Oyi floating command windows"></div>
@@ -187,6 +308,7 @@
       const chatLog = document.getElementById("chat-log");
       let wakeCooldownUntil = 0, clapHits = [], leadId = window.localStorage.getItem("oyi_command_lead_id") || "", googleMapsPromise;
       let mediaRecorder, mediaChunks = [], mediaStartedAt = 0, recordingMode = false, voiceStarting = false, windowSeq = 0, activeWindow = null, zIndexBase = 40, micAnalyser, micWaveFrame, speakWaveTimer, heardVoice = false, lastVoiceAt = 0, liveRecognition = null, liveTranscript = "";
+      let orbSpin = 0, ringSpin = 0, orbVelocity = .035, ringVelocity = .018, spinFrame = 0, dragState = null, suppressOrbClick = false, tickAudioContext = null, lastTickAt = 0;
 
       const fallback = {
         estates: [
@@ -208,18 +330,25 @@
 
       function setWakeStatus(text, active, buttonText) { wakeStatus.textContent = recordingMode ? "Stop recording" : (buttonText || "Talk to Oyi"); wakeStatus.classList.toggle("active", Boolean(active)); oyiState.textContent = text || ""; }
       function addBubble(role, text) { const b = document.createElement("div"); b.className = `bubble ${role === "user" ? "user" : "oyi"}`; b.textContent = text; chatLog.appendChild(b); chatLog.scrollTop = chatLog.scrollHeight; }
-      function tuneWave(level) { const bars = orb.querySelectorAll(".brain-wave i"); bars.forEach((bar, index) => { const shape = 5 + ((index * 7) % 18); const height = Math.max(5, Math.round(shape + level * (10 + (index % 5) * 5))); bar.style.setProperty("--h", `${height}px`); }); }
+      function setOrbMode(mode) { orb.classList.toggle("listening", mode === "listening"); orb.classList.toggle("thinking", mode === "thinking"); orb.classList.toggle("speaking", mode === "speaking"); }
+      function tuneWave(level) { const normalized = Math.max(.08, Math.min(1, Number(level) || 0)); orb.style.setProperty("--wave-level", normalized.toFixed(2)); const bars = orb.querySelectorAll(".brain-wave i"); bars.forEach((bar, index) => { const shape = 3 + ((index * 5) % 8); const height = Math.max(3, Math.round(shape + normalized * (5 + (index % 5) * 3))); bar.style.setProperty("--h", `${height}px`); }); }
+      function tactileTick(force = .25) { const now = Date.now(); if (now - lastTickAt < 72) return; lastTickAt = now; if (navigator.vibrate) navigator.vibrate(Math.round(4 + force * 9)); try { tickAudioContext = tickAudioContext || new (window.AudioContext || window.webkitAudioContext)(); const osc = tickAudioContext.createOscillator(); const gain = tickAudioContext.createGain(); osc.type = "sine"; osc.frequency.value = 260 + force * 220; gain.gain.setValueAtTime(.0001, tickAudioContext.currentTime); gain.gain.exponentialRampToValueAtTime(.018 * force, tickAudioContext.currentTime + .008); gain.gain.exponentialRampToValueAtTime(.0001, tickAudioContext.currentTime + .055); osc.connect(gain); gain.connect(tickAudioContext.destination); osc.start(); osc.stop(tickAudioContext.currentTime + .06); } catch (_) {} }
+      function animateOrbSpin() { orbSpin += orbVelocity; ringSpin += ringVelocity + orbVelocity * .08; orbVelocity *= dragState ? .985 : .992; ringVelocity *= dragState ? .988 : .994; if (!dragState && Math.abs(orbVelocity) < .018) orbVelocity += .00032; orb.style.setProperty("--planet-spin", `${orbSpin.toFixed(2)}deg`); orb.style.setProperty("--ring-drift", `${ringSpin.toFixed(2)}deg`); spinFrame = requestAnimationFrame(animateOrbSpin); }
+      function orbPoint(event) { const rect = orb.getBoundingClientRect(); return { x: event.clientX - rect.left - rect.width / 2, y: event.clientY - rect.top - rect.height / 2 }; }
+      function handleOrbPointerDown(event) { if (event.button !== undefined && event.button !== 0) return; const point = orbPoint(event); dragState = { pointerId: event.pointerId, lastAngle: Math.atan2(point.y, point.x), lastAt: performance.now(), moved: false }; orb.setPointerCapture?.(event.pointerId); tactileTick(.18); }
+      function handleOrbPointerMove(event) { if (!dragState || dragState.pointerId !== event.pointerId) return; const point = orbPoint(event); const angle = Math.atan2(point.y, point.x); let delta = angle - dragState.lastAngle; if (delta > Math.PI) delta -= Math.PI * 2; if (delta < -Math.PI) delta += Math.PI * 2; const now = performance.now(); const dt = Math.max(16, now - dragState.lastAt); const degrees = delta * 180 / Math.PI; if (Math.abs(degrees) > .6) dragState.moved = true; orbVelocity = Math.max(-4.5, Math.min(4.5, degrees * .55)); ringVelocity += orbVelocity * .08; orbSpin += degrees; ringSpin += degrees * .16; orb.style.setProperty("--planet-spin", `${orbSpin.toFixed(2)}deg`); orb.style.setProperty("--ring-drift", `${ringSpin.toFixed(2)}deg`); tuneWave(Math.min(1, Math.abs(orbVelocity) / 4)); if (Math.abs(orbVelocity) > 1.35 || dt < 38) tactileTick(Math.min(1, Math.abs(orbVelocity) / 4)); dragState.lastAngle = angle; dragState.lastAt = now; }
+      function handleOrbPointerUp(event) { if (!dragState || dragState.pointerId !== event.pointerId) return; suppressOrbClick = dragState.moved; if (suppressOrbClick) setTimeout(() => { suppressOrbClick = false; }, 260); ringVelocity += orbVelocity * .11; dragState = null; try { orb.releasePointerCapture?.(event.pointerId); } catch (_) {} }
       function stopSpeakWave() { clearInterval(speakWaveTimer); speakWaveTimer = null; }
-      function speak(text) { if (!("speechSynthesis" in window)) return; window.speechSynthesis.cancel(); stopSpeakWave(); const words = String(text || "").split(/\s+/).filter(Boolean); let cursor = 0; const u = new SpeechSynthesisUtterance(text); u.rate = .96; u.pitch = 1; u.onstart = () => { orb.classList.remove("listening"); orb.classList.add("speaking"); setWakeStatus("Oyi is speaking...", true); speakWaveTimer = setInterval(() => { const word = words[cursor % Math.max(words.length, 1)] || ""; const energy = Math.min(1, Math.max(.15, word.length / 11)); tuneWave(energy); cursor += 1; }, 120); }; u.onend = () => { stopSpeakWave(); orb.classList.remove("speaking"); tuneWave(.2); setWakeStatus("", false, "Talk to Oyi"); }; window.speechSynthesis.speak(u); }
+      function speak(text) { if (!("speechSynthesis" in window)) return; window.speechSynthesis.cancel(); stopSpeakWave(); const words = String(text || "").split(/\s+/).filter(Boolean); let cursor = 0; const u = new SpeechSynthesisUtterance(text); u.rate = .96; u.pitch = 1; u.onstart = () => { setOrbMode("speaking"); setWakeStatus("Oyi is speaking...", true); speakWaveTimer = setInterval(() => { const word = words[cursor % Math.max(words.length, 1)] || ""; const energy = Math.min(1, Math.max(.16, word.length / 12)); tuneWave(energy); orbVelocity += .012 + energy * .018; ringVelocity += .01 + energy * .012; cursor += 1; }, 120); }; u.onend = () => { stopSpeakWave(); setOrbMode("idle"); tuneWave(.18); setWakeStatus("", false, "Talk to Oyi"); }; window.speechSynthesis.speak(u); }
       function dockOrb() { orb.classList.add("docked"); }
       function undockOrbIfIdle() { if (!windowLayer.querySelector(".workspace")) orb.classList.remove("docked"); }
       function focusWindow(panel) { if (!panel) return; activeWindow = panel; panel.style.zIndex = String(++zIndexBase); }
       function positionWindow(panel, index) { const layer = windowLayer.getBoundingClientRect(); const compact = layer.width >= 700; const w = compact ? Math.min(560, Math.max(360, Math.floor(layer.width * .47))) : Math.min(720, Math.max(320, layer.width - 24)); const h = compact ? Math.min(500, Math.max(340, layer.height - 70)) : Math.min(560, Math.max(320, layer.height - 24)); const positions = [{ x: Math.max(0, layer.width - w - 10), y: 8 }, { x: 10, y: 34 }, { x: Math.max(0, (layer.width - w) / 2), y: Math.max(8, (layer.height - h) / 2) }, { x: Math.max(0, layer.width - w - 54), y: Math.max(8, layer.height - h - 10) }]; const p = positions[index % positions.length]; panel.style.width = `${w}px`; panel.style.height = `${h}px`; panel.style.left = `${p.x}px`; panel.style.top = `${p.y}px`; }
       function makeDraggable(panel, handle) { let drag = null; handle.addEventListener("pointerdown", (event) => { if (event.target.closest("button")) return; focusWindow(panel); const rect = panel.getBoundingClientRect(); const layer = windowLayer.getBoundingClientRect(); drag = { dx: event.clientX - rect.left, dy: event.clientY - rect.top, layer }; panel.classList.add("dragging"); handle.setPointerCapture(event.pointerId); }); handle.addEventListener("pointermove", (event) => { if (!drag) return; const x = Math.max(0, Math.min(drag.layer.width - panel.offsetWidth, event.clientX - drag.layer.left - drag.dx)); const y = Math.max(0, Math.min(drag.layer.height - panel.offsetHeight, event.clientY - drag.layer.top - drag.dy)); panel.style.left = `${x}px`; panel.style.top = `${y}px`; }); handle.addEventListener("pointerup", (event) => { if (!drag) return; drag = null; panel.classList.remove("dragging"); try { handle.releasePointerCapture(event.pointerId); } catch (_) {} }); }
       function openWorkspace(title, subtitle) { dockOrb(); const panel = document.createElement("section"); const id = `oyi-window-${++windowSeq}`; panel.className = "workspace"; panel.dataset.windowId = id; panel.setAttribute("aria-label", title); panel.innerHTML = `<div class="workspace-head"><div><h1>${title}</h1><p>${subtitle}</p></div><div class="window-actions"><button class="chip-btn" data-command="open estate map" type="button">Map</button><button class="chip-btn" data-command="show cameras" type="button">Cameras</button><button class="chip-btn" data-command="show devices" type="button">Devices</button><button class="chip-btn" data-command="show alerts" type="button">Alerts</button><button class="chip-btn" data-window-close type="button">Close</button></div></div><div class="window-body"></div>`; windowLayer.appendChild(panel); positionWindow(panel, windowSeq - 1); makeDraggable(panel, panel.querySelector(".workspace-head")); panel.addEventListener("pointerdown", () => focusWindow(panel)); panel.querySelectorAll("[data-command]").forEach((btn) => btn.addEventListener("click", () => handleCommand(btn.dataset.command))); panel.querySelector("[data-window-close]").addEventListener("click", () => closeWindow(panel)); requestAnimationFrame(() => panel.classList.add("open")); focusWindow(panel); return panel.querySelector(".window-body"); }
-      function closeWindow(panel = activeWindow) { if (!panel) return; panel.classList.remove("open"); setTimeout(() => { panel.remove(); undockOrbIfIdle(); }, 220); }
+      function closeWindow(panel = activeWindow) { if (!panel) return; panel.classList.remove("open"); setTimeout(() => { panel.remove(); undockOrbIfIdle(); if (!windowLayer.querySelector(".workspace")) setOrbMode("idle"); }, 220); }
       function closeWorkspace() { Array.from(windowLayer.querySelectorAll(".workspace")).forEach(closeWindow); }
-      function wakeOyi(trigger = "tap", options = {}) { if (Date.now() < wakeCooldownUntil) return; wakeCooldownUntil = Date.now() + 900; setWakeStatus("", true); const line = ""; oyiLast.textContent = line; if (options.silent !== true) speak("I am here."); }
+      function wakeOyi(trigger = "tap", options = {}) { if (Date.now() < wakeCooldownUntil) return; wakeCooldownUntil = Date.now() + 900; setWakeStatus("", true); const line = ""; oyiLast.textContent = line; orbVelocity += .08; ringVelocity += .04; tactileTick(.28); if (options.silent !== true) speak("I am here."); }
       function api(path, options = {}) { return fetch(path, { credentials: "include", ...options }).then(async (r) => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || d.message || path); return d; }); }
       async function loadCollection(path, fallbackRows) { try { const data = await api(path); return Array.isArray(data.collection) ? data.collection : fallbackRows; } catch (_) { return fallbackRows; } }
       async function loadSnapshot() { try { return (await api("/api/lead-agents/admin/office/overview")).office || null; } catch (_) { return null; } }
@@ -237,7 +366,7 @@
       function openGeneric(module) { const body = openWorkspace(module.label, module.description); body.innerHTML = `<div class="grid"><div class="metric-grid"><div class="metric"><span>Window</span><strong>Ready</strong></div><div class="metric"><span>Data source</span><strong>Office</strong></div><div class="metric"><span>Control</span><strong>Scoped</strong></div><div class="metric"><span>Status</span><strong>Live shell</strong></div></div><div class="card"><strong>${module.label}</strong><span>${module.details}</span></div></div>`; const reply = `${module.label} window open.`; oyiLast.textContent = ""; addBubble("oyi", reply); speak(reply); }
 
       async function askOyiChat(command) { chatDrawer.classList.add("open"); setWakeStatus("", true); try { const r = await fetch("/api/lead-agents/public/chat", { method: "POST", headers: { "content-type": "application/json" }, credentials: "include", body: JSON.stringify({ lead_id: leadId || undefined, source: "oyi_command_center", message: command, profile: { role: "owner_admin", command_surface: "oyi_command_center" } }) }); const data = await r.json().catch(() => ({})); if (!r.ok) throw new Error(data.error || "Oyi chat failed"); if (data.lead?.id) { leadId = data.lead.id; localStorage.setItem("oyi_command_lead_id", leadId); } const reply = data.assistant_message || "I have received that. What should I do next?"; addBubble("oyi", reply); oyiLast.textContent = ""; speak(reply); } catch (_) { const reply = "I could not reach the agent layer right now, but I am still active on this command screen."; addBubble("oyi", reply); oyiLast.textContent = ""; speak(reply); } finally { if (!("speechSynthesis" in window) || !window.speechSynthesis.speaking) setWakeStatus("", false, "Talk to Oyi"); } }
-      async function handleCommand(raw) { const command = String(raw || "").trim(); if (!command) return; input.value = ""; addBubble("user", command); oyiLast.textContent = ""; if (/close|hide|minimi[sz]e|remove/.test(command.toLowerCase()) && /window|map|panel|workspace/.test(command.toLowerCase())) return closeWorkspace(); const module = moduleCatalog.find((m) => m.match.test(command)); if (!module) return askOyiChat(command); if (module.key === "estates") return openEstates(); if (module.key === "devices") return openDevices(); if (module.key === "cameras") return openCameras(); if (module.key === "alerts") return openAlerts(); if (module.key === "office") return openOffice(); if (/pitch|investor|partner|customer|what.*ochiga|what.*oyi|explain|brief/i.test(command)) return askOyiChat(command); return openGeneric(module); }
+      async function handleCommand(raw) { const command = String(raw || "").trim(); if (!command) return; input.value = ""; addBubble("user", command); oyiLast.textContent = ""; setOrbMode("thinking"); tuneWave(.42); orbVelocity += .18; ringVelocity += .08; if (/close|hide|minimi[sz]e|remove/.test(command.toLowerCase()) && /window|map|panel|workspace/.test(command.toLowerCase())) return closeWorkspace(); const module = moduleCatalog.find((m) => m.match.test(command)); if (!module) return askOyiChat(command); if (module.key === "estates") return openEstates(); if (module.key === "devices") return openDevices(); if (module.key === "cameras") return openCameras(); if (module.key === "alerts") return openAlerts(); if (module.key === "office") return openOffice(); if (/pitch|investor|partner|customer|what.*ochiga|what.*oyi|explain|brief/i.test(command)) return askOyiChat(command); return openGeneric(module); }
 
       const moduleCatalog = [
         { key: "estates", label: "Estate facilities", match: /map|lagos|estate|estates|facility|facilities|location|connected systems/i, description: "Estate maps, package state, homes, wallets, communities, and facility activity.", details: "This window is for estate supervision, map markers, subscribed packages, buildings, homes, wallets, utility posture, community signals, and estate-specific drilldowns." },
@@ -258,21 +387,27 @@
       async function transcribeBlob(blob) { const dataUrl = await blobToDataUrl(blob); const mimeType = blob.type || "audio/webm"; const r = await fetch("/api/lead-agents/public/transcribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ audio_data_url: dataUrl, mime_type: mimeType, file_name: `oyi-command${audioExtension(mimeType)}`, language: "en" }) }); const data = await r.json().catch(() => ({})); if (!r.ok) throw new Error(data.message || data.error || "Transcription failed"); return String(data.text || "").trim(); }
       function startLiveTranscript() { stopLiveTranscript(); liveTranscript = ""; const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) return; liveRecognition = new SpeechRecognition(); liveRecognition.lang = "en-NG"; liveRecognition.continuous = true; liveRecognition.interimResults = true; liveRecognition.onresult = (event) => { const text = Array.from(event.results || []).map((result) => result[0] ? result[0].transcript : "").join(" ").trim(); if (text) liveTranscript = text; }; liveRecognition.onerror = () => {}; liveRecognition.onend = () => { if (recordingMode) { try { liveRecognition.start(); } catch (_) {} } }; try { liveRecognition.start(); } catch (_) {} }
       function stopLiveTranscript() { if (!liveRecognition) return; const recognition = liveRecognition; liveRecognition = null; try { recognition.onend = null; recognition.stop(); } catch (_) {} }
-      function startMicWave(stream) { stopMicWave(); heardVoice = false; lastVoiceAt = 0; const AudioContext = window.AudioContext || window.webkitAudioContext; if (!AudioContext) return; const context = new AudioContext(); const source = context.createMediaStreamSource(stream); micAnalyser = context.createAnalyser(); micAnalyser.fftSize = 256; source.connect(micAnalyser); const samples = new Uint8Array(micAnalyser.fftSize); const tick = () => { if (!micAnalyser) return; micAnalyser.getByteTimeDomainData(samples); let sum = 0; for (let i = 0; i < samples.length; i += 1) { const centered = (samples[i] - 128) / 128; sum += centered * centered; } const rms = Math.sqrt(sum / samples.length); const now = Date.now(); if (rms > .035) { heardVoice = true; lastVoiceAt = now; } tuneWave(Math.min(1, rms * 7)); if (recordingMode && mediaRecorder?.state === "recording") { const elapsed = now - mediaStartedAt; if ((heardVoice && elapsed > 1700 && now - lastVoiceAt > 1400) || elapsed > 15000) stopRecordingCommand(); } micWaveFrame = requestAnimationFrame(tick); }; tick(); }
+      function startMicWave(stream) { stopMicWave(); heardVoice = false; lastVoiceAt = 0; const AudioContext = window.AudioContext || window.webkitAudioContext; if (!AudioContext) return; const context = new AudioContext(); const source = context.createMediaStreamSource(stream); micAnalyser = context.createAnalyser(); micAnalyser.fftSize = 256; source.connect(micAnalyser); const samples = new Uint8Array(micAnalyser.fftSize); const tick = () => { if (!micAnalyser) return; micAnalyser.getByteTimeDomainData(samples); let sum = 0; for (let i = 0; i < samples.length; i += 1) { const centered = (samples[i] - 128) / 128; sum += centered * centered; } const rms = Math.sqrt(sum / samples.length); const now = Date.now(); if (rms > .035) { heardVoice = true; lastVoiceAt = now; } const energy = Math.min(1, rms * 7); tuneWave(energy); orbVelocity += energy * .006; ringVelocity += energy * .004; if (recordingMode && mediaRecorder?.state === "recording") { const elapsed = now - mediaStartedAt; if ((heardVoice && elapsed > 1700 && now - lastVoiceAt > 1400) || elapsed > 15000) stopRecordingCommand(); } micWaveFrame = requestAnimationFrame(tick); }; tick(); }
       function stopMicWave() { if (micWaveFrame) cancelAnimationFrame(micWaveFrame); micWaveFrame = null; micAnalyser = null; }
-      async function startRecordingCommand() { if (!navigator.mediaDevices || !window.MediaRecorder) { voiceStarting = false; return startCommandRecognition(); } if ("speechSynthesis" in window) window.speechSynthesis.cancel(); setWakeStatus("Opening microphone...", true, "Opening mic..."); await new Promise((resolve) => setTimeout(resolve, 90)); const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaChunks = []; mediaStartedAt = Date.now(); const mimeType = preferredAudioMime(); mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined); recordingMode = true; voiceStarting = false; speakBtn.classList.add("recording"); speakBtn.textContent = "■"; orb.classList.remove("speaking"); orb.classList.add("listening"); startLiveTranscript(); startMicWave(stream); setWakeStatus("Oyi is listening...", true, "Stop recording"); wakeStatus.textContent = "Stop recording"; mediaRecorder.ondataavailable = (event) => { if (event.data?.size) mediaChunks.push(event.data); }; mediaRecorder.onstop = async () => { stopMicWave(); stopLiveTranscript(); stream.getTracks().forEach((track) => track.stop()); recordingMode = false; voiceStarting = false; speakBtn.classList.remove("recording"); speakBtn.textContent = "🎙"; orb.classList.remove("listening"); setWakeStatus("Oyi is transcribing...", true, "Transcribing..."); try { const duration = Date.now() - mediaStartedAt; const blob = new Blob(mediaChunks, { type: mediaRecorder.mimeType || mimeType || "audio/webm" }); let transcript = ""; if (blob.size && duration >= 700) { try { transcript = await transcribeBlob(blob); } catch (_) { transcript = ""; } } transcript = transcript || liveTranscript.trim(); if (!transcript) throw new Error("No transcript"); await handleCommand(transcript); } catch (_) { const reply = "I missed that. Tap Oyi and speak again."; addBubble("oyi", reply); oyiLast.textContent = ""; speak(reply); } finally { liveTranscript = ""; mediaChunks = []; if (!("speechSynthesis" in window) || !window.speechSynthesis.speaking) setWakeStatus("", false, "Talk to Oyi"); } }; mediaRecorder.start(250); }
+      async function startRecordingCommand() { if (!navigator.mediaDevices || !window.MediaRecorder) { voiceStarting = false; return startCommandRecognition(); } if ("speechSynthesis" in window) window.speechSynthesis.cancel(); setWakeStatus("Opening microphone...", true, "Opening mic..."); await new Promise((resolve) => setTimeout(resolve, 90)); const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaChunks = []; mediaStartedAt = Date.now(); const mimeType = preferredAudioMime(); mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined); recordingMode = true; voiceStarting = false; speakBtn.classList.add("recording"); speakBtn.textContent = "■"; setOrbMode("listening"); startLiveTranscript(); startMicWave(stream); setWakeStatus("Oyi is listening...", true, "Stop recording"); wakeStatus.textContent = "Stop recording"; mediaRecorder.ondataavailable = (event) => { if (event.data?.size) mediaChunks.push(event.data); }; mediaRecorder.onstop = async () => { stopMicWave(); stopLiveTranscript(); stream.getTracks().forEach((track) => track.stop()); recordingMode = false; voiceStarting = false; speakBtn.classList.remove("recording"); speakBtn.textContent = "🎙"; setOrbMode("thinking"); setWakeStatus("Oyi is transcribing...", true, "Transcribing..."); try { const duration = Date.now() - mediaStartedAt; const blob = new Blob(mediaChunks, { type: mediaRecorder.mimeType || mimeType || "audio/webm" }); let transcript = ""; if (blob.size && duration >= 700) { try { transcript = await transcribeBlob(blob); } catch (_) { transcript = ""; } } transcript = transcript || liveTranscript.trim(); if (!transcript) throw new Error("No transcript"); await handleCommand(transcript); } catch (_) { const reply = "I missed that. Tap Oyi and speak again."; addBubble("oyi", reply); oyiLast.textContent = ""; speak(reply); } finally { liveTranscript = ""; mediaChunks = []; if (!("speechSynthesis" in window) || !window.speechSynthesis.speaking) setWakeStatus("", false, "Talk to Oyi"); } }; mediaRecorder.start(250); }
       function stopRecordingCommand() { if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop(); }
-      function startCommandRecognition() { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { setWakeStatus("Allow microphone access.", false, "Allow mic"); return; } const recognition = new SpeechRecognition(); recognition.lang = "en-NG"; recognition.continuous = false; recognition.interimResults = false; recognition.onstart = () => { orb.classList.add("listening"); setWakeStatus("Oyi is listening for your instruction...", true, "Stop recording"); }; recognition.onresult = (event) => handleCommand(Array.from(event.results || []).map((result) => result[0] ? result[0].transcript : "").join(" ")); recognition.onend = () => { orb.classList.remove("listening"); setWakeStatus("", false, "Talk to Oyi"); }; recognition.onerror = () => setWakeStatus("Allow microphone access.", false, "Allow mic"); try { recognition.start(); } catch (_) { setWakeStatus("Allow microphone access.", false, "Allow mic"); } }
+      function startCommandRecognition() { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { setWakeStatus("Allow microphone access.", false, "Allow mic"); return; } const recognition = new SpeechRecognition(); recognition.lang = "en-NG"; recognition.continuous = false; recognition.interimResults = false; recognition.onstart = () => { setOrbMode("listening"); setWakeStatus("Oyi is listening for your instruction...", true, "Stop recording"); }; recognition.onresult = (event) => handleCommand(Array.from(event.results || []).map((result) => result[0] ? result[0].transcript : "").join(" ")); recognition.onend = () => { setOrbMode("idle"); setWakeStatus("", false, "Talk to Oyi"); }; recognition.onerror = () => setWakeStatus("Allow microphone access.", false, "Allow mic"); try { recognition.start(); } catch (_) { setWakeStatus("Allow microphone access.", false, "Allow mic"); } }
       function startWakeWord() { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { setWakeStatus("", false, "Talk to Oyi"); return; } const recognition = new SpeechRecognition(); recognition.lang = "en-NG"; recognition.continuous = true; recognition.interimResults = true; recognition.onstart = () => setWakeStatus("", true, "Talk to Oyi"); recognition.onresult = (event) => { const heard = Array.from(event.results || []).map((result) => result[0] ? result[0].transcript : "").join(" ").toLowerCase(); if (/\b(hey\s+oyi|hey\s+o|hey\s+oe|oyi|o\s*e)\b/.test(heard)) wakeOyi("wake word"); }; recognition.onerror = () => setWakeStatus("", false, "Talk to Oyi"); recognition.onend = () => setTimeout(() => { try { recognition.start(); } catch (_) {} }, 900); try { recognition.start(); } catch (_) { setWakeStatus("", false, "Talk to Oyi"); } }
       async function startClapWake() { if (!navigator.mediaDevices?.getUserMedia) return; try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); const AudioContext = window.AudioContext || window.webkitAudioContext; if (!AudioContext) return; const context = new AudioContext(); const source = context.createMediaStreamSource(stream); const analyser = context.createAnalyser(); analyser.fftSize = 512; source.connect(analyser); const samples = new Uint8Array(analyser.fftSize); const tick = () => { analyser.getByteTimeDomainData(samples); let sum = 0; for (let i = 0; i < samples.length; i += 1) { const centered = (samples[i] - 128) / 128; sum += centered * centered; } const rms = Math.sqrt(sum / samples.length); const now = Date.now(); if (rms > .28) { clapHits = clapHits.filter((hit) => now - hit < 760); if (!clapHits.length || now - clapHits[clapHits.length - 1] > 140) clapHits.push(now); if (clapHits.length >= 2) { clapHits = []; wakeOyi("double clap"); } } requestAnimationFrame(tick); }; tick(); } catch (_) { setWakeStatus("", false, "Talk to Oyi"); } }
 
-      orb.addEventListener("click", toggleVoiceCommand);
+      orb.addEventListener("pointerdown", handleOrbPointerDown);
+      orb.addEventListener("pointermove", handleOrbPointerMove);
+      orb.addEventListener("pointerup", handleOrbPointerUp);
+      orb.addEventListener("pointercancel", handleOrbPointerUp);
+      orb.addEventListener("click", (event) => { if (suppressOrbClick) { event.preventDefault(); return; } toggleVoiceCommand(); });
       function toggleVoiceCommand() { if (recordingMode) { stopRecordingCommand(); return; } if (voiceStarting) return; voiceStarting = true; setWakeStatus("Opening microphone...", true, "Opening mic..."); wakeOyi("mic", { silent: true }); startRecordingCommand().catch(() => { voiceStarting = false; startCommandRecognition(); }); }
       speakBtn.addEventListener("click", toggleVoiceCommand);
       wakeStatus.addEventListener("click", toggleVoiceCommand);
       form.addEventListener("submit", (event) => { event.preventDefault(); handleCommand(input.value); });
       document.getElementById("close-chat").addEventListener("click", () => chatDrawer.classList.remove("open"));
       document.querySelectorAll("[data-command]").forEach((btn) => btn.addEventListener("click", () => handleCommand(btn.dataset.command)));
+      tuneWave(.18);
+      animateOrbSpin();
       startWakeWord();
       startClapWake();
     </script>
