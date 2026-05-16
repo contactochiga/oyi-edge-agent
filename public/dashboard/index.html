@@ -740,7 +740,7 @@
       }
       .overview-dashboard-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 360px;
+        grid-template-columns: minmax(0, 1fr) 310px;
         gap: 14px;
         min-height: 0;
         overflow: hidden;
@@ -1107,7 +1107,7 @@
         position: relative;
         z-index: 4;
         display: grid;
-        grid-template-columns: minmax(180px, 1fr) auto auto;
+        grid-template-columns: minmax(210px, 1fr) minmax(320px, auto) minmax(150px, 1fr);
         align-items: start;
         gap: 14px;
         margin-bottom: 12px;
@@ -1123,6 +1123,8 @@
       }
       .live-infra-tabs {
         display: inline-flex;
+        justify-self: center;
+        align-self: center;
         gap: 5px;
         padding: 4px;
         border-radius: 12px;
@@ -1184,11 +1186,18 @@
       .live-infra-canvas.mode-twin {
         filter: saturate(1.28) contrast(1.1) brightness(0.86);
         background:
+          radial-gradient(circle at 50% 68%, rgba(40, 230, 141, 0.18), transparent 13%),
+          radial-gradient(circle at 36% 52%, rgba(54, 163, 255, 0.22), transparent 18%),
+          radial-gradient(circle at 68% 38%, rgba(124, 77, 255, 0.2), transparent 16%),
           linear-gradient(120deg, rgba(4, 8, 19, 0.34), rgba(8, 13, 28, 0.9)),
           radial-gradient(circle at 50% 36%, rgba(54, 163, 255, 0.34), transparent 30%),
           repeating-linear-gradient(30deg, rgba(54, 163, 255, 0.14) 0 1px, transparent 1px 34px),
           repeating-linear-gradient(150deg, rgba(124, 77, 255, 0.12) 0 1px, transparent 1px 30px),
           #06101f;
+      }
+      .live-infra-canvas.mode-twin .building {
+        transform: skewY(-12deg) rotate(-3deg) translateY(-8px);
+        box-shadow: 0 24px 52px rgba(54, 163, 255, 0.2), 0 18px 38px rgba(0, 0, 0, 0.46);
       }
       .live-infra-canvas.mode-hybrid {
         filter: saturate(1.16) contrast(1.08);
@@ -1219,6 +1228,46 @@
         inset: 0;
         z-index: 5;
         pointer-events: none;
+      }
+      .live-infra-overlay::before {
+        content: attr(data-mode-label);
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        z-index: 2;
+        padding: 7px 10px;
+        border-radius: 10px;
+        color: rgba(238, 244, 255, 0.76);
+        background: rgba(5, 12, 28, 0.58);
+        border: 1px solid rgba(149, 166, 255, 0.12);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        backdrop-filter: blur(10px);
+      }
+      .live-infra-overlay::after {
+        content: "";
+        position: absolute;
+        inset: 12% 8% 18%;
+        z-index: 1;
+        pointer-events: none;
+        border-radius: 40%;
+        opacity: 0;
+        background:
+          linear-gradient(90deg, transparent, rgba(54, 163, 255, 0.2), transparent),
+          radial-gradient(circle at 50% 50%, rgba(40, 230, 141, 0.18), transparent 42%);
+        filter: blur(1px);
+        transform: perspective(800px) rotateX(62deg);
+        animation: scanLayer 4.8s ease-in-out infinite;
+      }
+      .live-infra-overlay.mode-twin::after,
+      .live-infra-overlay.mode-hybrid::after,
+      .live-infra-overlay.mode-heatmap::after {
+        opacity: 0.62;
+      }
+      @keyframes scanLayer {
+        0%, 100% { transform: perspective(800px) rotateX(62deg) translateY(12px); opacity: 0.2; }
+        50% { transform: perspective(800px) rotateX(62deg) translateY(-10px); opacity: 0.7; }
       }
       .live-infra-overlay button,
       .live-infra-controls button,
@@ -1296,7 +1345,18 @@
         backdrop-filter: blur(12px);
         font-size: 10px;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
         transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+      }
+      .live-infra-controls svg,
+      .live-infra-action svg,
+      .layer-row svg {
+        width: 14px;
+        height: 14px;
+        flex: 0 0 auto;
       }
       .live-infra-controls button:hover {
         transform: translateX(-2px);
@@ -1404,6 +1464,10 @@
         background: linear-gradient(145deg, rgba(17, 29, 58, 0.78), rgba(8, 14, 31, 0.74));
         text-align: left;
         cursor: pointer;
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
         transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
       }
       .live-infra-action:hover {
@@ -1423,6 +1487,23 @@
         margin-top: 3px;
         color: var(--muted);
         font-size: 10px;
+      }
+      .live-infra-action small {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.25;
+      }
+      .live-infra-action i {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+        color: #f5f8ff;
+        background: rgba(54, 163, 255, 0.16);
+        box-shadow: inset 0 0 18px rgba(54, 163, 255, 0.08);
       }
       .ghost.compact {
         padding: 7px 10px;
@@ -4187,11 +4268,11 @@
 	                            <div id="officeMapLabels"></div>
 	                          </div>
 	                          <div class="live-infra-controls" aria-label="Infrastructure controls">
-	                            <button data-live-infra-control="layers" type="button">Layers</button>
-	                            <button data-live-infra-control="filters" type="button">Filters</button>
-	                            <button data-live-infra-control="zoom-in" type="button">+</button>
-	                            <button data-live-infra-control="zoom-out" type="button">−</button>
-	                            <button data-live-infra-control="reset" type="button">Reset</button>
+	                            <button data-live-infra-control="layers" type="button" aria-label="Layers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 8 4-8 4-8-4 8-4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 17 8 4 8-4"/></svg><span>Layers</span></button>
+	                            <button data-live-infra-control="filters" type="button" aria-label="Filters"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16"/><path d="M7 12h10"/><path d="M10 19h4"/></svg><span>Filters</span></button>
+	                            <button data-live-infra-control="zoom-in" type="button" aria-label="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M11 8v6M8 11h6M16.5 16.5 21 21"/></svg></button>
+	                            <button data-live-infra-control="zoom-out" type="button" aria-label="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M16.5 16.5 21 21"/></svg></button>
+	                            <button data-live-infra-control="reset" type="button" aria-label="Reset view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 1 0 2.34-5.66"/><path d="M4 4v6h6"/></svg><span>Reset</span></button>
 	                          </div>
 	                          <aside class="live-infra-drawer" id="liveInfraPanel" aria-live="polite"></aside>
 	                          <aside class="estate-health-overlay" id="liveInfraHealthPanel">

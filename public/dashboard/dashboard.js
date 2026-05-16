@@ -2332,14 +2332,34 @@
 
   function liveInfraIcon(kind) {
     const icons = {
-      device: "⌁",
-      camera: "◉",
-      alert: "!",
-      access: "⌂",
-      utility: "↯",
-      edge: "◇",
+      device: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="4" width="12" height="16" rx="3"/><path d="M9 8h6M10 16h4"/></svg>',
+      camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h10v8H4z"/><path d="m14 11 6-3v8l-6-3z"/></svg>',
+      alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>',
+      access: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>',
+      utility: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m13 2-8 12h7l-1 8 8-12h-7l1-8Z"/></svg>',
+      edge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M12 8v8M8 10v4M16 10v4"/></svg>',
     };
     return icons[kind] || "•";
+  }
+
+  function liveInfraModeLabel(mode) {
+    if (mode === "twin") return "Oyi Digital Twin Layer";
+    if (mode === "hybrid") return "Hybrid Map + Twin Layer";
+    if (mode === "heatmap") return "Infrastructure Heat Map";
+    return "Google Map Operational Layer";
+  }
+
+  function liveInfraActionIcon(name) {
+    const icons = {
+      Explore: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 11 18-8-8 18-2-8-8-2Z"/></svg>',
+      Devices: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="4" width="12" height="16" rx="3"/><path d="M9 8h6M10 16h4"/></svg>',
+      Cameras: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h10v8H4z"/><path d="m14 11 6-3v8l-6-3z"/></svg>',
+      Alerts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>',
+      Access: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>',
+      Utilities: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m13 2-8 12h7l-1 8 8-12h-7l1-8Z"/></svg>',
+      Incidents: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22a8 8 0 0 0 8-8c0-5-8-12-8-12S4 9 4 14a8 8 0 0 0 8 8Z"/><path d="M12 10v4M12 17h.01"/></svg>',
+    };
+    return icons[name] || icons.Explore;
   }
 
   function liveInfraSignals(estates, devices, supportMappings) {
@@ -2403,6 +2423,13 @@
       mapHost.classList.toggle("mode-heatmap", mode === "heatmap");
       mapHost.style.setProperty("--live-infra-zoom", String(state.liveInfraZoom || 1));
     }
+    if (el.liveInfraOverlay) {
+      el.liveInfraOverlay.classList.toggle("mode-map", mode === "map");
+      el.liveInfraOverlay.classList.toggle("mode-twin", mode === "twin");
+      el.liveInfraOverlay.classList.toggle("mode-hybrid", mode === "hybrid");
+      el.liveInfraOverlay.classList.toggle("mode-heatmap", mode === "heatmap");
+      el.liveInfraOverlay.setAttribute("data-mode-label", liveInfraModeLabel(mode));
+    }
     document.querySelectorAll("[data-live-infra-mode]").forEach(function (button) {
       button.classList.toggle("active", button.getAttribute("data-live-infra-mode") === mode);
       button.onclick = function () {
@@ -2441,7 +2468,7 @@
         })
         .map(function (signal) {
           const estateId = signal.estate ? signal.estate.id || "" : "";
-          return `<button class="infra-marker ${escapeHtml(signal.kind)} ${escapeHtml(signal.tone)}" data-live-infra-estate="${escapeHtml(estateId)}" style="--x:${escapeHtml(signal.x)};--y:${escapeHtml(signal.y)}" title="${escapeHtml(signal.label)}" type="button"><span>${escapeHtml(liveInfraIcon(signal.kind))}</span></button>`;
+          return `<button class="infra-marker ${escapeHtml(signal.kind)} ${escapeHtml(signal.tone)}" data-live-infra-estate="${escapeHtml(estateId)}" style="--x:${escapeHtml(signal.x)};--y:${escapeHtml(signal.y)}" title="${escapeHtml(signal.label)}" type="button"><span>${liveInfraIcon(signal.kind)}</span></button>`;
         })
         .join("");
       const labels = signals.slice(0, 4).map(function (signal) {
@@ -2472,7 +2499,7 @@
         ["Incidents", `${supportMappings.length} cases`, "support"],
       ];
       el.liveInfraActions.innerHTML = actions.map(function (action) {
-        return `<button class="live-infra-action" data-office-target="${escapeHtml(action[2])}" type="button"><strong>${escapeHtml(action[0])}</strong><span>${escapeHtml(action[1])}</span></button>`;
+        return `<button class="live-infra-action" data-office-target="${escapeHtml(action[2])}" type="button"><i>${liveInfraActionIcon(action[0])}</i><span><strong>${escapeHtml(action[0])}</strong><small>${escapeHtml(action[1])}</small></span></button>`;
       }).join("");
       Array.from(el.liveInfraActions.querySelectorAll("[data-office-target]")).forEach(function (button) {
         button.addEventListener("click", function () {
@@ -2509,7 +2536,7 @@
       ];
       el.liveInfraPanel.innerHTML = `<h4>Infrastructure Layers</h4>${rows.map(function (row) {
         const active = Boolean(state.liveInfraLayers[row[0]]);
-        return `<button class="layer-row" data-live-layer="${escapeHtml(row[0])}" type="button"><span>${escapeHtml(row[1])}</span><i class="layer-switch ${active ? "active" : ""}"></i></button>`;
+        return `<button class="layer-row" data-live-layer="${escapeHtml(row[0])}" type="button"><span>${liveInfraIcon(row[0] === "edge" ? "edge" : row[0] === "cameras" ? "camera" : row[0] === "alerts" ? "alert" : row[0] === "access" ? "access" : row[0] === "utilities" ? "utility" : "device")} ${escapeHtml(row[1])}</span><i class="layer-switch ${active ? "active" : ""}"></i></button>`;
       }).join("")}`;
       Array.from(el.liveInfraPanel.querySelectorAll("[data-live-layer]")).forEach(function (button) {
         button.addEventListener("click", function () {
