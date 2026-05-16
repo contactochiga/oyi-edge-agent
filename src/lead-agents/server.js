@@ -127,6 +127,16 @@ function parseDataUrl(value) {
   };
 }
 
+function extensionForAudioMime(mimeType) {
+  const clean = String(mimeType || "").toLowerCase();
+  if (clean.includes("mp4") || clean.includes("m4a")) return ".m4a";
+  if (clean.includes("mpeg") || clean.includes("mp3")) return ".mp3";
+  if (clean.includes("wav")) return ".wav";
+  if (clean.includes("ogg")) return ".ogg";
+  if (clean.includes("webm")) return ".webm";
+  return ".webm";
+}
+
 function extensionForMime(mimeType) {
   const clean = String(mimeType || "").toLowerCase();
   if (clean.includes("jpeg") || clean.includes("jpg")) return ".jpg";
@@ -1221,6 +1231,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         pathname === "/widget" ||
         pathname === "/widget/" ||
         pathname === "/widget.js" ||
+        pathname === "/api/lead-agents/public/transcribe" ||
         pathname === "/api/lead-agents/public/chat";
       const isPublicDigitalTwinPath =
         pathname === "/digital-twin" ||
@@ -1947,6 +1958,74 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         json(res, 200, result, {
           "x-request-id": ctx.requestId,
         });
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/public/transcribe") {
+        const rateLimitState = rateLimiter.check(req);
+        res.setHeader("x-ratelimit-remaining", String(rateLimitState.remaining));
+        res.setHeader(
+          "x-ratelimit-reset",
+          new Date(rateLimitState.resetAt).toISOString()
+        );
+
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+
+        const body = await readJsonBody(req, 40 * 1024 * 1024);
+        const audio = parseDataUrl(body.audio_data_url || body.audioDataUrl || "");
+        if (!audio || !audio.buffer.length) {
+          json(res, 400, { error: "audio_data_url is required" });
+          return;
+        }
+        if (audio.buffer.length > 25 * 1024 * 1024) {
+          json(res, 413, { error: "audio_too_large", max_bytes: 25 * 1024 * 1024 });
+          return;
+        }
+
+        const mimeType = body.mime_type || body.mimeType || audio.mimeType || "audio/webm";
+        const filename =
+          body.file_name ||
+          body.fileName ||
+          `oyi-voice-note${extensionForAudioMime(mimeType)}`;
+
+        try {
+          const transcription = await openaiClient.createTranscription({
+            buffer: audio.buffer,
+            filename,
+            mimeType,
+            language: body.language || "en",
+            prompt:
+              body.prompt ||
+              "Ochiga and Oyi smart estates, smart buildings, facility support, sales, and community conversations.",
+          });
+          json(
+            res,
+            200,
+            {
+              text: String(transcription.text || "").trim(),
+              transcription,
+              model: config.openaiTranscriptionModel,
+            },
+            { "x-request-id": ctx.requestId }
+          );
+        } catch (err) {
+          log("error", "lead_agents_server.public_transcribe_failed", {
+            request_id: ctx.requestId,
+            error: err?.stack || err?.message || String(err),
+          });
+          json(
+            res,
+            err.statusCode && err.statusCode >= 400 ? err.statusCode : 502,
+            {
+              error: "transcription_failed",
+              message: "Unable to transcribe this recording right now.",
+            },
+            { "x-request-id": ctx.requestId }
+          );
+        }
         return;
       }
 

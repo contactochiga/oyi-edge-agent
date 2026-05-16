@@ -21,6 +21,7 @@ function createConfig() {
     openaiApiKey: process.env.OPENAI_API_KEY || "",
     openaiBaseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
     openaiModel: process.env.OPENAI_MODEL || "gpt-5-mini",
+    openaiTranscriptionModel: process.env.OPENAI_TRANSCRIPTION_MODEL || "whisper-1",
     requestTimeoutMs: numberFromEnv(process.env.LEAD_AGENTS_REQUEST_TIMEOUT_MS, 120000),
     maxToolRounds: numberFromEnv(process.env.LEAD_AGENTS_MAX_TOOL_ROUNDS, 8),
     maxConversationMessages: numberFromEnv(

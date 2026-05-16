@@ -1102,27 +1102,7 @@
         }
       };
       mediaRecorder.onstop = function () {
-        const duration = Math.max(1, Math.round((Date.now() - mediaStartedAt) / 1000));
-        const size = mediaChunks.reduce((total, chunk) => total + chunk.size, 0);
-        const summary = `Voice note captured: ${duration}s, ${Math.max(1, Math.round(size / 1024))}KB.`;
-        stopAudioMeter();
-        voice.classList.remove("listening");
-        resetRecordingUi();
-
-        if (isConversation) {
-          const message = `${summary} Transcription service is pending, so route this as a voice-chat request.`;
-          sendMessage(message, {
-            displayText: summary,
-            voiceReply: true,
-            continueVoice: false,
-            submittedBy: "voice_note",
-          });
-          return;
-        }
-
-        input.value = `${summary} Please process this as a voice note until transcription is connected.`;
-        autoSize(false);
-        setActivity("Voice note captured. Review or send it as context.", {});
+        handleRecordedAudio(mode);
       };
       mediaRecorder.onerror = function () {
         setActivity("Voice capture paused. Try again or type your message.", {});
@@ -1133,6 +1113,108 @@
       setActivity("Microphone permission is blocked or unavailable.", {});
       voice.classList.remove("listening");
       resetRecordingUi();
+    }
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        resolve(String(reader.result || ""));
+      };
+      reader.onerror = function () {
+        reject(reader.error || new Error("Unable to read audio recording"));
+      };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function transcribeAudioBlob(blob) {
+    const audioDataUrl = await blobToDataUrl(blob);
+    const response = await fetch(`${apiBase}/api/lead-agents/public/transcribe`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        audio_data_url: audioDataUrl,
+        mime_type: blob.type || "audio/webm",
+        file_name: "oyi-voice-note.webm",
+        language: "en",
+      }),
+    });
+    const data = await response.json().catch(function () {
+      return {};
+    });
+    if (!response.ok) {
+      const error = new Error(data.message || data.error || "Unable to transcribe recording");
+      error.status = response.status;
+      error.payload = data;
+      throw error;
+    }
+    return String(data.text || "").trim();
+  }
+
+  async function handleRecordedAudio(mode) {
+    const isConversation = mode === "conversation";
+    try {
+      const duration = Math.max(1, Math.round((Date.now() - mediaStartedAt) / 1000));
+      const blob = new Blob(mediaChunks, {
+        type: mediaRecorder && mediaRecorder.mimeType ? mediaRecorder.mimeType : "audio/webm",
+      });
+      stopAudioMeter();
+      voice.classList.remove("listening");
+      setActivity("Transcribing with Oyi voice intelligence...", {
+        voice: isConversation,
+        recording: true,
+      });
+      const transcript = await transcribeAudioBlob(blob);
+      resetRecordingUi();
+
+      if (!transcript) {
+        setActivity("I did not catch that. Try recording again.", {});
+        return;
+      }
+
+      if (isConversation) {
+        sendMessage(`${transcript}${fileContextLine()}`.trim(), {
+          displayText: transcript,
+          voiceReply: true,
+          continueVoice: false,
+          submittedBy: "voice",
+        });
+        return;
+      }
+
+      input.value = transcript;
+      autoSize(false);
+      setActivity(`Transcribed ${duration}s voice note. Review it, then send.`, {});
+    } catch (error) {
+      const duration = Math.max(1, Math.round((Date.now() - mediaStartedAt) / 1000));
+      const size = mediaChunks.reduce((total, chunk) => total + chunk.size, 0);
+      const summary = `Voice note captured: ${duration}s, ${Math.max(1, Math.round(size / 1024))}KB.`;
+      stopAudioMeter();
+      voice.classList.remove("listening");
+      resetRecordingUi();
+      if (isConversation) {
+        sendMessage(`${summary} Transcription failed, so route this as a voice-chat request.`, {
+          displayText: summary,
+          voiceReply: true,
+          continueVoice: false,
+          submittedBy: "voice_note",
+        });
+        return;
+      }
+      input.value = `${summary} Transcription failed. Please try again or type the message.`;
+      autoSize(false);
+      setActivity("Voice note captured, but transcription failed.", {});
+      console.error("[Oyi widget transcription]", {
+        message: error.message,
+        status: error.status,
+        payload: error.payload,
+      });
+    } finally {
+      mediaChunks = [];
     }
   }
 
@@ -1401,7 +1483,7 @@
       stopCurrentRecording();
       return;
     }
-    startVoiceCapture("dictate");
+    startMediaFallback("dictate");
   });
 
   voice.addEventListener("click", function () {
