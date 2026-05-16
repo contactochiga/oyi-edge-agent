@@ -600,6 +600,7 @@ class SupabaseLeadAgentsStore {
   }
 
   async appendAuditEvent(input) {
+    const metadata = input.metadata && typeof input.metadata === "object" ? input.metadata : {};
     const response = await this.client.post(
       "/audit_events",
       {
@@ -609,7 +610,15 @@ class SupabaseLeadAgentsStore {
         action: input.action,
         target_type: input.target_type,
         target_id: input.target_id || "",
-        metadata: input.metadata || {},
+        metadata: {
+          ...metadata,
+          resource_type: input.resource_type || input.target_type || "",
+          resource_id: input.resource_id || input.target_id || "",
+          estate_id: input.estate_id || metadata.estate_id || null,
+          status: input.status || metadata.status || "success",
+          ip: input.ip || metadata.ip || "",
+          user_agent: input.user_agent || metadata.user_agent || "",
+        },
       },
       {
         headers: this.selectHeaders(),
@@ -657,6 +666,41 @@ class SupabaseLeadAgentsStore {
 
   async listOfficeDocuments() {
     return this.safeGet("/office_documents?order=updated_at.desc");
+  }
+
+  async createOfficeFile(input) {
+    try {
+      const response = await this.client.post(
+        "/office_files",
+        {
+          id: input.id,
+          storage_driver: input.storage_driver || "local",
+          storage_key: input.storage_key || input.filename || "",
+          filename: input.filename || "",
+          mime_type: input.mime_type || "application/octet-stream",
+          size: Number(input.size || 0),
+          purpose: input.purpose || "document",
+          resource_type: input.resource_type || "",
+          resource_id: input.resource_id || "",
+          url: input.url || "",
+          metadata: input.metadata || {},
+        },
+        {
+          headers: this.selectHeaders(),
+        }
+      );
+      return response.data[0] || input;
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 400 || status === 404) {
+        return input;
+      }
+      throw error;
+    }
+  }
+
+  async listOfficeFiles(limit = 200) {
+    return this.safeGet(`/office_files?order=created_at.desc&limit=${limit}`);
   }
 
   async updateOfficeAsset(kind, id, patch) {

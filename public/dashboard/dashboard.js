@@ -41,6 +41,23 @@
     auditQuery: "",
     documentQuery: "",
     crmIntegrationsExpanded: false,
+    liveInfraMode: "map",
+    liveInfraPanel: "",
+    liveInfraZoom: 1,
+    liveInfraLayers: {
+      devices: true,
+      cameras: true,
+      alerts: true,
+      access: true,
+      utilities: true,
+      residents: false,
+      visitors: true,
+      security: true,
+      maintenance: true,
+      edge: true,
+      twin: true,
+      network: true,
+    },
     dataRevision: 0,
     officeEventSource: null,
     officeEventRefreshTimer: null,
@@ -318,6 +335,12 @@
     officeHealthLegend: document.getElementById("officeHealthLegend"),
     officeCityMap: document.getElementById("officeCityMap"),
     officeMapLabels: document.getElementById("officeMapLabels"),
+    liveInfraEstateName: document.getElementById("liveInfraEstateName"),
+    liveInfraLocation: document.getElementById("liveInfraLocation"),
+    liveInfraOverlay: document.getElementById("liveInfraOverlay"),
+    liveInfraPanel: document.getElementById("liveInfraPanel"),
+    liveInfraHealthPanel: document.getElementById("liveInfraHealthPanel"),
+    liveInfraActions: document.getElementById("liveInfraActions"),
     supportOverviewGraph: document.getElementById("supportOverviewGraph"),
     estateDistributionTotal: document.getElementById("estateDistributionTotal"),
     estateDistributionList: document.getElementById("estateDistributionList"),
@@ -2227,7 +2250,7 @@
 	      });
 	  }
 
-	  function renderOverviewGoogleMap(estates) {
+  function renderOverviewGoogleMap(estates) {
 	    const mapHost = el.officeCityMap;
 	    if (!mapHost) return;
 	    const mapConfig = state.mapConfig || {};
@@ -2299,6 +2322,233 @@
 	        mapHost.classList.remove("has-live-google", "is-loading");
 	      });
 	  }
+
+  function liveInfraTone(status) {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized.includes("critical") || normalized.includes("suspend") || normalized.includes("offline")) return "critical";
+    if (normalized.includes("warn") || normalized.includes("pending") || normalized.includes("attention")) return "warning";
+    return "healthy";
+  }
+
+  function liveInfraIcon(kind) {
+    const icons = {
+      device: "⌁",
+      camera: "◉",
+      alert: "!",
+      access: "⌂",
+      utility: "↯",
+      edge: "◇",
+    };
+    return icons[kind] || "•";
+  }
+
+  function liveInfraSignals(estates, devices, supportMappings) {
+    const positions = [
+      ["28%", "36%"],
+      ["54%", "34%"],
+      ["72%", "48%"],
+      ["42%", "62%"],
+      ["66%", "68%"],
+      ["20%", "58%"],
+    ];
+    const estateRows = asList(estates).slice(0, 6).map(function (estate, index) {
+      const tone = liveInfraTone(estate.health_status || estate.status || estate.subscription_status);
+      const kinds = ["access", "device", "camera", "utility", "edge", "alert"];
+      const hasSupport = supportMappings.some(function (item) { return item.estate_id === estate.id; });
+      const offlineDevice = devices.some(function (device) {
+        return device.estate_id === estate.id && String(device.status || "").toLowerCase() === "offline";
+      });
+      const kind = tone === "critical" || offlineDevice ? "alert" : hasSupport ? "edge" : kinds[index % kinds.length];
+      const pos = positions[index % positions.length];
+      return {
+        estate,
+        kind,
+        tone,
+        x: pos[0],
+        y: pos[1],
+        label: estate.name || `Estate ${index + 1}`,
+      };
+    });
+    if (estateRows.length) return estateRows;
+    return [
+      { kind: "device", tone: "healthy", x: "32%", y: "42%", label: "Device layer pending" },
+      { kind: "camera", tone: "healthy", x: "58%", y: "38%", label: "Camera layer pending" },
+      { kind: "edge", tone: "warning", x: "70%", y: "62%", label: "Edge layer pending" },
+    ];
+  }
+
+  function renderLiveInfrastructureView(estates) {
+    const collections = officeCollections();
+    const devices = asList(collections.devices);
+    const supportMappings = asList(collections.support_mappings);
+    const selectedEstate =
+      estates.find(function (estate) { return String(estate.id || "") === String(state.selectedOfficeEstateId || ""); }) ||
+      estates[0] ||
+      null;
+    const mode = state.liveInfraMode || "map";
+    const signals = liveInfraSignals(estates, devices, supportMappings);
+    const mapHost = el.officeCityMap;
+    if (el.liveInfraEstateName) {
+      el.liveInfraEstateName.textContent = selectedEstate ? selectedEstate.name || "Connected estate" : "Ochiga connected estates";
+    }
+    if (el.liveInfraLocation) {
+      el.liveInfraLocation.textContent = selectedEstate
+        ? displayValue(selectedEstate.location, "Location pending")
+        : "Operational estate layer";
+    }
+    if (mapHost) {
+      mapHost.classList.toggle("mode-map", mode === "map");
+      mapHost.classList.toggle("mode-twin", mode === "twin");
+      mapHost.classList.toggle("mode-hybrid", mode === "hybrid");
+      mapHost.classList.toggle("mode-heatmap", mode === "heatmap");
+      mapHost.style.setProperty("--live-infra-zoom", String(state.liveInfraZoom || 1));
+    }
+    document.querySelectorAll("[data-live-infra-mode]").forEach(function (button) {
+      button.classList.toggle("active", button.getAttribute("data-live-infra-mode") === mode);
+      button.onclick = function () {
+        state.liveInfraMode = button.getAttribute("data-live-infra-mode") || "map";
+        renderLiveInfrastructureView(estates);
+      };
+    });
+    document.querySelectorAll("[data-live-infra-control]").forEach(function (button) {
+      button.onclick = function () {
+        const action = button.getAttribute("data-live-infra-control");
+        if (action === "layers" || action === "filters" || action === "report") {
+          state.liveInfraPanel = state.liveInfraPanel === action ? "" : action;
+        } else if (action === "zoom-in") {
+          state.liveInfraZoom = Math.min(1.35, Number(state.liveInfraZoom || 1) + 0.08);
+        } else if (action === "zoom-out") {
+          state.liveInfraZoom = Math.max(0.82, Number(state.liveInfraZoom || 1) - 0.08);
+        } else if (action === "reset") {
+          state.liveInfraZoom = 1;
+          state.liveInfraPanel = "";
+          state.selectedOfficeEstateId = "";
+        }
+        renderLiveInfrastructureView(estates);
+      };
+    });
+    if (el.liveInfraOverlay) {
+      const activeLayers = state.liveInfraLayers || {};
+      const markers = signals
+        .filter(function (signal) {
+          if (signal.kind === "device") return activeLayers.devices;
+          if (signal.kind === "camera") return activeLayers.cameras;
+          if (signal.kind === "alert") return activeLayers.alerts;
+          if (signal.kind === "access") return activeLayers.access;
+          if (signal.kind === "utility") return activeLayers.utilities;
+          if (signal.kind === "edge") return activeLayers.edge;
+          return true;
+        })
+        .map(function (signal) {
+          const estateId = signal.estate ? signal.estate.id || "" : "";
+          return `<button class="infra-marker ${escapeHtml(signal.kind)} ${escapeHtml(signal.tone)}" data-live-infra-estate="${escapeHtml(estateId)}" style="--x:${escapeHtml(signal.x)};--y:${escapeHtml(signal.y)}" title="${escapeHtml(signal.label)}" type="button"><span>${escapeHtml(liveInfraIcon(signal.kind))}</span></button>`;
+        })
+        .join("");
+      const labels = signals.slice(0, 4).map(function (signal) {
+        const estateId = signal.estate ? signal.estate.id || "" : "";
+        return `<button class="city-label ${escapeHtml(signal.tone)}" data-live-infra-estate="${escapeHtml(estateId)}" type="button" style="--x:${escapeHtml(signal.x)};--y:calc(${escapeHtml(signal.y)} + 30px);">${escapeHtml(signal.label)}<small>${escapeHtml(signal.tone)}</small></button>`;
+      }).join("");
+      el.liveInfraOverlay.innerHTML = `<div id="officeMapLabels">${labels}</div>${markers}`;
+      el.officeMapLabels = document.getElementById("officeMapLabels");
+      Array.from(el.liveInfraOverlay.querySelectorAll("[data-live-infra-estate]")).forEach(function (node) {
+        node.addEventListener("click", function () {
+          const estateId = node.getAttribute("data-live-infra-estate") || "";
+          if (estateId) state.selectedOfficeEstateId = estateId;
+          state.liveInfraPanel = "report";
+          renderLiveInfrastructureView(estates);
+        });
+      });
+    }
+    if (el.liveInfraActions) {
+      const offlineDevices = devices.filter(function (device) { return String(device.status || "").toLowerCase() === "offline"; }).length;
+      const cameraCount = devices.filter(function (device) { return /camera|cctv/i.test(String(device.category || device.type || device.name || "")); }).length;
+      const actions = [
+        ["Explore", "Navigate twin", "facility"],
+        ["Devices", `${devices.length} tracked`, "devices"],
+        ["Cameras", `${cameraCount} online`, "devices"],
+        ["Alerts", `${offlineDevices + supportMappings.length} active`, "support"],
+        ["Access", "Visitor gates", "facility"],
+        ["Utilities", "Power / water", "devices"],
+        ["Incidents", `${supportMappings.length} cases`, "support"],
+      ];
+      el.liveInfraActions.innerHTML = actions.map(function (action) {
+        return `<button class="live-infra-action" data-office-target="${escapeHtml(action[2])}" type="button"><strong>${escapeHtml(action[0])}</strong><span>${escapeHtml(action[1])}</span></button>`;
+      }).join("");
+      Array.from(el.liveInfraActions.querySelectorAll("[data-office-target]")).forEach(function (button) {
+        button.addEventListener("click", function () {
+          state.workspaceTab = button.getAttribute("data-office-target") || "overview";
+          renderWorkspaceTabs();
+        });
+      });
+    }
+    renderLiveInfraPanel(estates, devices, supportMappings);
+  }
+
+  function renderLiveInfraPanel(estates, devices, supportMappings) {
+    if (!el.liveInfraPanel) return;
+    const panel = state.liveInfraPanel || "";
+    el.liveInfraPanel.classList.toggle("open", Boolean(panel));
+    if (!panel) {
+      el.liveInfraPanel.innerHTML = "";
+      return;
+    }
+    if (panel === "layers") {
+      const rows = [
+        ["devices", "Devices"],
+        ["cameras", "Cameras"],
+        ["alerts", "Alerts"],
+        ["access", "Access Control"],
+        ["utilities", "Utilities"],
+        ["residents", "Residents"],
+        ["visitors", "Visitors"],
+        ["security", "Security"],
+        ["maintenance", "Maintenance"],
+        ["edge", "Edge Agents"],
+        ["twin", "Digital Twin Objects"],
+        ["network", "Network State"],
+      ];
+      el.liveInfraPanel.innerHTML = `<h4>Infrastructure Layers</h4>${rows.map(function (row) {
+        const active = Boolean(state.liveInfraLayers[row[0]]);
+        return `<button class="layer-row" data-live-layer="${escapeHtml(row[0])}" type="button"><span>${escapeHtml(row[1])}</span><i class="layer-switch ${active ? "active" : ""}"></i></button>`;
+      }).join("")}`;
+      Array.from(el.liveInfraPanel.querySelectorAll("[data-live-layer]")).forEach(function (button) {
+        button.addEventListener("click", function () {
+          const key = button.getAttribute("data-live-layer");
+          state.liveInfraLayers[key] = !state.liveInfraLayers[key];
+          renderLiveInfrastructureView(estates);
+        });
+      });
+      return;
+    }
+    if (panel === "filters") {
+      const cities = Array.from(new Set(estates.map(function (estate) {
+        return String(estate.location || "Unknown").split(",")[0].trim() || "Unknown";
+      }))).slice(0, 8);
+      el.liveInfraPanel.innerHTML = `<h4>Operational Filters</h4>
+        ${cities.map(function (city) { return `<div class="layer-row"><span>${escapeHtml(city)}</span><small>Estate region</small></div>`; }).join("")}
+        <div class="layer-row"><span>Online / Offline</span><small>${escapeHtml(String(devices.length))} hardware devices</small></div>
+        <div class="layer-row"><span>Open incidents</span><small>${escapeHtml(String(supportMappings.length))} active records</small></div>`;
+      return;
+    }
+    if (panel === "report") {
+      const estate = estates.find(function (item) { return String(item.id || "") === String(state.selectedOfficeEstateId || ""); }) || estates[0] || {};
+      const estateDevices = devices.filter(function (device) { return device.estate_id === estate.id; });
+      const estateSupport = supportMappings.filter(function (item) { return item.estate_id === estate.id; });
+      el.liveInfraPanel.innerHTML = `<h4>${escapeHtml(estate.name || "Estate Report")}</h4>
+        <div class="layer-row"><span>Location</span><small>${escapeHtml(displayValue(estate.location, "Pending"))}</small></div>
+        <div class="layer-row"><span>Hardware devices</span><small>${escapeHtml(String(estateDevices.length))}</small></div>
+        <div class="layer-row"><span>Active alerts</span><small>${escapeHtml(String(estateSupport.length))}</small></div>
+        <div class="layer-row"><span>Health state</span><small>${escapeHtml(estate.health_status || estate.status || "healthy")}</small></div>
+        <button class="ghost compact" data-office-target="facility" type="button">Open estate detail</button>`;
+      const openButton = el.liveInfraPanel.querySelector("[data-office-target]");
+      if (openButton) {
+        openButton.addEventListener("click", function () {
+          state.workspaceTab = "facility";
+          renderWorkspaceTabs();
+        });
+      }
+    }
+  }
 
 	  function renderEstateFacilitiesWorkspace(domain) {
 	    if (!el.facilityPanel || !domain) return;
@@ -3019,6 +3269,7 @@
       });
     }
     renderOverviewGoogleMap(estates);
+    renderLiveInfrastructureView(estates);
     if (el.supportOverviewGraph) {
       const points = [openSupport, warningCount, criticalCount, state.notifications.length, supportMappings.length, devices.filter(function (device) { return String(device.status || "").toLowerCase() === "offline"; }).length, openSupport + criticalCount];
       const maxPoint = Math.max(1, ...points);
@@ -4944,7 +5195,23 @@
     }
     const source = new EventSource("/api/lead-agents/admin/events", { withCredentials: true });
     state.officeEventSource = source;
-    ["office.sync", "office.import", "office.storage", "office.notification", "office.staff"].forEach(function (eventName) {
+    [
+      "office.sync",
+      "office.import",
+      "office.storage",
+      "office.notification",
+      "office.staff",
+      "device.status.updated",
+      "visitor.created",
+      "wallet.funded",
+      "support.ticket.created",
+      "support.ticket.assigned",
+      "estate.updated",
+      "home.updated",
+      "edge.heartbeat",
+      "audit.recorded",
+      "twin.state.updated",
+    ].forEach(function (eventName) {
       source.addEventListener(eventName, function () {
         scheduleOfficeRefresh(eventName);
       });

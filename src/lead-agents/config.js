@@ -53,6 +53,9 @@ function createConfig() {
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
     authMode: process.env.LEAD_AGENTS_AUTH_MODE || "optional_api_key",
     apiKeys: stringListFromEnv(process.env.LEAD_AGENTS_API_KEYS),
+    edgeAgentTokens: stringListFromEnv(
+      process.env.OYI_EDGE_AGENT_TOKENS || process.env.OYI_EDGE_AGENT_TOKEN
+    ),
     adminEmail: process.env.LEAD_AGENTS_ADMIN_EMAIL || "",
     adminPassword: process.env.LEAD_AGENTS_ADMIN_PASSWORD || "",
     adminRole: process.env.LEAD_AGENTS_ADMIN_ROLE || "admin",
@@ -118,6 +121,7 @@ function createConfig() {
     mapboxPublicToken: process.env.MAPBOX_PUBLIC_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "",
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
     officeDocumentBrandName: process.env.OFFICE_DOCUMENT_BRAND_NAME || "OCHIGA OFFICE",
+    officeStorageDriver: process.env.OFFICE_STORAGE_DRIVER || "local",
     officeStorageDir:
       process.env.OFFICE_STORAGE_DIR || path.join(cwd, "data", "office-storage"),
   };

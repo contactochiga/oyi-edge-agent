@@ -521,5 +521,30 @@ create table if not exists audit_events (
   created_at timestamptz not null default now()
 );
 
+alter table audit_events add column if not exists resource_type text;
+alter table audit_events add column if not exists resource_id text;
+alter table audit_events add column if not exists estate_id text;
+alter table audit_events add column if not exists status text not null default 'success';
+alter table audit_events add column if not exists ip text;
+alter table audit_events add column if not exists user_agent text;
+
 create index if not exists audit_events_created_at_idx
 on audit_events (created_at desc);
+
+create table if not exists office_files (
+  id text primary key,
+  storage_driver text not null default 'local',
+  storage_key text not null,
+  filename text not null,
+  mime_type text not null,
+  size integer not null default 0,
+  purpose text not null,
+  resource_type text,
+  resource_id text,
+  url text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists office_files_purpose_created_at_idx
+on office_files (purpose, created_at desc);

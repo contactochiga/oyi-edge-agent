@@ -10,6 +10,7 @@
     "digital-twin:export": "node scripts/export-digital-twin-assets.js",
     "check": "node --check agent.js",
     "test": "npm run check",
+    "tier1:smoke": "node scripts/smoke-tier1-foundations.js",
     "lead-agents:test": "node scripts/test-lead-agents.js",
     "lead-agents:eval": "node scripts/run-lead-agents-evals.js"
   },

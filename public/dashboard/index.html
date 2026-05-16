@@ -1087,6 +1087,333 @@
       .health-legend i.warning { background: #ffc247; }
       .health-legend i.critical { background: #ff416d; }
       .health-legend i.offline { background: #8f9bb7; }
+      .live-infra-card {
+        position: relative;
+        border-radius: 18px;
+        padding: 14px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 82% 8%, rgba(54, 163, 255, 0.2), transparent 28%),
+          radial-gradient(circle at 12% 88%, rgba(40, 230, 141, 0.14), transparent 30%),
+          linear-gradient(145deg, rgba(9, 18, 38, 0.96), rgba(4, 9, 20, 0.92));
+        border: 1px solid rgba(149, 166, 255, 0.16);
+        box-shadow: var(--shadow), inset 0 0 42px rgba(54, 163, 255, 0.04);
+      }
+      .live-infra-head {
+        position: relative;
+        z-index: 4;
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) auto auto;
+        align-items: start;
+        gap: 14px;
+        margin-bottom: 12px;
+      }
+      .live-infra-head h3 {
+        margin: 4px 0 2px;
+        font-size: 15px;
+        font-weight: 560;
+      }
+      .live-infra-head span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .live-infra-tabs {
+        display: inline-flex;
+        gap: 5px;
+        padding: 4px;
+        border-radius: 12px;
+        background: rgba(4, 9, 20, 0.62);
+        border: 1px solid rgba(149, 166, 255, 0.12);
+      }
+      .live-infra-tab {
+        border: 0;
+        border-radius: 9px;
+        padding: 7px 10px;
+        color: rgba(235, 242, 255, 0.68);
+        background: transparent;
+        font-size: 11px;
+        font-weight: 440;
+        cursor: pointer;
+        transition: color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+      }
+      .live-infra-tab:hover,
+      .live-infra-tab.active {
+        color: #fff;
+        background: linear-gradient(135deg, rgba(124, 77, 255, 0.78), rgba(54, 163, 255, 0.7));
+        box-shadow: 0 0 24px rgba(54, 163, 255, 0.28);
+        transform: translateY(-1px);
+      }
+      .live-infra-viewport {
+        position: relative;
+        min-height: 376px;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(149, 166, 255, 0.12);
+        background: #050b16;
+        isolation: isolate;
+      }
+      .live-infra-viewport::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        background:
+          linear-gradient(90deg, rgba(54, 163, 255, 0.045) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(54, 163, 255, 0.035) 1px, transparent 1px);
+        background-size: 46px 46px;
+        mask-image: radial-gradient(circle at center, black 0 68%, transparent 100%);
+      }
+      .live-infra-canvas {
+        min-height: 376px;
+        border-radius: 0;
+        transform: scale(var(--live-infra-zoom, 1));
+        transform-origin: center;
+        transition: transform 260ms ease, filter 260ms ease, opacity 260ms ease;
+      }
+      .live-infra-canvas.mode-twin {
+        filter: saturate(1.28) contrast(1.1) brightness(0.86);
+        background:
+          linear-gradient(120deg, rgba(4, 8, 19, 0.34), rgba(8, 13, 28, 0.9)),
+          radial-gradient(circle at 50% 36%, rgba(54, 163, 255, 0.34), transparent 30%),
+          repeating-linear-gradient(30deg, rgba(54, 163, 255, 0.14) 0 1px, transparent 1px 34px),
+          repeating-linear-gradient(150deg, rgba(124, 77, 255, 0.12) 0 1px, transparent 1px 30px),
+          #06101f;
+      }
+      .live-infra-canvas.mode-hybrid {
+        filter: saturate(1.16) contrast(1.08);
+      }
+      .live-infra-canvas.mode-heatmap {
+        filter: saturate(1.6) contrast(1.1);
+      }
+      .live-infra-canvas.mode-heatmap::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 24% 38%, rgba(40, 230, 141, 0.34), transparent 13%),
+          radial-gradient(circle at 54% 42%, rgba(255, 194, 71, 0.38), transparent 16%),
+          radial-gradient(circle at 74% 56%, rgba(255, 65, 109, 0.38), transparent 16%),
+          radial-gradient(circle at 42% 68%, rgba(54, 163, 255, 0.26), transparent 14%);
+        mix-blend-mode: screen;
+        animation: heatBreath 4.8s ease-in-out infinite;
+      }
+      @keyframes heatBreath {
+        0%, 100% { opacity: 0.5; transform: scale(1); }
+        50% { opacity: 0.82; transform: scale(1.025); }
+      }
+      .live-infra-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+      }
+      .live-infra-overlay button,
+      .live-infra-controls button,
+      .live-infra-actionbar button,
+      .estate-health-overlay button,
+      .live-infra-drawer button {
+        pointer-events: auto;
+      }
+      .infra-marker {
+        position: absolute;
+        left: var(--x);
+        top: var(--y);
+        transform: translate(-50%, -50%);
+        width: 34px;
+        height: 34px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 12px;
+        color: #eaf3ff;
+        background: rgba(5, 12, 28, 0.72);
+        box-shadow: 0 0 22px color-mix(in srgb, var(--tone, #36a3ff) 62%, transparent);
+        backdrop-filter: blur(10px);
+        cursor: pointer;
+      }
+      .infra-marker::before,
+      .infra-marker::after {
+        content: "";
+        position: absolute;
+        inset: -6px;
+        border-radius: 16px;
+        border: 1px solid color-mix(in srgb, var(--tone, #36a3ff) 72%, transparent);
+        opacity: 0.42;
+        animation: markerPulse 2.6s ease-in-out infinite;
+      }
+      .infra-marker::after {
+        inset: -12px;
+        opacity: 0.2;
+        animation-delay: 700ms;
+      }
+      .infra-marker span {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        height: 100%;
+        font-size: 14px;
+      }
+      .infra-marker:hover {
+        transform: translate(-50%, -50%) scale(1.08);
+      }
+      @keyframes markerPulse {
+        0%, 100% { transform: scale(0.92); opacity: 0.18; }
+        50% { transform: scale(1.18); opacity: 0.58; }
+      }
+      .infra-marker.device { --tone: #36a3ff; }
+      .infra-marker.camera { --tone: #17d4ff; }
+      .infra-marker.alert { --tone: #ff416d; }
+      .infra-marker.access { --tone: #28e68d; }
+      .infra-marker.utility { --tone: #ffc247; }
+      .infra-marker.edge { --tone: #9c6bff; }
+      .live-infra-controls {
+        position: absolute;
+        z-index: 8;
+        top: 14px;
+        right: 14px;
+        display: grid;
+        gap: 7px;
+      }
+      .live-infra-controls button {
+        min-width: 42px;
+        min-height: 34px;
+        border: 1px solid rgba(149, 166, 255, 0.16);
+        border-radius: 11px;
+        color: rgba(238, 244, 255, 0.88);
+        background: rgba(6, 13, 28, 0.72);
+        backdrop-filter: blur(12px);
+        font-size: 10px;
+        cursor: pointer;
+        transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+      }
+      .live-infra-controls button:hover {
+        transform: translateX(-2px);
+        border-color: rgba(54, 163, 255, 0.5);
+        box-shadow: 0 0 22px rgba(54, 163, 255, 0.22);
+      }
+      .live-infra-drawer {
+        position: absolute;
+        top: 14px;
+        right: 68px;
+        z-index: 7;
+        width: min(280px, calc(100% - 90px));
+        max-height: calc(100% - 120px);
+        overflow: auto;
+        border-radius: 14px;
+        padding: 12px;
+        border: 1px solid rgba(149, 166, 255, 0.16);
+        background: rgba(5, 12, 28, 0.78);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(16px);
+        opacity: 0;
+        transform: translateX(12px);
+        pointer-events: none;
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+      .live-infra-drawer.open {
+        opacity: 1;
+        transform: translateX(0);
+        pointer-events: auto;
+      }
+      .live-infra-drawer h4 {
+        margin: 0 0 10px;
+        font-size: 12px;
+        font-weight: 560;
+      }
+      .layer-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid rgba(149, 166, 255, 0.08);
+        color: rgba(232, 240, 255, 0.78);
+        font-size: 11px;
+      }
+      .layer-switch {
+        width: 34px;
+        height: 18px;
+        border-radius: 999px;
+        background: rgba(149, 166, 255, 0.18);
+        border: 1px solid rgba(149, 166, 255, 0.14);
+      }
+      .layer-switch.active {
+        background: linear-gradient(135deg, #28e68d, #36a3ff);
+        box-shadow: 0 0 18px rgba(40, 230, 141, 0.28);
+      }
+      .estate-health-overlay {
+        position: absolute;
+        left: 14px;
+        bottom: 60px;
+        z-index: 7;
+        width: 168px;
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(149, 166, 255, 0.16);
+        background: rgba(5, 12, 28, 0.76);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.36);
+        backdrop-filter: blur(16px);
+      }
+      .estate-health-overlay .health-ring {
+        width: 92px;
+        height: 92px;
+      }
+      .estate-health-overlay .health-ring span {
+        font-size: 20px;
+      }
+      .estate-health-overlay .health-legend {
+        gap: 5px;
+        margin: 9px 0;
+      }
+      .estate-health-overlay .health-legend span {
+        font-size: 10px;
+      }
+      .live-infra-actionbar {
+        position: absolute;
+        left: 160px;
+        right: 14px;
+        bottom: 14px;
+        z-index: 7;
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 7px;
+        padding: 7px;
+        border-radius: 14px;
+        border: 1px solid rgba(149, 166, 255, 0.14);
+        background: rgba(5, 12, 28, 0.68);
+        backdrop-filter: blur(16px);
+      }
+      .live-infra-action {
+        min-width: 0;
+        border: 1px solid rgba(149, 166, 255, 0.12);
+        border-radius: 11px;
+        padding: 8px;
+        color: rgba(238, 244, 255, 0.86);
+        background: linear-gradient(145deg, rgba(17, 29, 58, 0.78), rgba(8, 14, 31, 0.74));
+        text-align: left;
+        cursor: pointer;
+        transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+      }
+      .live-infra-action:hover {
+        transform: translateY(-2px);
+        border-color: rgba(54, 163, 255, 0.5);
+        box-shadow: 0 0 24px rgba(54, 163, 255, 0.2);
+      }
+      .live-infra-action strong {
+        display: block;
+        font-size: 10px;
+        font-weight: 560;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .live-infra-action span {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 10px;
+      }
       .ghost.compact {
         padding: 7px 10px;
         border-radius: 12px;
@@ -3412,6 +3739,34 @@
           overflow: visible;
           height: auto;
         }
+        .live-infra-head {
+          grid-template-columns: 1fr;
+        }
+        .live-infra-tabs {
+          width: 100%;
+          overflow-x: auto;
+        }
+        .live-infra-viewport,
+        .live-infra-canvas {
+          min-height: 520px;
+        }
+        .estate-health-overlay {
+          left: 12px;
+          right: 12px;
+          bottom: 86px;
+          width: auto;
+        }
+        .live-infra-actionbar {
+          left: 12px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          max-height: 112px;
+          overflow: auto;
+        }
+        .live-infra-drawer {
+          left: 12px;
+          right: 62px;
+          width: auto;
+        }
         .overview-shell {
           height: auto;
         }
@@ -3791,18 +4146,24 @@
 	                  </article>
 	                  <div class="overview-dashboard-grid">
 	                    <div class="overview-main-column">
-	                      <section class="infra-board" aria-label="Infrastructure health map">
-	                        <div class="infra-map-card">
-	                          <div class="infra-map-head">
-	                            <div>
-	                              <p class="eyebrow">Infrastructure Health Map</p>
-	                              <h3>Live estate command layer</h3>
-	                            </div>
-	                            <button class="ghost compact" data-office-target="facility" type="button">All Estates</button>
+	                      <section class="live-infra-card" aria-label="Live Infrastructure View">
+	                        <div class="live-infra-head">
+	                          <div>
+	                            <p class="eyebrow">LIVE INFRASTRUCTURE VIEW</p>
+	                            <h3 id="liveInfraEstateName">Ochiga connected estates</h3>
+	                            <span id="liveInfraLocation">Operational estate layer</span>
 	                          </div>
-	                          <div class="city-map mapbox-ready" id="officeCityMap" data-map-provider="mapbox" data-map-mode="estate-health">
+	                          <div class="live-infra-tabs" role="tablist" aria-label="Infrastructure view mode">
+	                            <button class="live-infra-tab active" data-live-infra-mode="map" type="button">Map</button>
+	                            <button class="live-infra-tab" data-live-infra-mode="twin" type="button">3D Twin</button>
+	                            <button class="live-infra-tab" data-live-infra-mode="hybrid" type="button">Hybrid</button>
+	                            <button class="live-infra-tab" data-live-infra-mode="heatmap" type="button">Heat Map</button>
+	                          </div>
+	                          <button class="ghost compact" data-office-target="facility" type="button">View in Facility OS</button>
+	                        </div>
+	                        <div class="live-infra-viewport" data-live-infra-viewport>
+	                          <div class="city-map mapbox-ready live-infra-canvas" id="officeCityMap" data-map-provider="google" data-map-mode="estate-health">
 	                            <span class="city-glow"></span>
-	                            <div id="officeMapLabels"></div>
 	                            <div class="building b1"></div>
 	                            <div class="building b2"></div>
 	                            <div class="building b3"></div>
@@ -3810,17 +4171,30 @@
 	                            <div class="building b5"></div>
 	                            <div class="building b6"></div>
 	                          </div>
-	                        </div>
-	                        <aside class="infra-health-card">
-	                          <p class="eyebrow">System Health</p>
-	                          <div class="health-ring"><span id="officeHealthMetric">92%</span><small>Overall Health</small></div>
-	                          <div class="health-legend" id="officeHealthLegend">
-	                            <span><i class="healthy"></i>Healthy <strong>0</strong></span>
-	                            <span><i class="warning"></i>Warning <strong>0</strong></span>
-	                            <span><i class="critical"></i>Critical <strong>0</strong></span>
-	                            <span><i class="offline"></i>Offline <strong>0</strong></span>
+	                          <div class="live-infra-overlay" id="liveInfraOverlay">
+	                            <div id="officeMapLabels"></div>
 	                          </div>
-	                        </aside>
+	                          <div class="live-infra-controls" aria-label="Infrastructure controls">
+	                            <button data-live-infra-control="layers" type="button">Layers</button>
+	                            <button data-live-infra-control="filters" type="button">Filters</button>
+	                            <button data-live-infra-control="zoom-in" type="button">+</button>
+	                            <button data-live-infra-control="zoom-out" type="button">−</button>
+	                            <button data-live-infra-control="reset" type="button">Reset</button>
+	                          </div>
+	                          <aside class="live-infra-drawer" id="liveInfraPanel" aria-live="polite"></aside>
+	                          <aside class="estate-health-overlay" id="liveInfraHealthPanel">
+	                            <p class="eyebrow">Estate Health</p>
+	                            <div class="health-ring"><span id="officeHealthMetric">92%</span><small>Overall Health</small></div>
+	                            <div class="health-legend" id="officeHealthLegend">
+	                              <span><i class="healthy"></i>Healthy <strong>0</strong></span>
+	                              <span><i class="warning"></i>Warning <strong>0</strong></span>
+	                              <span><i class="critical"></i>Critical <strong>0</strong></span>
+	                              <span><i class="offline"></i>Offline <strong>0</strong></span>
+	                            </div>
+	                            <button class="ghost compact" data-live-infra-control="report" type="button">View Full Report</button>
+	                          </aside>
+	                          <nav class="live-infra-actionbar" id="liveInfraActions" aria-label="Infrastructure routing actions"></nav>
+	                        </div>
 	                      </section>
 	                      <section class="overview-analytics-grid">
 	                        <article class="mission-card">

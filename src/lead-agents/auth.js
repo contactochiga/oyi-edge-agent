@@ -1,5 +1,9 @@
 const crypto = require("crypto");
 const { normalizeEmail } = require("./normalize-lead");
+const {
+  hasPermission,
+  permissionsForRole: unifiedPermissionsForRole,
+} = require("./permissions");
 
 function secureEqual(a, b) {
   const left = Buffer.from(String(a || ""));
@@ -118,126 +122,9 @@ function verifyPassword(password, storedHash) {
   return secureEqual(actualHash, expectedHash);
 }
 
-const ROLE_PERMISSIONS = {
-  admin: [
-    "view_dashboard",
-    "view_reports",
-    "view_traces",
-    "view_audit",
-    "view_users",
-    "manage_users",
-    "manage_security",
-    "manage_leads",
-    "manage_demos",
-    "manage_commercial",
-    "manage_takeover",
-    "manage_notifications",
-    "escalate_founder",
-    "change_password",
-    "view_office",
-    "manage_office",
-    "view_estates",
-    "manage_estates",
-    "view_buildings",
-    "manage_buildings",
-    "view_devices",
-    "manage_devices",
-    "view_wallets",
-    "manage_wallets",
-    "view_documents",
-    "manage_documents",
-    "view_integrations",
-    "manage_integrations",
-    "view_storage",
-    "manage_storage",
-  ],
-  founder: [
-    "view_dashboard",
-    "view_reports",
-    "view_traces",
-    "view_audit",
-    "view_users",
-    "manage_leads",
-    "manage_demos",
-    "manage_commercial",
-    "manage_takeover",
-    "manage_notifications",
-    "escalate_founder",
-    "change_password",
-    "view_office",
-    "manage_office",
-    "view_estates",
-    "manage_estates",
-    "view_buildings",
-    "manage_buildings",
-    "view_devices",
-    "manage_devices",
-    "view_wallets",
-    "manage_wallets",
-    "view_documents",
-    "manage_documents",
-    "view_integrations",
-    "manage_integrations",
-    "view_storage",
-    "manage_storage",
-  ],
-  operator: [
-    "view_dashboard",
-    "view_reports",
-    "view_audit",
-    "manage_leads",
-    "manage_demos",
-    "manage_commercial",
-    "manage_takeover",
-    "manage_notifications",
-    "escalate_founder",
-    "change_password",
-    "view_office",
-    "manage_office",
-    "view_estates",
-    "manage_estates",
-    "view_buildings",
-    "manage_buildings",
-    "view_devices",
-    "manage_devices",
-    "view_documents",
-    "manage_documents",
-    "view_integrations",
-    "manage_integrations",
-    "view_storage",
-    "manage_storage",
-  ],
-  sales: [
-    "view_dashboard",
-    "view_reports",
-    "manage_commercial",
-    "manage_leads",
-    "manage_demos",
-    "manage_notifications",
-    "change_password",
-    "view_office",
-    "view_estates",
-    "view_buildings",
-    "view_devices",
-    "view_documents",
-    "view_integrations",
-    "view_storage",
-  ],
-  viewer: [
-    "view_dashboard",
-    "view_reports",
-    "change_password",
-    "view_office",
-    "view_estates",
-    "view_buildings",
-    "view_devices",
-    "view_documents",
-  ],
-};
 
 function permissionsForRole(role, extraScopes) {
-  const base = ROLE_PERMISSIONS[String(role || "viewer")] || ROLE_PERMISSIONS.viewer;
-  return Array.from(new Set(base.concat(Array.isArray(extraScopes) ? extraScopes : [])));
+  return unifiedPermissionsForRole(role, extraScopes);
 }
 
 function authorizeRole(session, allowedRoles) {
@@ -266,7 +153,7 @@ function authorizePermission(session, permission) {
   if (session.type === "api_key") {
     return session;
   }
-  if (permissionsForRole(session.role, session.permissionScopes).includes(permission)) {
+  if (hasPermission(session, permission)) {
     return session;
   }
   const error = new Error("forbidden");

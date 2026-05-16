@@ -31,6 +31,7 @@ class FileLeadAgentsStore {
       office_analytics: [],
       office_documents: [],
       office_support_mappings: [],
+      office_files: [],
     };
     this.pendingWrite = Promise.resolve();
   }
@@ -70,6 +71,7 @@ class FileLeadAgentsStore {
         office_support_mappings: Array.isArray(parsed.office_support_mappings)
           ? parsed.office_support_mappings
           : [],
+        office_files: Array.isArray(parsed.office_files) ? parsed.office_files : [],
       };
       if (await this.ensureOfficeSeedData()) {
         await this.persist();
@@ -709,15 +711,23 @@ class FileLeadAgentsStore {
   }
 
   async appendAuditEvent(input) {
+    const metadata = input.metadata && typeof input.metadata === "object" ? input.metadata : {};
     const event = {
       id: crypto.randomUUID(),
       actor_user_id: input.actor_user_id || null,
+      actor_id: input.actor_user_id || null,
       actor_email: input.actor_email || "",
       actor_role: input.actor_role || "",
       action: input.action,
       target_type: input.target_type,
       target_id: input.target_id || "",
-      metadata: input.metadata || {},
+      resource_type: input.resource_type || input.target_type,
+      resource_id: input.resource_id || input.target_id || "",
+      estate_id: input.estate_id || metadata.estate_id || null,
+      status: input.status || metadata.status || "success",
+      ip: input.ip || metadata.ip || "",
+      user_agent: input.user_agent || metadata.user_agent || "",
+      metadata,
       created_at: this.nowIso(),
     };
     this.state.audit_events.push(event);
@@ -769,6 +779,32 @@ class FileLeadAgentsStore {
     return [...this.state.office_documents].sort((a, b) =>
       String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || ""))
     );
+  }
+
+  async createOfficeFile(input) {
+    const file = {
+      id: input.id,
+      storage_driver: input.storage_driver || "local",
+      storage_key: input.storage_key || input.filename || "",
+      filename: input.filename || "",
+      mime_type: input.mime_type || "application/octet-stream",
+      size: Number(input.size || 0),
+      purpose: input.purpose || "document",
+      resource_type: input.resource_type || "",
+      resource_id: input.resource_id || "",
+      url: input.url || "",
+      metadata: input.metadata || {},
+      created_at: input.created_at || this.nowIso(),
+    };
+    this.state.office_files.push(file);
+    await this.persist();
+    return file;
+  }
+
+  async listOfficeFiles(limit = 200) {
+    return [...(this.state.office_files || [])]
+      .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+      .slice(0, limit);
   }
 
   async updateOfficeAsset(kind, id, patch) {

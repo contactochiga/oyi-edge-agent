@@ -3,7 +3,6 @@ require("dotenv").config({ path: ".env.lead-agents.local", override: true });
 const http = require("http");
 const path = require("path");
 const crypto = require("crypto");
-const fs = require("fs/promises");
 const { createConfig } = require("./config");
 const { log } = require("./logger");
 const { createStore } = require("./store-factory");
@@ -31,6 +30,10 @@ const { buildProposal, inferCommercialFacts } = require("./commercial");
 const { createDigitalTwinRuntime } = require("./digital-twin");
 const { createPlanStudioRuntime } = require("./plan-studio");
 const { createOfficeSyncService } = require("./office-sync");
+const { appendAuditRecord } = require("./audit");
+const { PERMISSION_KEYS, ROLE_PERMISSIONS } = require("./permissions");
+const { createRealtimeHub } = require("./realtime");
+const { createStorageService } = require("./storage");
 const {
   passwordResetEmail,
   sendOfficeEmail,
@@ -59,6 +62,36 @@ function parseBoolean(value, fallback = false) {
   return String(value).toLowerCase() === "true";
 }
 
+function secureCompare(left, right) {
+  const a = Buffer.from(String(left || ""));
+  const b = Buffer.from(String(right || ""));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function getEdgeToken(req) {
+  const authHeader = String(req.headers.authorization || "");
+  if (authHeader.startsWith("Bearer ")) {
+    return authHeader.slice("Bearer ".length).trim();
+  }
+  return String(req.headers["x-edge-token"] || req.headers["x-oyi-edge-token"] || "").trim();
+}
+
+function tryEdgeAuth(req, config) {
+  const token = getEdgeToken(req);
+  if (!token || !Array.isArray(config.edgeAgentTokens) || config.edgeAgentTokens.length === 0) {
+    return null;
+  }
+  const allowed = config.edgeAgentTokens.some((candidate) => secureCompare(candidate, token));
+  if (!allowed) return null;
+  return {
+    type: "edge_token",
+    role: "ai_agent",
+    email: "edge-agent@oyi.local",
+    userId: "oyi_edge_agent",
+    permissions: permissionsForRole("ai_agent", ["twin.control", "devices.control"]),
+  };
+}
+
 function requireObject(body, name) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     const error = new Error(`${name} must be an object`);
@@ -78,41 +111,6 @@ function generateOpaqueToken() {
 
 function hashOpaqueToken(token) {
   return crypto.createHash("sha256").update(String(token || "")).digest("hex");
-}
-
-function createEventBus() {
-  const clients = new Set();
-  function send(res, event, payload) {
-    res.write(`event: ${event}\n`);
-    res.write(`data: ${JSON.stringify(payload || {})}\n\n`);
-  }
-  return {
-    add(res, session) {
-      clients.add(res);
-      send(res, "ready", {
-        message: "ochiga_office_stream_ready",
-        email: session?.email || "",
-        ts: new Date().toISOString(),
-      });
-      return () => {
-        clients.delete(res);
-      };
-    },
-    publish(event, payload) {
-      const data = {
-        ...payload,
-        event,
-        ts: new Date().toISOString(),
-      };
-      for (const res of clients) {
-        try {
-          send(res, event, data);
-        } catch {
-          clients.delete(res);
-        }
-      }
-    },
-  };
 }
 
 function parseDataUrl(value) {
@@ -135,16 +133,6 @@ function extensionForAudioMime(mimeType) {
   if (clean.includes("ogg")) return ".ogg";
   if (clean.includes("webm")) return ".webm";
   return ".webm";
-}
-
-function extensionForMime(mimeType) {
-  const clean = String(mimeType || "").toLowerCase();
-  if (clean.includes("jpeg") || clean.includes("jpg")) return ".jpg";
-  if (clean.includes("png")) return ".png";
-  if (clean.includes("webp")) return ".webp";
-  if (clean.includes("svg")) return ".svg";
-  if (clean.includes("pdf")) return ".pdf";
-  return ".bin";
 }
 
 function integrationStatus(config) {
@@ -178,7 +166,7 @@ function integrationStatus(config) {
       key: "storage",
       name: "Office Storage",
       configured: Boolean(config.officeStorageDir),
-      driver: "local",
+      driver: config.officeStorageDriver || "local",
       path: config.officeStorageDir,
     },
     events: {
@@ -305,50 +293,6 @@ function escapeHtmlText(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
-}
-
-async function storeOfficeFile(config, input) {
-  const parsed = parseDataUrl(input.data_url || input.dataUrl || "");
-  if (!parsed) {
-    const error = new Error("data_url is required");
-    error.statusCode = 400;
-    throw error;
-  }
-  const purpose = String(input.purpose || "document").toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
-  const id = `${purpose}_${Date.now().toString(36)}_${crypto.randomBytes(6).toString("hex")}`;
-  const ext = extensionForMime(input.mime_type || parsed.mimeType);
-  await fs.mkdir(config.officeStorageDir, { recursive: true });
-  const filename = `${id}${ext}`;
-  const filePath = path.join(config.officeStorageDir, filename);
-  await fs.writeFile(filePath, parsed.buffer);
-  return {
-    id,
-    filename,
-    mime_type: input.mime_type || parsed.mimeType,
-    size: parsed.buffer.length,
-    purpose,
-    url: `/api/lead-agents/admin/storage/${encodeURIComponent(filename)}`,
-    created_at: new Date().toISOString(),
-  };
-}
-
-async function storeOfficeTextFile(config, input) {
-  const purpose = String(input.purpose || "document").toLowerCase().replace(/[^a-z0-9_-]+/g, "_");
-  const id = `${purpose}_${Date.now().toString(36)}_${crypto.randomBytes(6).toString("hex")}`;
-  const ext = input.extension || ".html";
-  await fs.mkdir(config.officeStorageDir, { recursive: true });
-  const filename = `${id}${ext}`;
-  const filePath = path.join(config.officeStorageDir, filename);
-  await fs.writeFile(filePath, String(input.content || ""), "utf8");
-  return {
-    id,
-    filename,
-    mime_type: input.mime_type || "text/html",
-    size: Buffer.byteLength(String(input.content || ""), "utf8"),
-    purpose,
-    url: `/api/lead-agents/admin/storage/${encodeURIComponent(filename)}`,
-    created_at: new Date().toISOString(),
-  };
 }
 
 function documentHtml(config, input) {
@@ -863,16 +807,16 @@ async function buildChannelOverview(store, config) {
   };
 }
 
-async function appendAudit(store, authContext, action, targetType, targetId, metadata) {
-  if (!store.appendAuditEvent) return null;
-  return store.appendAuditEvent({
-    actor_user_id: authContext?.userId || null,
-    actor_email: authContext?.email || "",
-    actor_role: authContext?.role || "",
+async function appendAudit(store, authContext, action, targetType, targetId, metadata, req, status) {
+  return appendAuditRecord({
+    store,
+    authContext,
     action,
-    target_type: targetType,
-    target_id: targetId || "",
+    resourceType: targetType,
+    resourceId: targetId || "",
     metadata: metadata || {},
+    req,
+    status,
   });
 }
 
@@ -1144,7 +1088,8 @@ async function enrichAuthContext(authContext, store) {
 
 function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, openaiClient }) {
   const startedAt = Date.now();
-  const eventBus = createEventBus();
+  const eventBus = createRealtimeHub();
+  const storageService = createStorageService(config);
   const digitalTwinRuntime = createDigitalTwinRuntime();
   const planStudioRuntime = createPlanStudioRuntime({
     storePath: path.join(process.cwd(), "data", "plan-studio-store.json"),
@@ -1242,20 +1187,13 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         pathname === "/digital-twin/model/twin.gltf" ||
         pathname === "/digital-twin/model/twin.bin" ||
         pathname === "/digital-twin/model/twin.glb" ||
-        pathname === "/api/digital-twin/scene" ||
-        pathname === "/api/digital-twin/device-action" ||
-        pathname === "/api/digital-twin/edge-sync";
+        pathname === "/api/digital-twin/scene";
       const isPublicPlanStudioPath =
         pathname === "/plan-studio" ||
         pathname === "/plan-studio/" ||
         pathname === "/plan-studio/app.js" ||
-        pathname === "/api/plan-studio/projects" ||
-        pathname === "/api/plan-studio/project" ||
-        pathname === "/api/plan-studio/analyze" ||
-        pathname === "/api/plan-studio/agent" ||
-        pathname === "/api/plan-studio/discipline" ||
-        pathname === "/api/plan-studio/parse" ||
-        pathname === "/api/plan-studio/geometry";
+        (pathname === "/api/plan-studio/projects" && req.method === "GET") ||
+        (pathname === "/api/plan-studio/project" && req.method === "GET");
       const isPublicDashboardPath =
         pathname === "/dashboard" ||
         pathname === "/dashboard/" ||
@@ -1276,7 +1214,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         !isPublicAdminSessionPath &&
         !isPublicWhatsappPath
       ) {
-        authContext = enforceAuth(req, config);
+        authContext = tryEdgeAuth(req, config) || enforceAuth(req, config);
         authContext = await enrichAuthContext(authContext, store);
         const rateLimitState = rateLimiter.check(req);
         res.setHeader("x-ratelimit-remaining", String(rateLimitState.remaining));
@@ -1297,6 +1235,22 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           stats: await store.stats(),
           environment: config.environment,
           store_driver: config.storeDriver,
+          tier1: {
+            auth: {
+              mode: config.authMode,
+              session_cookie: config.sessionCookieName,
+            },
+            permissions: {
+              roles: Object.keys(ROLE_PERMISSIONS),
+              permission_count: PERMISSION_KEYS.length,
+            },
+            storage: storageService.health(),
+            realtime: eventBus.stats(),
+            database: {
+              store_driver: config.storeDriver,
+              connected: true,
+            },
+          },
         });
         return;
       }
@@ -1717,12 +1671,22 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           methodNotAllowed(res, "POST");
           return;
         }
+        authorizePermission(authContext, "twin.control");
         const body = await readJsonBody(req);
         if (!body.device_id || !body.action) {
           json(res, 400, { error: "device_id and action are required" });
           return;
         }
         const result = digitalTwinRuntime.dispatchAction(body.device_id, body.action);
+        await appendAudit(store, authContext, "twin.device.action", "digital_twin_device", body.device_id, {
+          action: body.action,
+          source: "digital_twin",
+        }, req);
+        eventBus.publish("twin.state.updated", {
+          device_id: body.device_id,
+          action: body.action,
+          result,
+        });
         json(res, 200, result, {
           "x-request-id": ctx.requestId,
         });
@@ -1734,7 +1698,16 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           methodNotAllowed(res, "POST");
           return;
         }
+        authorizePermission(authContext, "devices.control");
         const result = digitalTwinRuntime.syncEdge();
+        await appendAudit(store, authContext, "edge.heartbeat", "edge_agent", "digital_twin_edge", {
+          source: "digital_twin_edge_sync",
+          result,
+        }, req);
+        eventBus.publish("edge.heartbeat", {
+          source: "digital_twin_edge_sync",
+          result,
+        });
         json(res, 200, result, {
           "x-request-id": ctx.requestId,
         });
@@ -1748,12 +1721,17 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           return;
         }
         if (req.method === "POST") {
+          authorizePermission(authContext, "planstudio.write");
           const body = await readJsonBody(req, 12 * 1024 * 1024);
           if (!body.image_data_url || !body.file_name) {
             json(res, 400, { error: "image_data_url and file_name are required" });
             return;
           }
           const project = await planStudioRuntime.saveProject(body);
+          await appendAudit(store, authContext, "plan.uploaded", "plan", project.id, {
+            file_name: project.file_name || body.file_name,
+            source: "plan_studio",
+          }, req);
           json(res, 200, { project }, { "x-request-id": ctx.requestId });
           return;
         }
@@ -1786,6 +1764,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           methodNotAllowed(res, "POST");
           return;
         }
+        authorizePermission(authContext, "planstudio.write");
         const body = await readJsonBody(req);
         if (!body.project_id) {
           json(res, 400, { error: "project_id is required" });
@@ -1808,6 +1787,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           methodNotAllowed(res, "POST");
           return;
         }
+        authorizePermission(authContext, "planstudio.write");
         const body = await readJsonBody(req, 12 * 1024 * 1024);
         if (!body.image_data_url) {
           json(res, 400, { error: "image_data_url is required" });
@@ -1828,6 +1808,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           methodNotAllowed(res, "POST");
           return;
         }
+        authorizePermission(authContext, "planstudio.read");
         const body = await readJsonBody(req, 12 * 1024 * 1024);
         if (!body.project_id || !body.question) {
           json(res, 400, { error: "project_id and question are required" });
@@ -1853,6 +1834,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           methodNotAllowed(res, "POST");
           return;
         }
+        authorizePermission(authContext, "planstudio.write");
         const body = await readJsonBody(req);
         if (!body.project_id || !body.discipline) {
           json(res, 400, { error: "project_id and discipline are required" });
@@ -1876,6 +1858,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           methodNotAllowed(res, "POST");
           return;
         }
+        authorizePermission(authContext, "planstudio.write");
         const body = await readJsonBody(req, 12 * 1024 * 1024);
         if (!body.project_id || !body.geometry_truth) {
           json(res, 400, { error: "project_id and geometry_truth are required" });
@@ -2695,13 +2678,17 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           200,
           {
             roles: {
+              ...Object.fromEntries(
+                Object.keys(ROLE_PERMISSIONS).map((role) => [role, permissionsForRole(role)])
+              ),
               admin: permissionsForRole("admin"),
               founder: permissionsForRole("founder"),
               operator: permissionsForRole("operator"),
               sales: permissionsForRole("sales"),
               viewer: permissionsForRole("viewer"),
             },
-            scopes: permissionsForRole("admin"),
+            scopes: PERMISSION_KEYS,
+            legacy_scopes: permissionsForRole("admin").filter((scope) => !scope.includes(".")),
           },
           { "x-request-id": ctx.requestId }
         );
@@ -2775,7 +2762,11 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         authorizePermission(authContext, "manage_storage");
         const body = await readJsonBody(req, 16 * 1024 * 1024);
         requireObject(body, "body");
-        const file = await storeOfficeFile(config, body);
+        const storedFile = await storageService.putDataUrl(body);
+        const file =
+          typeof store.createOfficeFile === "function"
+            ? await store.createOfficeFile(storedFile)
+            : storedFile;
         await appendAudit(store, authContext, "office_file_uploaded", "office_file", file.id, {
           filename: file.filename,
           mime_type: file.mime_type,
@@ -2804,12 +2795,18 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         }
         const id = `doc_${Date.now().toString(36)}_${crypto.randomBytes(5).toString("hex")}`;
         const html = documentHtml(config, body);
-        const storedHtml = await storeOfficeTextFile(config, {
+        const storedHtmlRaw = await storageService.putText({
           purpose: "office_document",
           extension: ".html",
           mime_type: "text/html; charset=utf-8",
           content: html,
+          resource_type: "office_document",
+          resource_id: id,
         });
+        const storedHtml =
+          typeof store.createOfficeFile === "function"
+            ? await store.createOfficeFile(storedHtmlRaw)
+            : storedHtmlRaw;
         const documentRecord = await store.createOfficeDocument({
           id,
           title: body.title,
@@ -3152,11 +3149,17 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         requireObject(body, "body");
         let passportPhotoUrl = body.passport_photo_url || "";
         if (!passportPhotoUrl && body.photo_data_url) {
-          const storedPhoto = await storeOfficeFile(config, {
+          const storedPhotoRaw = await storageService.putDataUrl({
             data_url: body.photo_data_url,
-            purpose: "staff_passport",
+            purpose: "staff_photo",
             mime_type: body.mime_type,
+            resource_type: "staff",
+            resource_id: adminUserPhotoMatch[1],
           });
+          const storedPhoto =
+            typeof store.createOfficeFile === "function"
+              ? await store.createOfficeFile(storedPhotoRaw)
+              : storedPhotoRaw;
           passportPhotoUrl = storedPhoto.url;
         }
         if (!passportPhotoUrl) {
@@ -3246,13 +3249,32 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
 
       notFound(res);
     } catch (err) {
+      if (err?.statusCode === 403 || err?.message === "forbidden") {
+        try {
+          await appendAudit(
+            store,
+            authContext,
+            "permission.denied",
+            "route",
+            pathname,
+            { method: req.method },
+            req,
+            "denied"
+          );
+          eventBus.publish("audit.recorded", {
+            action: "permission.denied",
+            route: pathname,
+            actor: authContext?.email || "",
+          });
+        } catch (_) {}
+      }
       log("error", "lead_agents_server.request_failed", {
         request_id: ctx.requestId,
         method: req.method,
         pathname,
         error: err?.stack || err?.message || String(err),
         upstream_status: err?.response?.status,
-        upstream_data: err?.response?.data,
+        upstream_data: config.environment === "production" ? undefined : err?.response?.data,
       });
 
       json(
@@ -3261,7 +3283,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         {
           error: err.message || "internal_server_error",
           upstream_status: err?.response?.status,
-          upstream_data: err?.response?.data,
+          upstream_data: config.environment === "production" ? undefined : err?.response?.data,
           request_id: ctx.requestId,
         },
         { "x-request-id": ctx.requestId }
