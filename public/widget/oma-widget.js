@@ -15,7 +15,7 @@
   const accentColor = (script && script.dataset.accentColor) || "#f2c66d";
   const greeting =
     (script && script.dataset.greeting) ||
-    `Hi, I'm ${agentName}. I can route you to Oma, Osa, support, or the right Ochiga system.`;
+    `Hi, I'm ${agentName}. Say "Hey Oyi", tap the orb, or send a message. I can explain Ochiga, pitch Oyi, and route you to Oma, Osa, support, or the right Ochiga system.`;
   const source = (script && script.dataset.source) || "website_widget";
   const storageKey = "oyi_widget_lead_id";
   const legacyStorageKey = "oma_widget_lead_id";
@@ -1321,6 +1321,8 @@
         message: text,
         profile: {
           interaction_mode: config.submittedBy || "type",
+          widget_context:
+            "Oyi AI is the parent communication layer for Ochiga. Oma and Osa are child agents. Ochiga builds infrastructure technology for estates, buildings, utilities, and connected communities.",
           attached_files: pendingFiles.map(function (file) {
             return {
               name: file.name,

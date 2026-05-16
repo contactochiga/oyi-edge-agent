@@ -981,9 +981,10 @@ function publicFallbackReply(message, lead) {
 
   if (asksAboutCompany) {
     return [
-      "Hi, I'm Oma.",
-      "Ochiga builds infrastructure technology for estates, buildings, and connected communities.",
-      "Oyi is Ochiga's operating system for estate operations, access workflows, monitoring, resident services, and facility coordination.",
+      "Hi, I'm Oyi.",
+      "Ochiga builds infrastructure technology for estates, buildings, utilities, and connected communities.",
+      "Oyi is the operating and communication layer for that ecosystem: estate operations, access workflows, monitoring, resident services, support, payments, and facility coordination in one system.",
+      "For customers, it creates operational control. For partners and investors, it is the foundation for smart estate and city-scale infrastructure systems.",
       "If you're working on a live project, share the location, number of units or buildings, and what you need most right now, and I'll guide the next step.",
     ].join(" ");
   }
@@ -1005,8 +1006,8 @@ function publicFallbackReply(message, lead) {
   }
 
   return [
-    "Hi, I'm Oma.",
-    "I can help with Ochiga and Oyi for estates, buildings, access workflows, monitoring, resident experience, and facility operations.",
+    "Hi, I'm Oyi.",
+    "I can help with Ochiga and Oyi for estates, buildings, access workflows, monitoring, resident experience, facility operations, partnerships, and investment conversations.",
     "Tell me your project location, approximate scale, and what you need most right now, and I'll point you correctly.",
   ].join(" ");
 }

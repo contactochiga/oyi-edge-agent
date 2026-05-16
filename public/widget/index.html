@@ -151,6 +151,36 @@
         color: rgba(255, 255, 255, 0.62);
         font-size: 13px;
         letter-spacing: 0.04em;
+        text-align: center;
+        width: min(92%, 520px);
+      }
+      .wake-status {
+        position: absolute;
+        top: 8%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 13px;
+        border-radius: 999px;
+        color: rgba(232, 246, 238, 0.78);
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 12px;
+        backdrop-filter: blur(14px);
+      }
+      .wake-status::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: #f2c66d;
+        box-shadow: 0 0 16px rgba(242, 198, 109, 0.7);
+      }
+      .wake-status.active::before {
+        background: #49e58d;
+        box-shadow: 0 0 16px rgba(73, 229, 141, 0.8);
       }
       @keyframes breathe {
         0%, 100% { transform: scale(0.96); opacity: 0.78; }
@@ -237,11 +267,12 @@
         </p>
       </section>
       <section class="agent-stage" aria-label="Sleeping AI agent preview">
+        <div class="wake-status" id="wake-status">Wake listener preparing...</div>
         <button class="agent-orb" id="oyi-orb" type="button" aria-label="Start Oyi communication">
           <span>Hey Oyi</span>
           <span class="orb-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
         </button>
-        <div class="orb-hint" id="orb-hint">Tap the orb to wake Oyi and open the communication widget.</div>
+        <div class="orb-hint" id="orb-hint">Say "Hey Oyi", say "Hey O", clap twice, or tap the orb to wake Oyi.</div>
       </section>
       <div class="cards">
         <div class="card">
@@ -280,25 +311,122 @@
     <script>
       const orb = document.getElementById("oyi-orb");
       const hint = document.getElementById("orb-hint");
+      const wakeStatus = document.getElementById("wake-status");
+      let wakeCooldownUntil = 0;
+      let clapHits = [];
+      let clapContext;
+      let clapStream;
+      let clapFrame;
 
-      function wakeOyi() {
+      function setWakeStatus(text, active) {
+        if (!wakeStatus) return;
+        wakeStatus.textContent = text;
+        wakeStatus.classList.toggle("active", Boolean(active));
+      }
+
+      function wakeOyi(trigger = "tap") {
         if (!orb) return;
+        if (Date.now() < wakeCooldownUntil) return;
+        wakeCooldownUntil = Date.now() + 2400;
         orb.classList.add("listening", "launching");
+        setWakeStatus(`Oyi woke by ${trigger}.`, true);
         if (hint) {
-          hint.textContent = "Oyi is moving into the communication dock...";
+          hint.textContent = "Oyi is here. Ask what you want it to do.";
         }
         window.dispatchEvent(new CustomEvent("oyi:open", { detail: { mode: "voice" } }));
         window.setTimeout(() => {
           orb.classList.remove("launching");
           if (hint) {
-            hint.textContent = "Oyi is active below. Tap the orb again to return to voice mode.";
+            hint.textContent = "Oyi is active below. Say a request, or use chat if a dashboard view is needed.";
           }
         }, 900);
       }
 
-      if (orb) {
-        orb.addEventListener("click", wakeOyi);
+      function startWakeWord() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          setWakeStatus("Wake word unavailable here. Clap or tap to wake.", false);
+          return;
+        }
+        const recognition = new SpeechRecognition();
+        recognition.lang = "en-NG";
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.onstart = () => setWakeStatus('Listening for "Hey Oyi" or "Hey O"...', true);
+        recognition.onresult = (event) => {
+          const heard = Array.from(event.results || [])
+            .map((result) => (result[0] ? result[0].transcript : ""))
+            .join(" ")
+            .toLowerCase();
+          if (/\b(hey\s+oyi|hey\s+o|hey\s+oe|oyi|o\s*e)\b/.test(heard)) {
+            wakeOyi("wake word");
+          }
+        };
+        recognition.onerror = () => setWakeStatus("Tap orb once to allow voice wake.", false);
+        recognition.onend = () => {
+          window.setTimeout(() => {
+            try {
+              recognition.start();
+            } catch (_) {}
+          }, 900);
+        };
+        try {
+          recognition.start();
+        } catch (_) {
+          setWakeStatus("Tap orb once to activate wake word.", false);
+        }
       }
+
+      async function startClapWake() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          return;
+        }
+        try {
+          clapStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContext) return;
+          clapContext = new AudioContext();
+          const source = clapContext.createMediaStreamSource(clapStream);
+          const analyser = clapContext.createAnalyser();
+          analyser.fftSize = 512;
+          source.connect(analyser);
+          const samples = new Uint8Array(analyser.fftSize);
+          const tick = () => {
+            analyser.getByteTimeDomainData(samples);
+            let sum = 0;
+            for (let i = 0; i < samples.length; i += 1) {
+              const centered = (samples[i] - 128) / 128;
+              sum += centered * centered;
+            }
+            const rms = Math.sqrt(sum / samples.length);
+            const now = Date.now();
+            if (rms > 0.28) {
+              clapHits = clapHits.filter((hit) => now - hit < 760);
+              if (!clapHits.length || now - clapHits[clapHits.length - 1] > 140) {
+                clapHits.push(now);
+              }
+              if (clapHits.length >= 2) {
+                clapHits = [];
+                wakeOyi("double clap");
+              }
+            }
+            clapFrame = window.requestAnimationFrame(tick);
+          };
+          tick();
+        } catch (_) {
+          setWakeStatus("Tap orb once to allow clap wake.", false);
+        }
+      }
+
+      if (orb) {
+        orb.addEventListener("click", () => {
+          wakeOyi("tap");
+          startClapWake();
+          startWakeWord();
+        });
+      }
+      startWakeWord();
+      startClapWake();
     </script>
   </body>
 </html>
