@@ -43,15 +43,12 @@
       button, input { font: inherit; }
       .oyi-screen {
         min-height: 100vh;
+        width: 100vw;
         padding: 28px;
         display: grid;
         grid-template-rows: auto 1fr auto;
         gap: 18px;
-        position: fixed;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 20;
+        position: relative;
         z-index: 1;
       }
       .topbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
@@ -77,7 +74,11 @@
         font-size: clamp(14px, 1.4vw, 17px);
         letter-spacing: .22em;
         text-transform: uppercase;
-        position: relative;
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 20;
         background:
           radial-gradient(circle at 46% 42%, rgba(255,255,255,.38), transparent 13%),
           radial-gradient(circle at center, rgba(242,198,109,.24), rgba(13,92,70,.28) 48%, transparent 67%);
@@ -87,7 +88,7 @@
       }
       .agent-orb.docked { left: calc(100vw - 65px); top: calc(100vh - 131px); width: 70px; height: 70px; z-index: 30; font-size: 9px; letter-spacing: .1em; }
       .agent-orb.listening .brain-wave, .agent-orb.speaking .brain-wave { opacity: 1; }
-      .agent-orb.listening .brain-wave-track { animation: scanLine 1.15s linear infinite; }
+      .agent-orb.listening .brain-wave-track { animation: scanLine .95s linear infinite; }
       .agent-orb.speaking .brain-wave i { animation: bounceLine .72s ease-in-out infinite; }
       .agent-orb.listening .orb-wave { opacity: 0; }
       .agent-orb::after { content: ""; position: absolute; inset: -20%; border-radius: inherit; border: 1px solid rgba(255,255,255,.12); }
@@ -96,13 +97,13 @@
       .orb-wave { position: absolute; inset: 34%; display: flex; align-items: center; justify-content: center; gap: 6px; opacity: 0; transition: opacity .18s ease; }
       .orb-wave i { width: 4px; height: 18px; border-radius: 99px; background: #fff; animation: wave .9s ease-in-out infinite; }
       .orb-wave i:nth-child(2) { animation-delay: 90ms; } .orb-wave i:nth-child(3) { animation-delay: 180ms; } .orb-wave i:nth-child(4) { animation-delay: 270ms; } .orb-wave i:nth-child(5) { animation-delay: 360ms; }
-      .brain-wave { position: absolute; left: 50%; top: 52%; width: 74%; height: 34px; transform: translate(-50%, -50%); opacity: 0; overflow: hidden; pointer-events: none; transition: opacity .2s ease; border-radius: 999px; mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
-      .brain-wave::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.18), rgba(242,198,109,.54), rgba(73,229,141,.46), transparent); }
-      .brain-wave-track { position: absolute; left: -28%; top: 0; width: 156%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 3px; }
-      .brain-wave i { width: 2px; height: var(--h, 8px); border-radius: 999px; background: linear-gradient(180deg, rgba(255,255,255,.08), #fff, rgba(242,198,109,.62)); box-shadow: 0 0 10px rgba(242,198,109,.32); }
-      .brain-wave i:nth-child(3n) { --h: 16px; } .brain-wave i:nth-child(4n) { --h: 10px; } .brain-wave i:nth-child(5n) { --h: 22px; }
+      .brain-wave { position: absolute; left: 50%; top: 52%; width: 72%; height: 30px; transform: translate(-50%, -50%); opacity: .28; overflow: hidden; pointer-events: none; transition: opacity .2s ease; border-radius: 999px; mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+      .brain-wave::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), rgba(242,198,109,.45), rgba(73,229,141,.38), transparent); }
+      .brain-wave-track { position: absolute; left: -26%; top: 0; width: 152%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; }
+      .brain-wave i { width: 3px; height: var(--h, 3px); border-radius: 999px; background: rgba(255,255,255,.88); box-shadow: 0 0 9px rgba(242,198,109,.34); transition: height 70ms linear, opacity 70ms linear; }
+      .brain-wave i:nth-child(3n) { --h: 5px; } .brain-wave i:nth-child(4n) { --h: 4px; } .brain-wave i:nth-child(5n) { --h: 7px; }
       @keyframes scanLine { from { transform: translateX(16%); } to { transform: translateX(-16%); } }
-      @keyframes bounceLine { 0%, 100% { height: 6px; opacity: .42; } 50% { height: var(--h, 18px); opacity: 1; } }
+      @keyframes bounceLine { 0%, 100% { height: 3px; opacity: .48; } 50% { height: var(--h, 14px); opacity: 1; } }
       .window-layer { position: fixed; inset: 84px 24px 118px 24px; z-index: 18; pointer-events: none; }
       .workspace { position: absolute; width: min(560px, calc(100vw - 72px)); height: min(500px, calc(100vh - 220px)); border: 1px solid var(--line); border-radius: 24px; background: rgba(3,10,8,.78); backdrop-filter: blur(24px); box-shadow: 0 34px 110px rgba(0,0,0,.38); overflow: hidden; display: grid; grid-template-rows: auto 1fr; opacity: 0; transform: translateY(16px) scale(.985); pointer-events: none; transition: opacity .28s ease, transform .28s ease; }
       .workspace.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
@@ -185,7 +186,7 @@
       const chatDrawer = document.getElementById("chat-drawer");
       const chatLog = document.getElementById("chat-log");
       let wakeCooldownUntil = 0, clapHits = [], leadId = window.localStorage.getItem("oyi_command_lead_id") || "", googleMapsPromise;
-      let mediaRecorder, mediaChunks = [], mediaStartedAt = 0, recordingMode = false, windowSeq = 0, activeWindow = null, zIndexBase = 40, micAnalyser, micWaveFrame, speakWaveTimer;
+      let mediaRecorder, mediaChunks = [], mediaStartedAt = 0, recordingMode = false, voiceStarting = false, windowSeq = 0, activeWindow = null, zIndexBase = 40, micAnalyser, micWaveFrame, speakWaveTimer, heardVoice = false, lastVoiceAt = 0, liveRecognition = null, liveTranscript = "";
 
       const fallback = {
         estates: [
@@ -252,18 +253,21 @@
       ];
 
       function blobToDataUrl(blob) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || "")); reader.onerror = () => reject(reader.error || new Error("Unable to read audio")); reader.readAsDataURL(blob); }); }
-      async function transcribeBlob(blob) { const dataUrl = await blobToDataUrl(blob); const r = await fetch("/api/lead-agents/public/transcribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ audio_data_url: dataUrl, mime_type: blob.type || "audio/webm", file_name: "oyi-command.webm", language: "en" }) }); const data = await r.json().catch(() => ({})); if (!r.ok) throw new Error(data.message || data.error || "Transcription failed"); return String(data.text || "").trim(); }
-      function startMicWave(stream) { stopMicWave(); const AudioContext = window.AudioContext || window.webkitAudioContext; if (!AudioContext) return; const context = new AudioContext(); const source = context.createMediaStreamSource(stream); micAnalyser = context.createAnalyser(); micAnalyser.fftSize = 256; source.connect(micAnalyser); const samples = new Uint8Array(micAnalyser.fftSize); const tick = () => { if (!micAnalyser) return; micAnalyser.getByteTimeDomainData(samples); let sum = 0; for (let i = 0; i < samples.length; i += 1) { const centered = (samples[i] - 128) / 128; sum += centered * centered; } tuneWave(Math.min(1, Math.sqrt(sum / samples.length) * 5)); micWaveFrame = requestAnimationFrame(tick); }; tick(); }
+      function preferredAudioMime() { const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"]; return types.find((type) => window.MediaRecorder?.isTypeSupported?.(type)) || ""; }
+      function audioExtension(type) { if (/mp4|mpeg/.test(type)) return ".m4a"; if (/ogg/.test(type)) return ".ogg"; return ".webm"; }
+      async function transcribeBlob(blob) { const dataUrl = await blobToDataUrl(blob); const mimeType = blob.type || "audio/webm"; const r = await fetch("/api/lead-agents/public/transcribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ audio_data_url: dataUrl, mime_type: mimeType, file_name: `oyi-command${audioExtension(mimeType)}`, language: "en" }) }); const data = await r.json().catch(() => ({})); if (!r.ok) throw new Error(data.message || data.error || "Transcription failed"); return String(data.text || "").trim(); }
+      function startLiveTranscript() { stopLiveTranscript(); liveTranscript = ""; const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) return; liveRecognition = new SpeechRecognition(); liveRecognition.lang = "en-NG"; liveRecognition.continuous = true; liveRecognition.interimResults = true; liveRecognition.onresult = (event) => { const text = Array.from(event.results || []).map((result) => result[0] ? result[0].transcript : "").join(" ").trim(); if (text) liveTranscript = text; }; liveRecognition.onerror = () => {}; liveRecognition.onend = () => { if (recordingMode) { try { liveRecognition.start(); } catch (_) {} } }; try { liveRecognition.start(); } catch (_) {} }
+      function stopLiveTranscript() { if (!liveRecognition) return; const recognition = liveRecognition; liveRecognition = null; try { recognition.onend = null; recognition.stop(); } catch (_) {} }
+      function startMicWave(stream) { stopMicWave(); heardVoice = false; lastVoiceAt = 0; const AudioContext = window.AudioContext || window.webkitAudioContext; if (!AudioContext) return; const context = new AudioContext(); const source = context.createMediaStreamSource(stream); micAnalyser = context.createAnalyser(); micAnalyser.fftSize = 256; source.connect(micAnalyser); const samples = new Uint8Array(micAnalyser.fftSize); const tick = () => { if (!micAnalyser) return; micAnalyser.getByteTimeDomainData(samples); let sum = 0; for (let i = 0; i < samples.length; i += 1) { const centered = (samples[i] - 128) / 128; sum += centered * centered; } const rms = Math.sqrt(sum / samples.length); const now = Date.now(); if (rms > .035) { heardVoice = true; lastVoiceAt = now; } tuneWave(Math.min(1, rms * 7)); if (recordingMode && mediaRecorder?.state === "recording") { const elapsed = now - mediaStartedAt; if ((heardVoice && elapsed > 1700 && now - lastVoiceAt > 1400) || elapsed > 15000) stopRecordingCommand(); } micWaveFrame = requestAnimationFrame(tick); }; tick(); }
       function stopMicWave() { if (micWaveFrame) cancelAnimationFrame(micWaveFrame); micWaveFrame = null; micAnalyser = null; }
-      async function startRecordingCommand() { if (!navigator.mediaDevices || !window.MediaRecorder) return startCommandRecognition(); if ("speechSynthesis" in window) window.speechSynthesis.cancel(); const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaChunks = []; mediaStartedAt = Date.now(); mediaRecorder = new MediaRecorder(stream); recordingMode = true; speakBtn.classList.add("recording"); speakBtn.textContent = "■"; orb.classList.remove("speaking"); orb.classList.add("listening"); startMicWave(stream); setWakeStatus("Oyi is recording your instruction...", true); wakeStatus.textContent = "Stop recording"; mediaRecorder.ondataavailable = (event) => { if (event.data?.size) mediaChunks.push(event.data); }; mediaRecorder.onstop = async () => { stopMicWave(); stream.getTracks().forEach((track) => track.stop()); recordingMode = false; speakBtn.classList.remove("recording"); speakBtn.textContent = "🎙"; orb.classList.remove("listening"); setWakeStatus("Oyi is transcribing your instruction...", true, "Transcribing..."); try { const transcript = await transcribeBlob(new Blob(mediaChunks, { type: mediaRecorder.mimeType || "audio/webm" })); if (!transcript) throw new Error("No transcript"); await handleCommand(transcript); } catch (_) { const reply = "I missed that. Try again or type the command."; addBubble("oyi", reply); oyiLast.textContent = ""; speak(reply); } finally { mediaChunks = []; if (!("speechSynthesis" in window) || !window.speechSynthesis.speaking) setWakeStatus("", false, "Talk to Oyi"); } }; mediaRecorder.start(); }
+      async function startRecordingCommand() { if (!navigator.mediaDevices || !window.MediaRecorder) { voiceStarting = false; return startCommandRecognition(); } if ("speechSynthesis" in window) window.speechSynthesis.cancel(); setWakeStatus("Opening microphone...", true, "Opening mic..."); await new Promise((resolve) => setTimeout(resolve, 90)); const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); mediaChunks = []; mediaStartedAt = Date.now(); const mimeType = preferredAudioMime(); mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined); recordingMode = true; voiceStarting = false; speakBtn.classList.add("recording"); speakBtn.textContent = "■"; orb.classList.remove("speaking"); orb.classList.add("listening"); startLiveTranscript(); startMicWave(stream); setWakeStatus("Oyi is listening...", true, "Stop recording"); wakeStatus.textContent = "Stop recording"; mediaRecorder.ondataavailable = (event) => { if (event.data?.size) mediaChunks.push(event.data); }; mediaRecorder.onstop = async () => { stopMicWave(); stopLiveTranscript(); stream.getTracks().forEach((track) => track.stop()); recordingMode = false; voiceStarting = false; speakBtn.classList.remove("recording"); speakBtn.textContent = "🎙"; orb.classList.remove("listening"); setWakeStatus("Oyi is transcribing...", true, "Transcribing..."); try { const duration = Date.now() - mediaStartedAt; const blob = new Blob(mediaChunks, { type: mediaRecorder.mimeType || mimeType || "audio/webm" }); let transcript = ""; if (blob.size && duration >= 700) { try { transcript = await transcribeBlob(blob); } catch (_) { transcript = ""; } } transcript = transcript || liveTranscript.trim(); if (!transcript) throw new Error("No transcript"); await handleCommand(transcript); } catch (_) { const reply = "I missed that. Tap Oyi and speak again."; addBubble("oyi", reply); oyiLast.textContent = ""; speak(reply); } finally { liveTranscript = ""; mediaChunks = []; if (!("speechSynthesis" in window) || !window.speechSynthesis.speaking) setWakeStatus("", false, "Talk to Oyi"); } }; mediaRecorder.start(250); }
       function stopRecordingCommand() { if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop(); }
-      function startCommandRecognition() { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { setWakeStatus("", false, "Talk to Oyi"); return; } const recognition = new SpeechRecognition(); recognition.lang = "en-NG"; recognition.continuous = false; recognition.interimResults = false; recognition.onstart = () => { orb.classList.add("listening"); setWakeStatus("Oyi is listening for your instruction...", true); }; recognition.onresult = (event) => handleCommand(Array.from(event.results || []).map((result) => result[0] ? result[0].transcript : "").join(" ")); recognition.onend = () => { orb.classList.remove("listening"); setWakeStatus("", false, "Talk to Oyi"); }; recognition.onerror = () => setWakeStatus("", false, "Talk to Oyi"); try { recognition.start(); } catch (_) {} }
+      function startCommandRecognition() { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { setWakeStatus("Allow microphone access.", false, "Allow mic"); return; } const recognition = new SpeechRecognition(); recognition.lang = "en-NG"; recognition.continuous = false; recognition.interimResults = false; recognition.onstart = () => { orb.classList.add("listening"); setWakeStatus("Oyi is listening for your instruction...", true, "Stop recording"); }; recognition.onresult = (event) => handleCommand(Array.from(event.results || []).map((result) => result[0] ? result[0].transcript : "").join(" ")); recognition.onend = () => { orb.classList.remove("listening"); setWakeStatus("", false, "Talk to Oyi"); }; recognition.onerror = () => setWakeStatus("Allow microphone access.", false, "Allow mic"); try { recognition.start(); } catch (_) { setWakeStatus("Allow microphone access.", false, "Allow mic"); } }
       function startWakeWord() { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { setWakeStatus("", false, "Talk to Oyi"); return; } const recognition = new SpeechRecognition(); recognition.lang = "en-NG"; recognition.continuous = true; recognition.interimResults = true; recognition.onstart = () => setWakeStatus("", true, "Talk to Oyi"); recognition.onresult = (event) => { const heard = Array.from(event.results || []).map((result) => result[0] ? result[0].transcript : "").join(" ").toLowerCase(); if (/\b(hey\s+oyi|hey\s+o|hey\s+oe|oyi|o\s*e)\b/.test(heard)) wakeOyi("wake word"); }; recognition.onerror = () => setWakeStatus("", false, "Talk to Oyi"); recognition.onend = () => setTimeout(() => { try { recognition.start(); } catch (_) {} }, 900); try { recognition.start(); } catch (_) { setWakeStatus("", false, "Talk to Oyi"); } }
       async function startClapWake() { if (!navigator.mediaDevices?.getUserMedia) return; try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); const AudioContext = window.AudioContext || window.webkitAudioContext; if (!AudioContext) return; const context = new AudioContext(); const source = context.createMediaStreamSource(stream); const analyser = context.createAnalyser(); analyser.fftSize = 512; source.connect(analyser); const samples = new Uint8Array(analyser.fftSize); const tick = () => { analyser.getByteTimeDomainData(samples); let sum = 0; for (let i = 0; i < samples.length; i += 1) { const centered = (samples[i] - 128) / 128; sum += centered * centered; } const rms = Math.sqrt(sum / samples.length); const now = Date.now(); if (rms > .28) { clapHits = clapHits.filter((hit) => now - hit < 760); if (!clapHits.length || now - clapHits[clapHits.length - 1] > 140) clapHits.push(now); if (clapHits.length >= 2) { clapHits = []; wakeOyi("double clap"); } } requestAnimationFrame(tick); }; tick(); } catch (_) { setWakeStatus("", false, "Talk to Oyi"); } }
 
-      orb.addEventListener("click", () => { wakeOyi("tap"); startClapWake(); startWakeWord(); });
-      orb.addEventListener("dblclick", () => chatDrawer.classList.toggle("open"));
-      function toggleVoiceCommand() { if (recordingMode) { stopRecordingCommand(); return; } wakeOyi("mic", { silent: true }); startRecordingCommand().catch(() => startCommandRecognition()); }
+      orb.addEventListener("click", toggleVoiceCommand);
+      function toggleVoiceCommand() { if (recordingMode) { stopRecordingCommand(); return; } if (voiceStarting) return; voiceStarting = true; setWakeStatus("Opening microphone...", true, "Opening mic..."); wakeOyi("mic", { silent: true }); startRecordingCommand().catch(() => { voiceStarting = false; startCommandRecognition(); }); }
       speakBtn.addEventListener("click", toggleVoiceCommand);
       wakeStatus.addEventListener("click", toggleVoiceCommand);
       form.addEventListener("submit", (event) => { event.preventDefault(); handleCommand(input.value); });
