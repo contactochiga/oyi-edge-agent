@@ -5,24 +5,25 @@
     document.querySelector("script[src*='widget.js']");
 
   const apiBase = (script && script.dataset.apiBase) || window.location.origin;
-  const agentName = (script && script.dataset.agentName) || "Oma";
+  const agentName = (script && script.dataset.agentName) || "Oyi";
   const brandName = (script && script.dataset.brandName) || "Ochiga";
-  const title = (script && script.dataset.title) || `${brandName} AI`;
+  const title = (script && script.dataset.title) || "Oyi AI";
   const subtitle =
     (script && script.dataset.subtitle) ||
-    "Communication center for estates, buildings, support, and intelligent agents";
+    "Ochiga communication center for estates, smart buildings, support, and agents";
   const primaryColor = (script && script.dataset.primaryColor) || "#0d5c46";
   const accentColor = (script && script.dataset.accentColor) || "#f2c66d";
   const greeting =
     (script && script.dataset.greeting) ||
-    `Hi, I'm ${agentName}. Type, attach a plan, or speak with me about your property or project.`;
+    `Hi, I'm ${agentName}. I can route you to Oma, Osa, support, or the right Ochiga system.`;
   const source = (script && script.dataset.source) || "website_widget";
-  const storageKey = "oma_widget_lead_id";
+  const storageKey = "oyi_widget_lead_id";
+  const legacyStorageKey = "oma_widget_lead_id";
 
   let isOpen = false;
   let isSending = false;
   let voiceConversationActive = false;
-  let leadId = window.localStorage.getItem(storageKey) || "";
+  let leadId = window.localStorage.getItem(storageKey) || window.localStorage.getItem(legacyStorageKey) || "";
   let pendingFiles = [];
   let recognition = null;
   let activityTimer = null;
@@ -511,10 +512,30 @@
         border-radius: 999px;
         background: #050706;
         color: #fff;
-        font-weight: 800;
-        font-size: 14px;
+        font-weight: 500;
+        font-size: 13px;
+        letter-spacing: 0.01em;
         grid-auto-flow: column;
         gap: 8px;
+      }
+      .oma-form.voice-listening .oma-field {
+        align-self: center;
+      }
+      .oma-form.voice-listening .oma-input {
+        display: none;
+      }
+      .oma-form.voice-listening .oma-attachments {
+        display: none;
+      }
+      .oma-form.voice-listening .oma-field .oma-activity {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 6px;
+        color: #173127;
+      }
+      .oma-form.recording-inline .oma-field .oma-activity {
+        color: #173127;
       }
       .oma-voice.listening {
         background: linear-gradient(145deg, ${primaryColor}, #051f18);
@@ -626,7 +647,7 @@
                 <textarea
                   class="oma-input"
                   id="oma-input"
-                  placeholder="Ask anything"
+                  placeholder="Ask Oyi"
                   rows="1"
                 ></textarea>
                 <div class="oma-attachments" id="oma-attachments"></div>
@@ -634,7 +655,7 @@
               <button class="oma-mic" id="oma-mic" type="button" aria-label="Dictate message">
                 <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
               </button>
-              <button class="oma-voice" id="oma-voice" type="button" aria-label="Speak to Oma">
+              <button class="oma-voice" id="oma-voice" type="button" aria-label="Speak to Oyi">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="9" width="3" height="6" rx="1.5"/><rect x="9" y="5" width="3" height="14" rx="1.5"/><rect x="14" y="8" width="3" height="8" rx="1.5"/><rect x="19" y="11" width="3" height="2" rx="1"/></svg>
                 Speak
               </button>
@@ -647,7 +668,7 @@
           <div class="oma-footer">Type, attach a file or plan, dictate, or start live speak mode.</div>
         </div>
       </div>
-      <button class="oma-button" id="oma-toggle" type="button" aria-label="Open chat">OMA</button>
+      <button class="oma-button" id="oma-toggle" type="button" aria-label="Open Oyi AI">OYI</button>
     </div>
   `;
 
@@ -824,6 +845,8 @@
     mic.setAttribute("aria-label", "Stop recording");
     mic.innerHTML = stopIcon;
     form.classList.toggle("recording", mode === "dictate");
+    form.classList.toggle("recording-inline", mode === "dictate");
+    form.classList.toggle("voice-listening", mode === "conversation");
     if (mode === "dictate") {
       setVoiceButton("send");
     }
@@ -845,6 +868,7 @@
     mic.setAttribute("aria-label", "Dictate message");
     mic.innerHTML = micIcon;
     form.classList.remove("recording");
+    form.classList.remove("recording-inline", "voice-listening");
     if (!voiceConversationActive) {
       voice.classList.remove("active", "listening");
       setVoiceButton("speak");
@@ -868,6 +892,7 @@
     voice.classList.remove("active", "listening");
     setVoiceButton("speak");
     panel.classList.remove("voice-chat");
+    form.classList.remove("voice-listening");
     stopActivityCycle();
     setActivity(message || "Live speak mode paused.", {});
     if (recognition) {
@@ -902,7 +927,7 @@
   function setOpen(next) {
     isOpen = next;
     panel.classList.toggle("open", next);
-    toggle.textContent = next ? "×" : "OMA";
+    toggle.textContent = next ? "×" : "OYI";
     if (!next) {
       if (noticeTimer) {
         window.clearTimeout(noticeTimer);
@@ -1140,7 +1165,7 @@
     }
 
     if (!response.ok) {
-      const err = new Error(data.error || "Unable to reach Oma right now.");
+      const err = new Error(data.error || "Unable to reach Oyi right now.");
       err.status = response.status;
       err.payload = data;
       throw err;
@@ -1191,6 +1216,7 @@
         }
 
         window.localStorage.removeItem(storageKey);
+        window.localStorage.removeItem(legacyStorageKey);
         leadId = "";
         data = await postMessage(text, "", config);
       }
@@ -1200,7 +1226,7 @@
         window.localStorage.setItem(storageKey, leadId);
       }
 
-      const assistantText = data.assistant_message || "Thanks. Oma will follow up shortly.";
+      const assistantText = data.assistant_message || "Thanks. Oyi will route this to the right agent.";
       addMessage("bot", assistantText);
       stopActivityCycle();
       if (config.voiceReply) {
@@ -1213,7 +1239,7 @@
         "bot",
         "I couldn't complete that request right now. Please try again in a moment."
       );
-      console.error("[Oma widget]", {
+      console.error("[Oyi widget]", {
         message: error.message,
         status: error.status,
         payload: error.payload,
