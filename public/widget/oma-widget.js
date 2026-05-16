@@ -36,6 +36,9 @@
   let audioMeterData = null;
   let audioMeterStream = null;
   let noticeTimer = null;
+  let mediaRecorder = null;
+  let mediaChunks = [];
+  let mediaStartedAt = 0;
 
   const root = document.createElement("div");
   root.setAttribute("data-oma-widget-root", "true");
@@ -784,6 +787,14 @@
     setWaveLevel(0);
   }
 
+  function supportsMediaRecorder() {
+    return Boolean(
+      navigator.mediaDevices &&
+        navigator.mediaDevices.getUserMedia &&
+        window.MediaRecorder
+    );
+  }
+
   async function startAudioMeter() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return;
@@ -877,7 +888,17 @@
   }
 
   function stopCurrentRecording() {
-    if (!recognition || !isRecording) return;
+    if (!isRecording) return;
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      setActivity("Capturing your voice note...", { recording: true });
+      try {
+        mediaRecorder.stop();
+      } catch (_) {
+        resetRecordingUi();
+      }
+      return;
+    }
+    if (!recognition) return;
     setActivity("Transcribing your recording...", { recording: true });
     stopAudioMeter();
     try {
@@ -902,6 +923,11 @@
     }
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
+    }
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      try {
+        mediaRecorder.stop();
+      } catch (_) {}
     }
     resetRecordingUi();
   }
@@ -1043,10 +1069,77 @@
     return recognition;
   }
 
+  async function startMediaFallback(mode) {
+    if (!supportsMediaRecorder()) {
+      addMessage(
+        "bot",
+        "Voice input is not available in this browser yet. You can still type your message here."
+      );
+      return;
+    }
+
+    const isConversation = mode === "conversation";
+    voiceConversationActive = isConversation;
+    voice.classList.toggle("active", isConversation);
+    voice.classList.add("listening");
+    setRecordingUi(mode);
+    setActivity(isConversation ? "Listening. Tap stop when you are done." : "Recording. Tap stop when done...", {
+      voice: isConversation,
+      recording: true,
+    });
+
+    try {
+      await startAudioMeter();
+      if (!audioMeterStream) {
+        throw new Error("Microphone stream unavailable");
+      }
+      mediaChunks = [];
+      mediaStartedAt = Date.now();
+      mediaRecorder = new MediaRecorder(audioMeterStream);
+      mediaRecorder.ondataavailable = function (event) {
+        if (event.data && event.data.size > 0) {
+          mediaChunks.push(event.data);
+        }
+      };
+      mediaRecorder.onstop = function () {
+        const duration = Math.max(1, Math.round((Date.now() - mediaStartedAt) / 1000));
+        const size = mediaChunks.reduce((total, chunk) => total + chunk.size, 0);
+        const summary = `Voice note captured: ${duration}s, ${Math.max(1, Math.round(size / 1024))}KB.`;
+        stopAudioMeter();
+        voice.classList.remove("listening");
+        resetRecordingUi();
+
+        if (isConversation) {
+          const message = `${summary} Transcription service is pending, so route this as a voice-chat request.`;
+          sendMessage(message, {
+            displayText: summary,
+            voiceReply: true,
+            continueVoice: false,
+            submittedBy: "voice_note",
+          });
+          return;
+        }
+
+        input.value = `${summary} Please process this as a voice note until transcription is connected.`;
+        autoSize(false);
+        setActivity("Voice note captured. Review or send it as context.", {});
+      };
+      mediaRecorder.onerror = function () {
+        setActivity("Voice capture paused. Try again or type your message.", {});
+        resetRecordingUi();
+      };
+      mediaRecorder.start();
+    } catch (_) {
+      setActivity("Microphone permission is blocked or unavailable.", {});
+      voice.classList.remove("listening");
+      resetRecordingUi();
+    }
+  }
+
   function startVoiceCapture(mode) {
     const speech = ensureRecognition();
     if (!speech) {
-      addMessage("bot", "Voice input is not available in this browser yet. You can still type your message here.");
+      startMediaFallback(mode);
       return;
     }
     const isConversation = mode === "conversation";
@@ -1261,6 +1354,28 @@
 
   toggle.addEventListener("click", function () {
     setOpen(!isOpen);
+  });
+
+  window.OyiWidget = {
+    open: function (options) {
+      const config = options || {};
+      setOpen(true);
+      if (config.mode === "voice") {
+        window.setTimeout(function () {
+          if (!voiceConversationActive && !isRecording) {
+            voiceConversationActive = true;
+            startVoiceCapture("conversation");
+          }
+        }, 180);
+      }
+    },
+    close: function () {
+      setOpen(false);
+    },
+  };
+
+  window.addEventListener("oyi:open", function (event) {
+    window.OyiWidget.open((event && event.detail) || {});
   });
 
   close.addEventListener("click", function () {

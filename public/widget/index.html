@@ -18,92 +18,176 @@
         margin: 0;
         min-height: 100vh;
         font-family: "Avenir Next", "Segoe UI", sans-serif;
-        color: var(--ink);
+        color: #f9fff9;
         background:
-          radial-gradient(circle at top right, rgba(242, 198, 109, 0.55), transparent 24%),
-          linear-gradient(180deg, #f8f0df 0%, #f4efe7 44%, #ffffff 100%);
+          radial-gradient(circle at 50% 28%, rgba(242, 198, 109, 0.2), transparent 18%),
+          radial-gradient(circle at 24% 18%, rgba(23, 190, 143, 0.18), transparent 28%),
+          radial-gradient(circle at 80% 12%, rgba(255, 255, 255, 0.1), transparent 24%),
+          linear-gradient(145deg, #050807 0%, #07110d 38%, #0d2f25 72%, #050807 100%);
+        overflow-x: hidden;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+        background-size: 42px 42px;
+        mask-image: radial-gradient(circle at 50% 34%, black 0 44%, transparent 82%);
+      }
+      body::after {
+        content: "";
+        position: fixed;
+        inset: auto -10% -42% -10%;
+        height: 55vh;
+        pointer-events: none;
+        background: radial-gradient(ellipse at center, rgba(242, 198, 109, 0.15), transparent 64%);
       }
       .hero {
         max-width: 1120px;
         margin: 0 auto;
-        padding: 88px 24px 140px;
+        min-height: 100vh;
+        padding: 56px 24px 140px;
         display: grid;
-        gap: 28px;
+        gap: 22px;
+        position: relative;
+        z-index: 1;
+      }
+      .intro {
+        display: grid;
+        gap: 14px;
+        justify-items: center;
+        text-align: center;
       }
       .agent-stage {
-        margin-top: 8px;
-        min-height: 340px;
-        border-radius: 36px;
+        min-height: min(58vh, 520px);
+        border-radius: 0;
         position: relative;
         overflow: hidden;
         display: grid;
         place-items: center;
-        background:
-          radial-gradient(circle at 50% 44%, rgba(242, 198, 109, 0.26), transparent 18%),
-          radial-gradient(circle at 24% 24%, rgba(13, 92, 70, 0.18), transparent 28%),
-          linear-gradient(145deg, #07110d, #0d2f25 62%, #050807);
-        box-shadow: 0 34px 90px rgba(10, 33, 25, 0.2);
-        border: 1px solid rgba(13, 92, 70, 0.16);
-      }
-      .agent-stage::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background:
-          linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
-        background-size: 38px 38px;
-        mask-image: radial-gradient(circle at center, black 0 42%, transparent 76%);
+        isolation: isolate;
       }
       .agent-orb {
-        width: 180px;
-        height: 180px;
+        width: clamp(190px, 28vw, 320px);
+        height: clamp(190px, 28vw, 320px);
         border-radius: 999px;
         position: relative;
         display: grid;
         place-items: center;
         color: #fff;
-        font-size: 13px;
-        letter-spacing: 0.18em;
+        border: 0;
+        cursor: pointer;
+        font: inherit;
+        font-size: clamp(13px, 1.4vw, 16px);
+        letter-spacing: 0.2em;
         text-transform: uppercase;
         background:
-          radial-gradient(circle at center, rgba(255,255,255,0.28), transparent 16%),
-          radial-gradient(circle at center, rgba(242,198,109,0.22), rgba(13,92,70,0.24) 48%, transparent 66%);
+          radial-gradient(circle at 46% 42%, rgba(255,255,255,0.38), transparent 13%),
+          radial-gradient(circle at center, rgba(242,198,109,0.24), rgba(13,92,70,0.28) 48%, transparent 67%);
         box-shadow:
-          0 0 60px rgba(242, 198, 109, 0.28),
-          inset 0 0 70px rgba(255,255,255,0.08);
-        animation: breathe 3s ease-in-out infinite;
+          0 0 90px rgba(242, 198, 109, 0.26),
+          0 0 150px rgba(13, 92, 70, 0.32),
+          inset 0 0 88px rgba(255,255,255,0.08);
+        animation: breathe 3.2s ease-in-out infinite;
       }
+      .agent-orb:focus-visible {
+        outline: 2px solid rgba(242, 198, 109, 0.7);
+        outline-offset: 12px;
+      }
+      .agent-orb.launching {
+        animation: dockOyi 820ms cubic-bezier(.2,.8,.2,1) forwards;
+      }
+      .agent-orb span {
+        position: relative;
+        z-index: 2;
+      }
+      .agent-orb .orb-wave {
+        position: absolute;
+        inset: 34%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        opacity: 0;
+        transition: opacity 180ms ease;
+      }
+      .agent-orb.listening .orb-wave {
+        opacity: 1;
+      }
+      .orb-wave i {
+        width: 4px;
+        height: 18px;
+        border-radius: 99px;
+        background: #fff;
+        animation: wave 900ms ease-in-out infinite;
+      }
+      .orb-wave i:nth-child(2) { animation-delay: 90ms; }
+      .orb-wave i:nth-child(3) { animation-delay: 180ms; }
+      .orb-wave i:nth-child(4) { animation-delay: 270ms; }
+      .orb-wave i:nth-child(5) { animation-delay: 360ms; }
       .agent-orb::after {
         content: "";
         position: absolute;
-        inset: -38px;
+        inset: -20%;
         border-radius: inherit;
         border: 1px solid rgba(255,255,255,0.12);
+      }
+      .agent-orb::before {
+        content: "";
+        position: absolute;
+        inset: -42%;
+        border-radius: inherit;
+        border: 1px solid rgba(242, 198, 109, 0.1);
+        animation: rotateRing 9s linear infinite;
+      }
+      .orb-hint {
+        position: absolute;
+        bottom: 11%;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.62);
+        font-size: 13px;
+        letter-spacing: 0.04em;
       }
       @keyframes breathe {
         0%, 100% { transform: scale(0.96); opacity: 0.78; }
         50% { transform: scale(1.05); opacity: 1; }
       }
+      @keyframes rotateRing {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes wave {
+        0%, 100% { height: 10px; opacity: 0.45; }
+        50% { height: 30px; opacity: 1; }
+      }
+      @keyframes dockOyi {
+        0% { transform: translate(0, 0) scale(1); opacity: 1; }
+        65% { transform: translate(calc(50vw - 210px), calc(50vh - 250px)) scale(0.46); opacity: 0.9; }
+        100% { transform: translate(calc(50vw - 210px), calc(50vh - 250px)) scale(0.25); opacity: 0; }
+      }
       .eyebrow {
         text-transform: uppercase;
         letter-spacing: 0.18em;
         font-size: 12px;
-        color: var(--green);
-        font-weight: 700;
+        color: rgba(242, 198, 109, 0.82);
+        font-weight: 600;
       }
       h1 {
         margin: 0;
-        font-size: clamp(42px, 7vw, 82px);
+        font-size: clamp(38px, 6vw, 78px);
         line-height: 0.95;
         max-width: 920px;
+        font-weight: 600;
       }
       p {
         margin: 0;
-        max-width: 700px;
+        max-width: 760px;
         font-size: 18px;
         line-height: 1.7;
-        color: #385248;
+        color: rgba(232, 246, 238, 0.72);
       }
       .cards {
         display: grid;
@@ -113,25 +197,29 @@
       }
       .card {
         padding: 22px;
-        border-radius: 24px;
-        background: rgba(255, 255, 255, 0.72);
-        border: 1px solid rgba(13, 92, 70, 0.08);
-        box-shadow: 0 18px 50px rgba(11, 34, 28, 0.08);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.14);
+        color: rgba(232, 246, 238, 0.72);
+        backdrop-filter: blur(18px);
       }
       .card strong {
         display: block;
         margin-bottom: 8px;
-        color: var(--green);
+        color: #fff;
+        font-weight: 600;
       }
       .embed {
         margin-top: 24px;
         padding: 18px 20px;
         border-radius: 18px;
-        background: #0d1f18;
+        background: rgba(3, 10, 8, 0.72);
         color: #d6e6dc;
         overflow-x: auto;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 13px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
       }
     </style>
     <script defer src="/_vercel/insights/script.js"></script>
@@ -139,15 +227,21 @@
   </head>
   <body>
     <main class="hero">
-      <div class="eyebrow">Oyi AI Communication Center</div>
-      <h1>The parent agent interface for every Ochiga conversation.</h1>
-      <p>
-        This preview serves the embeddable communication widget from the same backend.
-        Oyi is the public communication layer for Ochiga. Oma, Osa, support, sales,
-        and future specialist agents sit behind it as routed child agents.
-      </p>
+      <section class="intro">
+        <div class="eyebrow">Oyi AI Communication Center</div>
+        <h1>The living interface for Ochiga conversations.</h1>
+        <p>
+          Oyi is the parent AI layer. It listens, speaks, routes to Oma, Osa, support,
+          sales, and future specialist agents, then docks into the chat widget when a
+          dashboard-style conversation is needed.
+        </p>
+      </section>
       <section class="agent-stage" aria-label="Sleeping AI agent preview">
-        <div class="agent-orb">Hey Oyi</div>
+        <button class="agent-orb" id="oyi-orb" type="button" aria-label="Start Oyi communication">
+          <span>Hey Oyi</span>
+          <span class="orb-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        </button>
+        <div class="orb-hint" id="orb-hint">Tap the orb to wake Oyi and open the communication widget.</div>
       </section>
       <div class="cards">
         <div class="card">
@@ -183,5 +277,28 @@
       data-title="Oyi AI"
       data-subtitle="Communication center for estates, smart buildings, support, and agents"
     ></script>
+    <script>
+      const orb = document.getElementById("oyi-orb");
+      const hint = document.getElementById("orb-hint");
+
+      function wakeOyi() {
+        if (!orb) return;
+        orb.classList.add("listening", "launching");
+        if (hint) {
+          hint.textContent = "Oyi is moving into the communication dock...";
+        }
+        window.dispatchEvent(new CustomEvent("oyi:open", { detail: { mode: "voice" } }));
+        window.setTimeout(() => {
+          orb.classList.remove("launching");
+          if (hint) {
+            hint.textContent = "Oyi is active below. Tap the orb again to return to voice mode.";
+          }
+        }, 900);
+      }
+
+      if (orb) {
+        orb.addEventListener("click", wakeOyi);
+      }
+    </script>
   </body>
 </html>
