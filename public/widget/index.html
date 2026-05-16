@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Oma Widget Preview</title>
+    <title>Ochiga AI Communication Widget</title>
     <style>
       :root {
         --ink: #0f241d;
@@ -29,6 +29,61 @@
         padding: 88px 24px 140px;
         display: grid;
         gap: 28px;
+      }
+      .agent-stage {
+        margin-top: 8px;
+        min-height: 340px;
+        border-radius: 36px;
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at 50% 44%, rgba(242, 198, 109, 0.26), transparent 18%),
+          radial-gradient(circle at 24% 24%, rgba(13, 92, 70, 0.18), transparent 28%),
+          linear-gradient(145deg, #07110d, #0d2f25 62%, #050807);
+        box-shadow: 0 34px 90px rgba(10, 33, 25, 0.2);
+        border: 1px solid rgba(13, 92, 70, 0.16);
+      }
+      .agent-stage::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+        background-size: 38px 38px;
+        mask-image: radial-gradient(circle at center, black 0 42%, transparent 76%);
+      }
+      .agent-orb {
+        width: 180px;
+        height: 180px;
+        border-radius: 999px;
+        position: relative;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 13px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        background:
+          radial-gradient(circle at center, rgba(255,255,255,0.28), transparent 16%),
+          radial-gradient(circle at center, rgba(242,198,109,0.22), rgba(13,92,70,0.24) 48%, transparent 66%);
+        box-shadow:
+          0 0 60px rgba(242, 198, 109, 0.28),
+          inset 0 0 70px rgba(255,255,255,0.08);
+        animation: breathe 3s ease-in-out infinite;
+      }
+      .agent-orb::after {
+        content: "";
+        position: absolute;
+        inset: -38px;
+        border-radius: inherit;
+        border: 1px solid rgba(255,255,255,0.12);
+      }
+      @keyframes breathe {
+        0%, 100% { transform: scale(0.96); opacity: 0.78; }
+        50% { transform: scale(1.05); opacity: 1; }
       }
       .eyebrow {
         text-transform: uppercase;
@@ -84,20 +139,24 @@
   </head>
   <body>
     <main class="hero">
-      <div class="eyebrow">Ochiga Lead Agents</div>
-      <h1>Oma is ready for your website.</h1>
+      <div class="eyebrow">Ochiga AI Communication Center</div>
+      <h1>The agent interface for every Ochiga conversation.</h1>
       <p>
-        This preview serves the embeddable website widget from the same backend.
-        Use it to test inbound qualification before building the full operator dashboard.
+        This preview serves the embeddable communication widget from the same backend.
+        It is the small public doorway into Ochiga agents: chat, voice, file context,
+        lead capture, support, and future proactive guidance.
       </p>
+      <section class="agent-stage" aria-label="Sleeping AI agent preview">
+        <div class="agent-orb">Say hello</div>
+      </section>
       <div class="cards">
         <div class="card">
-          <strong>Who it is</strong>
-          Oma is the Ochiga Marketing Agent for first-touch qualification.
+          <strong>What it is</strong>
+          A compact agent communication center for websites, estate pages, support flows, and sales surfaces.
         </div>
         <div class="card">
           <strong>What it does</strong>
-          Qualifies inbound estate and building leads, scores fit, and routes strong projects to Sales.
+          Talks, listens, records context, receives plans/files, qualifies needs, and routes the conversation to the right agent.
         </div>
         <div class="card">
           <strong>How to embed</strong>
@@ -111,8 +170,8 @@
         data-api-base="https://your-backend.example.com"
         data-agent-name="Oma"
         data-brand-name="Ochiga"
-        data-title="Chat with Oma"
-        data-subtitle="Ochiga AI support for estates, smart buildings, and connected communities"&gt;&lt;/script&gt;
+        data-title="Ochiga AI"
+        data-subtitle="Communication center for estates, smart buildings, support, and agents"&gt;&lt;/script&gt;
       </div>
     </main>
 
@@ -121,8 +180,8 @@
       data-oma-widget="true"
       data-agent-name="Oma"
       data-brand-name="Ochiga"
-      data-title="Chat with Oma"
-      data-subtitle="Ochiga AI support for estates, smart buildings, and connected communities"
+      data-title="Ochiga AI"
+      data-subtitle="Communication center for estates, smart buildings, support, and agents"
     ></script>
   </body>
 </html>

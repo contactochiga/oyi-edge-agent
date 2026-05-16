@@ -7,10 +7,10 @@
   const apiBase = (script && script.dataset.apiBase) || window.location.origin;
   const agentName = (script && script.dataset.agentName) || "Oma";
   const brandName = (script && script.dataset.brandName) || "Ochiga";
-  const title = (script && script.dataset.title) || `Chat with ${agentName}`;
+  const title = (script && script.dataset.title) || `${brandName} AI`;
   const subtitle =
     (script && script.dataset.subtitle) ||
-    `${brandName} AI support for estates, buildings, and connected communities`;
+    "Communication center for estates, buildings, support, and intelligent agents";
   const primaryColor = (script && script.dataset.primaryColor) || "#0d5c46";
   const accentColor = (script && script.dataset.accentColor) || "#f2c66d";
   const greeting =
@@ -34,6 +34,7 @@
   let audioMeterFrame = null;
   let audioMeterData = null;
   let audioMeterStream = null;
+  let noticeTimer = null;
 
   const root = document.createElement("div");
   root.setAttribute("data-oma-widget-root", "true");
@@ -85,6 +86,33 @@
         display: flex;
         flex-direction: column;
         margin-bottom: 14px;
+      }
+      .oma-notice-stack {
+        display: none;
+        width: min(380px, calc(100vw - 24px));
+        margin: 0 0 10px auto;
+        gap: 6px;
+        pointer-events: none;
+      }
+      .oma-notice-stack.visible {
+        display: grid;
+      }
+      .oma-notice {
+        justify-self: end;
+        max-width: 92%;
+        padding: 9px 12px;
+        border-radius: 18px;
+        color: #173127;
+        background: rgba(255, 253, 249, 0.92);
+        border: 1px solid rgba(13, 92, 70, 0.1);
+        box-shadow: 0 14px 36px rgba(10, 33, 25, 0.14);
+        backdrop-filter: blur(14px);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .oma-notice:first-child {
+        opacity: 0.72;
+        transform: translateY(2px) scale(0.98);
       }
       .oma-panel.voice-chat {
         background:
@@ -310,14 +338,13 @@
       .oma-activity {
         display: none;
         align-items: center;
-        gap: 9px;
-        margin-bottom: 10px;
-        padding: 9px 12px;
+        gap: 7px;
+        padding: 2px 4px 7px;
         border-radius: 999px;
         color: #45665b;
-        font-size: 12px;
-        background: rgba(13, 92, 70, 0.055);
-        border: 1px solid rgba(13, 92, 70, 0.07);
+        font-size: 11px;
+        background: transparent;
+        border: 0;
       }
       .oma-activity.visible {
         display: inline-flex;
@@ -327,15 +354,15 @@
         color: #17231e;
       }
       .oma-wave {
-        width: 40px;
-        height: 18px;
+        width: 30px;
+        height: 14px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 3px;
       }
       .oma-wave i {
-        width: 3px;
+        width: 2px;
         height: var(--oma-wave-height, 5px);
         min-height: 4px;
         border-radius: 999px;
@@ -410,7 +437,7 @@
         cursor: pointer;
         display: grid;
         place-items: center;
-        color: #111f19;
+        color: rgba(17, 31, 25, 0.66);
         transition: transform 160ms ease, background 160ms ease, color 160ms ease;
       }
       .oma-tool-btn,
@@ -418,7 +445,11 @@
         width: 46px;
         height: 46px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.72);
+        background: rgba(255, 255, 255, 0.58);
+      }
+      .oma-tool-btn svg,
+      .oma-mic svg {
+        stroke-width: 1.75;
       }
       .oma-tool-btn:hover,
       .oma-mic:hover,
@@ -430,13 +461,16 @@
         display: grid;
         gap: 5px;
       }
+      .oma-field .oma-activity {
+        min-height: 20px;
+      }
       .oma-input {
         width: 100%;
         min-height: 44px;
         max-height: 140px;
         resize: none;
         border: 0;
-        padding: 11px 8px 8px;
+        padding: 4px 8px 8px;
         font: inherit;
         font-size: 16px;
         line-height: 1.35;
@@ -548,6 +582,7 @@
       }
     </style>
     <div class="oma-shell">
+      <div class="oma-notice-stack" id="oma-notice-stack" aria-live="polite"></div>
       <div class="oma-panel" id="oma-panel">
         <div class="oma-header">
           <div class="oma-header-top">
@@ -578,16 +613,16 @@
         </div>
         <div class="oma-messages" id="oma-messages"></div>
         <div class="oma-composer">
-          <div class="oma-activity" id="oma-activity">
-            <span class="oma-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-            <span id="oma-activity-text">${agentName} is ready.</span>
-          </div>
           <form class="oma-form" id="oma-form">
             <div class="oma-command-bar">
               <button class="oma-tool-btn" id="oma-attach" type="button" aria-label="Attach image or document">
                 <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
               </button>
               <div class="oma-field">
+                <div class="oma-activity" id="oma-activity">
+                  <span class="oma-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+                  <span id="oma-activity-text">${agentName} is ready.</span>
+                </div>
                 <textarea
                   class="oma-input"
                   id="oma-input"
@@ -617,6 +652,7 @@
   `;
 
   const panel = shadow.getElementById("oma-panel");
+  const noticeStack = shadow.getElementById("oma-notice-stack");
   const toggle = shadow.getElementById("oma-toggle");
   const close = shadow.querySelector(".oma-close");
   const messages = shadow.getElementById("oma-messages");
@@ -656,6 +692,26 @@
     scrollToBottom();
   }
 
+  function pushNotice(text) {
+    if (!noticeStack || !text) return;
+    const notice = document.createElement("div");
+    notice.className = "oma-notice";
+    notice.textContent = text;
+    noticeStack.appendChild(notice);
+    while (noticeStack.children.length > 2) {
+      noticeStack.removeChild(noticeStack.firstElementChild);
+    }
+    noticeStack.classList.add("visible");
+    if (noticeTimer) {
+      window.clearTimeout(noticeTimer);
+    }
+    noticeTimer = window.setTimeout(function () {
+      noticeStack.classList.remove("visible");
+      noticeStack.innerHTML = "";
+      noticeTimer = null;
+    }, 5200);
+  }
+
   function setActivity(text, options) {
     const config = options || {};
     activityText.textContent = text || `${agentName} is ready.`;
@@ -665,6 +721,9 @@
     activity.classList.toggle("visible", Boolean(text));
     activity.classList.toggle("voice", Boolean(config.voice));
     activity.classList.toggle("recording", Boolean(config.recording));
+    if (text && config.notice !== false) {
+      pushNotice(text);
+    }
   }
 
   function setWaveLevel(level) {
@@ -845,6 +904,14 @@
     panel.classList.toggle("open", next);
     toggle.textContent = next ? "×" : "OMA";
     if (!next) {
+      if (noticeTimer) {
+        window.clearTimeout(noticeTimer);
+        noticeTimer = null;
+      }
+      if (noticeStack) {
+        noticeStack.classList.remove("visible");
+        noticeStack.innerHTML = "";
+      }
       voiceConversationActive = false;
       stopActivityCycle();
       setActivity("", {});
