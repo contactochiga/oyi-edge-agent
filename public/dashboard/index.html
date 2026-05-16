@@ -749,6 +749,7 @@
       .overview-main-column {
         display: grid;
         gap: 12px;
+        grid-auto-rows: max-content;
         min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
@@ -1089,6 +1090,9 @@
       .health-legend i.offline { background: #8f9bb7; }
       .live-infra-card {
         position: relative;
+        z-index: 2;
+        display: block;
+        min-height: 486px;
         border-radius: 18px;
         padding: 14px;
         overflow: hidden;
@@ -1145,6 +1149,8 @@
       }
       .live-infra-viewport {
         position: relative;
+        display: block;
+        height: clamp(376px, 42vh, 520px);
         min-height: 376px;
         border-radius: 16px;
         overflow: hidden;
@@ -1165,6 +1171,10 @@
         mask-image: radial-gradient(circle at center, black 0 68%, transparent 100%);
       }
       .live-infra-canvas {
+        position: relative;
+        display: block;
+        width: 100%;
+        height: 100%;
         min-height: 376px;
         border-radius: 0;
         transform: scale(var(--live-infra-zoom, 1));
@@ -1421,6 +1431,8 @@
         font-weight: 400;
       }
       .overview-analytics-grid {
+        position: relative;
+        z-index: 1;
         display: grid;
         grid-template-columns: 0.8fr 1.2fr;
         gap: 12px;
