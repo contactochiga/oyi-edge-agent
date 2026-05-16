@@ -3,28 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Oyi AI Communication Widget</title>
+    <title>Oyi AI Command Center</title>
     <style>
       :root {
-        --ink: #0f241d;
-        --green: #0d5c46;
-        --sand: #f2c66d;
-        --paper: #fbf6ec;
+        --bg: #050807;
+        --panel: rgba(255, 255, 255, 0.075);
+        --panel-strong: rgba(255, 255, 255, 0.115);
+        --line: rgba(255, 255, 255, 0.12);
+        --text: #f9fff9;
+        --muted: rgba(232, 246, 238, 0.68);
+        --gold: #f2c66d;
+        --green: #49e58d;
+        --danger: #ff416d;
       }
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
       body {
         margin: 0;
         min-height: 100vh;
         font-family: "Avenir Next", "Segoe UI", sans-serif;
-        color: #f9fff9;
+        color: var(--text);
         background:
           radial-gradient(circle at 50% 28%, rgba(242, 198, 109, 0.2), transparent 18%),
           radial-gradient(circle at 24% 18%, rgba(23, 190, 143, 0.18), transparent 28%),
           radial-gradient(circle at 80% 12%, rgba(255, 255, 255, 0.1), transparent 24%),
           linear-gradient(145deg, #050807 0%, #07110d 38%, #0d2f25 72%, #050807 100%);
-        overflow-x: hidden;
+        overflow: hidden;
       }
       body::before {
         content: "";
@@ -37,50 +40,95 @@
         background-size: 42px 42px;
         mask-image: radial-gradient(circle at 50% 34%, black 0 44%, transparent 82%);
       }
-      body::after {
-        content: "";
-        position: fixed;
-        inset: auto -10% -42% -10%;
-        height: 55vh;
-        pointer-events: none;
-        background: radial-gradient(ellipse at center, rgba(242, 198, 109, 0.15), transparent 64%);
-      }
-      .hero {
-        max-width: 1120px;
-        margin: 0 auto;
+      button, input { font: inherit; }
+      .oyi-screen {
         min-height: 100vh;
-        padding: 56px 24px 140px;
+        padding: 28px;
         display: grid;
-        gap: 22px;
+        grid-template-rows: auto 1fr auto;
+        gap: 18px;
         position: relative;
         z-index: 1;
       }
-      .intro {
-        display: grid;
-        gap: 14px;
-        justify-items: center;
-        text-align: center;
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
       }
-      .agent-stage {
-        min-height: min(58vh, 520px);
-        border-radius: 0;
-        position: relative;
-        overflow: hidden;
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--muted);
+      }
+      .brand-mark {
+        width: 36px;
+        height: 36px;
+        border-radius: 14px;
         display: grid;
         place-items: center;
-        isolation: isolate;
+        color: #06110d;
+        background: linear-gradient(135deg, var(--gold), var(--green));
+        font-weight: 700;
+      }
+      .brand strong { color: #fff; font-weight: 600; display: block; }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 13px;
+        border-radius: 999px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+        backdrop-filter: blur(14px);
+      }
+      .status-pill::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--gold);
+        box-shadow: 0 0 16px rgba(242, 198, 109, 0.7);
+      }
+      .status-pill.active::before { background: var(--green); box-shadow: 0 0 16px rgba(73, 229, 141, 0.8); }
+      .main-stage {
+        min-height: 0;
+        display: grid;
+        grid-template-columns: minmax(360px, 0.78fr) minmax(520px, 1.22fr);
+        gap: 20px;
+        align-items: stretch;
+      }
+      .orb-zone {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 560px;
+        border-radius: 32px;
+        background: rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+      }
+      .orb-zone::before {
+        content: "";
+        position: absolute;
+        width: 680px;
+        height: 680px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.07);
+        animation: rotateRing 18s linear infinite;
       }
       .agent-orb {
-        width: clamp(190px, 28vw, 320px);
-        height: clamp(190px, 28vw, 320px);
+        width: clamp(210px, 24vw, 330px);
+        height: clamp(210px, 24vw, 330px);
         border-radius: 999px;
         position: relative;
         display: grid;
         place-items: center;
-        color: #fff;
         border: 0;
         cursor: pointer;
-        font: inherit;
+        color: #fff;
         font-size: clamp(13px, 1.4vw, 16px);
         letter-spacing: 0.2em;
         text-transform: uppercase;
@@ -92,42 +140,19 @@
           0 0 150px rgba(13, 92, 70, 0.32),
           inset 0 0 88px rgba(255,255,255,0.08);
         animation: breathe 3.2s ease-in-out infinite;
+        transition: transform 500ms ease, opacity 500ms ease;
       }
-      .agent-orb:focus-visible {
-        outline: 2px solid rgba(242, 198, 109, 0.7);
-        outline-offset: 12px;
+      .agent-orb.docked {
+        position: fixed;
+        right: 32px;
+        bottom: 96px;
+        width: 72px;
+        height: 72px;
+        z-index: 20;
+        font-size: 10px;
+        letter-spacing: 0.1em;
       }
-      .agent-orb.launching {
-        animation: dockOyi 820ms cubic-bezier(.2,.8,.2,1) forwards;
-      }
-      .agent-orb span {
-        position: relative;
-        z-index: 2;
-      }
-      .agent-orb .orb-wave {
-        position: absolute;
-        inset: 34%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        opacity: 0;
-        transition: opacity 180ms ease;
-      }
-      .agent-orb.listening .orb-wave {
-        opacity: 1;
-      }
-      .orb-wave i {
-        width: 4px;
-        height: 18px;
-        border-radius: 99px;
-        background: #fff;
-        animation: wave 900ms ease-in-out infinite;
-      }
-      .orb-wave i:nth-child(2) { animation-delay: 90ms; }
-      .orb-wave i:nth-child(3) { animation-delay: 180ms; }
-      .orb-wave i:nth-child(4) { animation-delay: 270ms; }
-      .orb-wave i:nth-child(5) { animation-delay: 360ms; }
+      .agent-orb.listening .orb-wave { opacity: 1; }
       .agent-orb::after {
         content: "";
         position: absolute;
@@ -143,203 +168,562 @@
         border: 1px solid rgba(242, 198, 109, 0.1);
         animation: rotateRing 9s linear infinite;
       }
-      .orb-hint {
+      .orb-wave {
         position: absolute;
-        bottom: 11%;
-        left: 50%;
-        transform: translateX(-50%);
-        color: rgba(255, 255, 255, 0.62);
-        font-size: 13px;
-        letter-spacing: 0.04em;
-        text-align: center;
-        width: min(92%, 520px);
-      }
-      .wake-status {
-        position: absolute;
-        top: 8%;
-        left: 50%;
-        transform: translateX(-50%);
-        display: inline-flex;
+        inset: 34%;
+        display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 9px 13px;
-        border-radius: 999px;
-        color: rgba(232, 246, 238, 0.78);
-        background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        font-size: 12px;
-        backdrop-filter: blur(14px);
+        justify-content: center;
+        gap: 6px;
+        opacity: 0;
+        transition: opacity 180ms ease;
       }
-      .wake-status::before {
+      .orb-wave i {
+        width: 4px;
+        height: 18px;
+        border-radius: 99px;
+        background: #fff;
+        animation: wave 900ms ease-in-out infinite;
+      }
+      .orb-wave i:nth-child(2) { animation-delay: 90ms; }
+      .orb-wave i:nth-child(3) { animation-delay: 180ms; }
+      .orb-wave i:nth-child(4) { animation-delay: 270ms; }
+      .orb-wave i:nth-child(5) { animation-delay: 360ms; }
+      .orb-copy {
+        position: absolute;
+        left: 24px;
+        right: 24px;
+        bottom: 24px;
+        text-align: center;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .orb-copy strong { color: #fff; font-weight: 600; display: block; margin-bottom: 6px; }
+      .workspace {
+        min-height: 0;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: rgba(3, 10, 8, 0.55);
+        backdrop-filter: blur(22px);
+        box-shadow: 0 28px 80px rgba(0,0,0,0.26);
+        overflow: hidden;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+      .workspace-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .workspace-head h1 { margin: 0; font-size: 18px; font-weight: 600; }
+      .workspace-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+      .window-actions { display: flex; gap: 8px; }
+      .chip-btn {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: #fff;
+        border-radius: 999px;
+        padding: 9px 12px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .window-body {
+        min-height: 0;
+        overflow: auto;
+        padding: 18px;
+      }
+      .empty-window {
+        height: 100%;
+        min-height: 420px;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        color: var(--muted);
+      }
+      .empty-window strong { color: #fff; font-weight: 600; display: block; margin-bottom: 8px; }
+      .map-window { display: grid; gap: 14px; }
+      .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+      .metric {
+        padding: 14px;
+        border-radius: 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+      }
+      .metric span { color: var(--muted); font-size: 11px; display: block; }
+      .metric strong { font-size: 22px; font-weight: 600; display: block; margin-top: 4px; }
+      .map-shell {
+        min-height: 340px;
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background:
+          radial-gradient(circle at 32% 28%, rgba(73, 229, 141, 0.18), transparent 18%),
+          radial-gradient(circle at 70% 55%, rgba(242, 198, 109, 0.16), transparent 22%),
+          linear-gradient(145deg, rgba(10, 32, 47, 0.92), rgba(4, 15, 12, 0.92));
+        position: relative;
+      }
+      .map-shell.live { background: #07101f; }
+      #oyiMap { width: 100%; height: 100%; min-height: 340px; }
+      .static-map-label {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: rgba(0,0,0,0.58);
+        border: 1px solid rgba(255,255,255,0.12);
+        font-size: 11px;
+        color: #fff;
+        white-space: nowrap;
+      }
+      .static-map-label::before {
         content: "";
+        display: inline-block;
         width: 7px;
         height: 7px;
+        margin-right: 6px;
         border-radius: 999px;
-        background: #f2c66d;
-        box-shadow: 0 0 16px rgba(242, 198, 109, 0.7);
+        background: var(--green);
+        box-shadow: 0 0 12px rgba(73, 229, 141, 0.8);
       }
-      .wake-status.active::before {
-        background: #49e58d;
-        box-shadow: 0 0 16px rgba(73, 229, 141, 0.8);
-      }
-      @keyframes breathe {
-        0%, 100% { transform: scale(0.96); opacity: 0.78; }
-        50% { transform: scale(1.05); opacity: 1; }
-      }
-      @keyframes rotateRing {
-        to { transform: rotate(360deg); }
-      }
-      @keyframes wave {
-        0%, 100% { height: 10px; opacity: 0.45; }
-        50% { height: 30px; opacity: 1; }
-      }
-      @keyframes dockOyi {
-        0% { transform: translate(0, 0) scale(1); opacity: 1; }
-        65% { transform: translate(calc(50vw - 210px), calc(50vh - 250px)) scale(0.46); opacity: 0.9; }
-        100% { transform: translate(calc(50vw - 210px), calc(50vh - 250px)) scale(0.25); opacity: 0; }
-      }
-      .eyebrow {
-        text-transform: uppercase;
-        letter-spacing: 0.18em;
-        font-size: 12px;
-        color: rgba(242, 198, 109, 0.82);
-        font-weight: 600;
-      }
-      h1 {
-        margin: 0;
-        font-size: clamp(38px, 6vw, 78px);
-        line-height: 0.95;
-        max-width: 920px;
-        font-weight: 600;
-      }
-      p {
-        margin: 0;
-        max-width: 760px;
-        font-size: 18px;
-        line-height: 1.7;
-        color: rgba(232, 246, 238, 0.72);
-      }
-      .cards {
+      .estate-list { display: grid; gap: 8px; }
+      .estate-row {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 18px;
-        margin-top: 12px;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
       }
-      .card {
-        padding: 22px;
-        border-radius: 20px;
-        background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.14);
-        color: rgba(232, 246, 238, 0.72);
-        backdrop-filter: blur(18px);
-      }
-      .card strong {
-        display: block;
-        margin-bottom: 8px;
-        color: #fff;
-        font-weight: 600;
-      }
-      .embed {
-        margin-top: 24px;
-        padding: 18px 20px;
-        border-radius: 18px;
+      .estate-row strong { font-weight: 600; }
+      .estate-row span { color: var(--muted); font-size: 12px; }
+      .badge { padding: 6px 9px; border-radius: 999px; color: #07110d; background: var(--green); font-size: 11px; }
+      .dock {
+        border: 1px solid var(--line);
+        border-radius: 24px;
         background: rgba(3, 10, 8, 0.72);
-        color: #d6e6dc;
-        overflow-x: auto;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 13px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(20px);
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 10px;
+        padding: 10px;
+      }
+      .dock-log {
+        min-width: 0;
+        display: grid;
+        gap: 6px;
+      }
+      .dock-log span { color: var(--muted); font-size: 12px; }
+      .dock-log strong { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .command-input {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: #fff;
+        border-radius: 999px;
+        padding: 13px 15px;
+        outline: none;
+      }
+      .round-btn {
+        border: 0;
+        min-width: 48px;
+        height: 48px;
+        border-radius: 999px;
+        cursor: pointer;
+        color: #07110d;
+        background: linear-gradient(135deg, var(--gold), var(--green));
+        font-weight: 700;
+      }
+      .chat-drawer {
+        position: fixed;
+        right: 28px;
+        bottom: 162px;
+        width: min(380px, calc(100vw - 56px));
+        max-height: min(560px, calc(100vh - 220px));
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: rgba(3, 10, 8, 0.86);
+        backdrop-filter: blur(22px);
+        box-shadow: 0 30px 90px rgba(0,0,0,0.32);
+        display: none;
+        overflow: hidden;
+        z-index: 15;
+      }
+      .chat-drawer.open { display: grid; grid-template-rows: auto 1fr; }
+      .chat-head { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+      .chat-head strong { font-weight: 600; }
+      .chat-log { padding: 14px; overflow: auto; display: grid; gap: 10px; }
+      .bubble { padding: 10px 12px; border-radius: 16px; background: var(--panel); color: var(--muted); line-height: 1.45; font-size: 13px; }
+      .bubble.user { background: rgba(242,198,109,0.14); color: #fff; }
+      @keyframes breathe { 0%, 100% { transform: scale(0.96); opacity: 0.82; } 50% { transform: scale(1.04); opacity: 1; } }
+      @keyframes rotateRing { to { transform: rotate(360deg); } }
+      @keyframes wave { 0%, 100% { height: 10px; opacity: 0.45; } 50% { height: 30px; opacity: 1; } }
+      @media (max-width: 980px) {
+        body { overflow: auto; }
+        .oyi-screen { min-height: auto; }
+        .main-stage { grid-template-columns: 1fr; }
+        .orb-zone { min-height: 420px; }
+        .metric-grid { grid-template-columns: repeat(2, 1fr); }
+        .agent-orb.docked { right: 18px; bottom: 112px; }
+        .dock { grid-template-columns: 1fr auto; }
+        .dock-log { grid-column: 1 / -1; }
       }
     </style>
     <script defer src="/_vercel/insights/script.js"></script>
-
   </head>
   <body>
-    <main class="hero">
-      <section class="intro">
-        <div class="eyebrow">Oyi AI Communication Center</div>
-        <h1>The living interface for Ochiga conversations.</h1>
-        <p>
-          Oyi is the parent AI layer. It listens, speaks, routes to Oma, Osa, support,
-          sales, and future specialist agents, then docks into the chat widget when a
-          dashboard-style conversation is needed.
-        </p>
+    <main class="oyi-screen">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">OY</div>
+          <div><strong>Oyi Command</strong><span>Internal Ochiga AI operating layer</span></div>
+        </div>
+        <div class="status-pill" id="wake-status">Wake listener preparing...</div>
+      </header>
+
+      <section class="main-stage">
+        <div class="orb-zone">
+          <button class="agent-orb" id="oyi-orb" type="button" aria-label="Start Oyi communication">
+            <span>Hey Oyi</span>
+            <span class="orb-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          </button>
+          <div class="orb-copy" id="orb-hint">
+            <strong>Wake Oyi by voice, clap, or touch.</strong>
+            Say "Hey Oyi", say "Hey O", clap twice, or tap the orb. Ask for maps, estate status, system summaries, or an Ochiga pitch.
+          </div>
+        </div>
+
+        <section class="workspace" aria-label="Oyi internal command workspace">
+          <div class="workspace-head">
+            <div><h1 id="window-title">Command workspace</h1><p id="window-subtitle">Visual windows open here only when Oyi needs to show data.</p></div>
+            <div class="window-actions">
+              <button class="chip-btn" id="map-demo" type="button">Open estate map</button>
+              <button class="chip-btn" id="close-window" type="button">Close window</button>
+            </div>
+          </div>
+          <div class="window-body" id="window-body">
+            <div class="empty-window"><div><strong>No active window.</strong><span>Wake Oyi and ask for a task. Example: “Open the map of Lagos and show active estates.”</span></div></div>
+          </div>
+        </section>
       </section>
-      <section class="agent-stage" aria-label="Sleeping AI agent preview">
-        <div class="wake-status" id="wake-status">Wake listener preparing...</div>
-        <button class="agent-orb" id="oyi-orb" type="button" aria-label="Start Oyi communication">
-          <span>Hey Oyi</span>
-          <span class="orb-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-        </button>
-        <div class="orb-hint" id="orb-hint">Say "Hey Oyi", say "Hey O", clap twice, or tap the orb to wake Oyi.</div>
-      </section>
-      <div class="cards">
-        <div class="card">
-          <strong>What it is</strong>
-          The Oyi AI doorway for websites, estate pages, support flows, and sales surfaces.
-        </div>
-        <div class="card">
-          <strong>What it does</strong>
-          Talks, listens, receives plans/files, qualifies needs, and routes the conversation to Oma, Osa, or the right Ochiga workflow.
-        </div>
-        <div class="card">
-          <strong>How to embed</strong>
-          Add the script below to any website and point it at your backend.
-        </div>
-      </div>
-      <div class="embed">
-        &lt;script
-        src="/widget.js"
-        data-oma-widget="true"
-        data-api-base="https://your-backend.example.com"
-        data-agent-name="Oyi"
-        data-brand-name="Ochiga"
-        data-title="Oyi AI"
-        data-subtitle="Communication center for estates, smart buildings, support, and agents"&gt;&lt;/script&gt;
-      </div>
+
+      <form class="dock" id="command-form">
+        <div class="dock-log"><span id="oyi-state">Oyi is standing by.</span><strong id="oyi-last">Ask for a map, pitch, estate status, or system summary.</strong></div>
+        <input class="command-input" id="command-input" placeholder="Type a command for Oyi..." autocomplete="off" />
+        <button class="round-btn" id="speak-btn" type="button" aria-label="Speak to Oyi">🎙</button>
+        <button class="round-btn" type="submit" aria-label="Send command">↗</button>
+      </form>
     </main>
 
-    <script
-      src="/widget.js"
-      data-oma-widget="true"
-      data-agent-name="Oyi"
-      data-brand-name="Ochiga"
-      data-title="Oyi AI"
-      data-subtitle="Communication center for estates, smart buildings, support, and agents"
-    ></script>
+    <aside class="chat-drawer" id="chat-drawer">
+      <div class="chat-head"><strong>Oyi conversation</strong><button class="chip-btn" id="close-chat" type="button">Close</button></div>
+      <div class="chat-log" id="chat-log"></div>
+    </aside>
+
     <script>
       const orb = document.getElementById("oyi-orb");
-      const hint = document.getElementById("orb-hint");
       const wakeStatus = document.getElementById("wake-status");
+      const orbHint = document.getElementById("orb-hint");
+      const form = document.getElementById("command-form");
+      const input = document.getElementById("command-input");
+      const speakBtn = document.getElementById("speak-btn");
+      const oyiState = document.getElementById("oyi-state");
+      const oyiLast = document.getElementById("oyi-last");
+      const windowTitle = document.getElementById("window-title");
+      const windowSubtitle = document.getElementById("window-subtitle");
+      const windowBody = document.getElementById("window-body");
+      const chatDrawer = document.getElementById("chat-drawer");
+      const chatLog = document.getElementById("chat-log");
+      const closeChat = document.getElementById("close-chat");
+      const closeWindow = document.getElementById("close-window");
+      const mapDemo = document.getElementById("map-demo");
       let wakeCooldownUntil = 0;
       let clapHits = [];
-      let clapContext;
-      let clapStream;
-      let clapFrame;
+      let activeRecognition;
+      let leadId = window.localStorage.getItem("oyi_command_lead_id") || "";
+      let googleMapsPromise;
 
       function setWakeStatus(text, active) {
-        if (!wakeStatus) return;
         wakeStatus.textContent = text;
         wakeStatus.classList.toggle("active", Boolean(active));
+        oyiState.textContent = text;
+      }
+
+      function addBubble(role, text) {
+        const bubble = document.createElement("div");
+        bubble.className = `bubble ${role === "user" ? "user" : "oyi"}`;
+        bubble.textContent = text;
+        chatLog.appendChild(bubble);
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+
+      function speak(text) {
+        if (!("speechSynthesis" in window)) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.96;
+        utterance.pitch = 1;
+        utterance.onstart = () => orb.classList.add("listening");
+        utterance.onend = () => orb.classList.remove("listening");
+        window.speechSynthesis.speak(utterance);
+      }
+
+      function dockOrb() {
+        orb.classList.add("docked", "listening");
       }
 
       function wakeOyi(trigger = "tap") {
-        if (!orb) return;
         if (Date.now() < wakeCooldownUntil) return;
-        wakeCooldownUntil = Date.now() + 2400;
-        orb.classList.add("listening", "launching");
+        wakeCooldownUntil = Date.now() + 1600;
+        dockOrb();
         setWakeStatus(`Oyi woke by ${trigger}.`, true);
-        if (hint) {
-          hint.textContent = "Oyi is here. Ask what you want it to do.";
+        orbHint.innerHTML = '<strong>Oyi is active.</strong> Speak or type an instruction. If the task needs a visual, Oyi opens it in the workspace.';
+        const line = "I am here. What do you want me to open, check, or explain inside the Ochiga system?";
+        oyiLast.textContent = line;
+        speak(line);
+      }
+
+      function normalizeCommand(value) {
+        return String(value || "").trim();
+      }
+
+      function wantsMap(command) {
+        const text = command.toLowerCase();
+        return /map|lagos|estate|estates|location|locations|active systems|connected systems/.test(text);
+      }
+
+      function wantsClose(command) {
+        return /close|hide|minimi[sz]e|remove/.test(command.toLowerCase()) && /window|map|panel|workspace/.test(command.toLowerCase());
+      }
+
+      function wantsPitch(command) {
+        return /pitch|investor|partner|customer|what.*ochiga|what.*oyi|explain|brief/.test(command.toLowerCase());
+      }
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, { credentials: "include", ...options });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || data.message || `Request failed: ${path}`);
+        return data;
+      }
+
+      function estateCoordinate(estate) {
+        const meta = estate.metadata || {};
+        const lat = Number(estate.latitude ?? estate.lat ?? meta.latitude ?? meta.lat);
+        const lng = Number(estate.longitude ?? estate.lng ?? meta.longitude ?? meta.lng);
+        return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+      }
+
+      function loadGoogleMaps(apiKey) {
+        if (window.google && window.google.maps) return Promise.resolve(window.google.maps);
+        if (googleMapsPromise) return googleMapsPromise;
+        googleMapsPromise = new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}`;
+          script.async = true;
+          script.defer = true;
+          script.onload = () => resolve(window.google.maps);
+          script.onerror = () => reject(new Error("Google Maps could not load."));
+          document.head.appendChild(script);
+        });
+        return googleMapsPromise;
+      }
+
+      function fallbackEstates() {
+        return [
+          { id: "green", name: "Green Canopy Estate", location: "Lekki, Lagos", status: "active", health_status: "healthy", homes_count: 256, devices_count: 245, wallet_balance: 2840000, latitude: 6.4698, longitude: 3.5852 },
+          { id: "river", name: "Riverbank Estate", location: "Ikoyi, Lagos", status: "active", health_status: "healthy", homes_count: 198, devices_count: 184, wallet_balance: 2120000, latitude: 6.4549, longitude: 3.4346 },
+          { id: "vi", name: "Victoria Island Estate", location: "Victoria Island, Lagos", status: "warning", health_status: "warning", homes_count: 220, devices_count: 201, wallet_balance: 3320000, latitude: 6.4281, longitude: 3.4219 }
+        ];
+      }
+
+      async function loadEstateData() {
+        try {
+          const [estatesRes, mapsRes] = await Promise.all([
+            api("/api/lead-agents/admin/office/estates"),
+            api("/api/lead-agents/admin/maps/config").catch(() => ({ maps: {} }))
+          ]);
+          return {
+            estates: Array.isArray(estatesRes.collection) ? estatesRes.collection : fallbackEstates(),
+            mapConfig: mapsRes.maps || {}
+          };
+        } catch (_) {
+          return { estates: fallbackEstates(), mapConfig: {} };
         }
-        window.dispatchEvent(new CustomEvent("oyi:open", { detail: { mode: "voice" } }));
-        window.setTimeout(() => {
-          orb.classList.remove("launching");
-          if (hint) {
-            hint.textContent = "Oyi is active below. Say a request, or use chat if a dashboard view is needed.";
+      }
+
+      function renderStaticMap(estates) {
+        const labels = estates.slice(0, 8).map((estate, index) => {
+          const x = [28, 54, 70, 38, 62, 46, 78, 22][index] || 50;
+          const y = [35, 42, 58, 66, 28, 52, 36, 55][index] || 50;
+          return `<div class="static-map-label" style="left:${x}%;top:${y}%">${estate.name || "Estate"}</div>`;
+        }).join("");
+        return `<div class="map-shell"><div id="oyiMap">${labels}</div></div>`;
+      }
+
+      async function renderLiveMap(estates, mapConfig) {
+        const host = document.getElementById("oyiMap");
+        const googleConfig = (mapConfig && mapConfig.google_maps) || {};
+        const provider = String((mapConfig && mapConfig.provider) || "static").toLowerCase();
+        const apiKey = googleConfig.api_key || "";
+        const markerRecords = estates.map((estate) => ({ estate, position: estateCoordinate(estate) })).filter((item) => item.position);
+        if (!host || provider !== "google" || !apiKey || !markerRecords.length) return;
+        const maps = await loadGoogleMaps(apiKey);
+        host.closest(".map-shell")?.classList.add("live");
+        host.innerHTML = "";
+        const map = new maps.Map(host, {
+          center: markerRecords[0].position,
+          zoom: markerRecords.length > 1 ? 10 : 14,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+          styles: [
+            { elementType: "geometry", stylers: [{ color: "#08111f" }] },
+            { elementType: "labels.text.fill", stylers: [{ color: "#d8e6ff" }] },
+            { elementType: "labels.text.stroke", stylers: [{ color: "#07101f" }] },
+            { featureType: "road", elementType: "geometry", stylers: [{ color: "#162641" }] },
+            { featureType: "water", elementType: "geometry", stylers: [{ color: "#06172f" }] },
+            { featureType: "poi", stylers: [{ visibility: "off" }] }
+          ]
+        });
+        const bounds = new maps.LatLngBounds();
+        markerRecords.forEach(({ estate, position }) => {
+          const status = String(estate.health_status || estate.status || "healthy").toLowerCase();
+          const fillColor = status.includes("critical") ? "#ff416d" : status.includes("warning") ? "#ffc247" : "#28e68d";
+          const marker = new maps.Marker({
+            position,
+            map,
+            title: estate.name || "Estate",
+            icon: { path: maps.SymbolPath.CIRCLE, scale: 8, fillColor, fillOpacity: 0.96, strokeColor: "#07101f", strokeWeight: 2 }
+          });
+          const info = new maps.InfoWindow({ content: `<strong>${estate.name || "Estate"}</strong><br>${estate.location || "Location pending"}<br>${status}` });
+          marker.addListener("click", () => info.open({ anchor: marker, map }));
+          bounds.extend(position);
+        });
+        if (markerRecords.length > 1) map.fitBounds(bounds, 56);
+      }
+
+      async function openEstateMap(command) {
+        dockOrb();
+        setWakeStatus("Oyi is opening estate map intelligence...", true);
+        windowTitle.textContent = "Estate command map";
+        windowSubtitle.textContent = "Live estate locations and operational status from Ochiga Office where permissions allow.";
+        windowBody.innerHTML = `<div class="empty-window"><div><strong>Loading estates...</strong><span>Oyi is checking Office estate data and map configuration.</span></div></div>`;
+        const { estates, mapConfig } = await loadEstateData();
+        const active = estates.filter((estate) => String(estate.status || estate.subscription_status || "active").toLowerCase() !== "disabled");
+        const devices = estates.reduce((sum, estate) => sum + Number(estate.devices_count || 0), 0);
+        const wallets = estates.reduce((sum, estate) => sum + Number(estate.wallet_balance || 0), 0);
+        windowBody.innerHTML = `
+          <div class="map-window">
+            <div class="metric-grid">
+              <div class="metric"><span>Estates connected</span><strong>${estates.length}</strong></div>
+              <div class="metric"><span>Active estates</span><strong>${active.length}</strong></div>
+              <div class="metric"><span>Hardware devices</span><strong>${devices.toLocaleString()}</strong></div>
+              <div class="metric"><span>Wallet float</span><strong>₦${Math.round(wallets / 1000000 * 10) / 10}M</strong></div>
+            </div>
+            ${renderStaticMap(estates)}
+            <div class="estate-list">
+              ${estates.map((estate) => `<div class="estate-row"><div><strong>${estate.name || "Estate"}</strong><br><span>${estate.location || "Location pending"} · ${estate.homes_count || 0} homes · ${estate.devices_count || 0} hardware devices</span></div><div class="badge">${estate.health_status || estate.status || "active"}</div></div>`).join("")}
+            </div>
+          </div>`;
+        renderLiveMap(estates, mapConfig).catch(() => {});
+        const reply = `I opened the estate command map. I found ${estates.length} estate records, ${active.length} active estates, and ${devices} hardware devices in view.`;
+        oyiLast.textContent = reply;
+        addBubble("oyi", reply);
+        speak(reply);
+      }
+
+      async function askOyiChat(command) {
+        chatDrawer.classList.add("open");
+        addBubble("user", command);
+        setWakeStatus("Oyi is thinking across the Ochiga agent layer...", true);
+        try {
+          const response = await fetch("/api/lead-agents/public/chat", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              lead_id: leadId || undefined,
+              source: "oyi_command_center",
+              message: command,
+              profile: { role: "owner_admin", command_surface: "oyi_command_center" }
+            })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || "Oyi chat failed");
+          if (data.lead && data.lead.id) {
+            leadId = data.lead.id;
+            window.localStorage.setItem("oyi_command_lead_id", leadId);
           }
-        }, 900);
+          const reply = data.assistant_message || "I have received that. What should I do next?";
+          addBubble("oyi", reply);
+          oyiLast.textContent = reply;
+          speak(reply);
+        } catch (_) {
+          const reply = "I could not reach the agent layer right now, but I am still active on this command screen.";
+          addBubble("oyi", reply);
+          oyiLast.textContent = reply;
+          speak(reply);
+        } finally {
+          setWakeStatus("Oyi is standing by.", true);
+        }
+      }
+
+      async function handleCommand(raw) {
+        const command = normalizeCommand(raw);
+        if (!command) return;
+        dockOrb();
+        input.value = "";
+        chatDrawer.classList.add("open");
+        addBubble("user", command);
+        oyiLast.textContent = command;
+        if (wantsClose(command)) {
+          closeCommandWindow();
+          return;
+        }
+        if (wantsMap(command)) {
+          await openEstateMap(command);
+          return;
+        }
+        if (wantsPitch(command)) {
+          await askOyiChat(command);
+          return;
+        }
+        await askOyiChat(command);
+      }
+
+      function closeCommandWindow() {
+        windowTitle.textContent = "Command workspace";
+        windowSubtitle.textContent = "Visual windows open here only when Oyi needs to show data.";
+        windowBody.innerHTML = '<div class="empty-window"><div><strong>Window closed.</strong><span>Tell Oyi what to open next.</span></div></div>';
+        const reply = "I closed the active window. What should I open next?";
+        addBubble("oyi", reply);
+        speak(reply);
+      }
+
+      function startCommandRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          setWakeStatus("Voice commands unavailable here. Type into the dock.", false);
+          return;
+        }
+        const recognition = new SpeechRecognition();
+        recognition.lang = "en-NG";
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.onstart = () => { orb.classList.add("listening"); setWakeStatus("Oyi is listening for your instruction...", true); };
+        recognition.onresult = (event) => {
+          const transcript = Array.from(event.results || []).map((result) => result[0] ? result[0].transcript : "").join(" ").trim();
+          handleCommand(transcript);
+        };
+        recognition.onend = () => { orb.classList.remove("listening"); setWakeStatus("Oyi is standing by.", true); };
+        recognition.onerror = () => setWakeStatus("Voice command paused. Type or tap mic again.", false);
+        try { recognition.start(); } catch (_) {}
+        activeRecognition = recognition;
       }
 
       function startWakeWord() {
@@ -354,40 +738,23 @@
         recognition.interimResults = true;
         recognition.onstart = () => setWakeStatus('Listening for "Hey Oyi" or "Hey O"...', true);
         recognition.onresult = (event) => {
-          const heard = Array.from(event.results || [])
-            .map((result) => (result[0] ? result[0].transcript : ""))
-            .join(" ")
-            .toLowerCase();
-          if (/\b(hey\s+oyi|hey\s+o|hey\s+oe|oyi|o\s*e)\b/.test(heard)) {
-            wakeOyi("wake word");
-          }
+          const heard = Array.from(event.results || []).map((result) => result[0] ? result[0].transcript : "").join(" ").toLowerCase();
+          if (/\b(hey\s+oyi|hey\s+o|hey\s+oe|oyi|o\s*e)\b/.test(heard)) wakeOyi("wake word");
         };
         recognition.onerror = () => setWakeStatus("Tap orb once to allow voice wake.", false);
-        recognition.onend = () => {
-          window.setTimeout(() => {
-            try {
-              recognition.start();
-            } catch (_) {}
-          }, 900);
-        };
-        try {
-          recognition.start();
-        } catch (_) {
-          setWakeStatus("Tap orb once to activate wake word.", false);
-        }
+        recognition.onend = () => window.setTimeout(() => { try { recognition.start(); } catch (_) {} }, 900);
+        try { recognition.start(); } catch (_) { setWakeStatus("Tap orb once to activate wake word.", false); }
       }
 
       async function startClapWake() {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          return;
-        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
         try {
-          clapStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           if (!AudioContext) return;
-          clapContext = new AudioContext();
-          const source = clapContext.createMediaStreamSource(clapStream);
-          const analyser = clapContext.createAnalyser();
+          const context = new AudioContext();
+          const source = context.createMediaStreamSource(stream);
+          const analyser = context.createAnalyser();
           analyser.fftSize = 512;
           source.connect(analyser);
           const samples = new Uint8Array(analyser.fftSize);
@@ -402,15 +769,10 @@
             const now = Date.now();
             if (rms > 0.28) {
               clapHits = clapHits.filter((hit) => now - hit < 760);
-              if (!clapHits.length || now - clapHits[clapHits.length - 1] > 140) {
-                clapHits.push(now);
-              }
-              if (clapHits.length >= 2) {
-                clapHits = [];
-                wakeOyi("double clap");
-              }
+              if (!clapHits.length || now - clapHits[clapHits.length - 1] > 140) clapHits.push(now);
+              if (clapHits.length >= 2) { clapHits = []; wakeOyi("double clap"); }
             }
-            clapFrame = window.requestAnimationFrame(tick);
+            window.requestAnimationFrame(tick);
           };
           tick();
         } catch (_) {
@@ -418,13 +780,13 @@
         }
       }
 
-      if (orb) {
-        orb.addEventListener("click", () => {
-          wakeOyi("tap");
-          startClapWake();
-          startWakeWord();
-        });
-      }
+      orb.addEventListener("click", () => { wakeOyi("tap"); startClapWake(); startWakeWord(); });
+      orb.addEventListener("dblclick", () => chatDrawer.classList.toggle("open"));
+      speakBtn.addEventListener("click", () => { wakeOyi("mic"); startCommandRecognition(); });
+      form.addEventListener("submit", (event) => { event.preventDefault(); handleCommand(input.value); });
+      closeChat.addEventListener("click", () => chatDrawer.classList.remove("open"));
+      closeWindow.addEventListener("click", closeCommandWindow);
+      mapDemo.addEventListener("click", () => handleCommand("Open the map of Lagos and show active estates connected to Ochiga"));
       startWakeWord();
       startClapWake();
     </script>
