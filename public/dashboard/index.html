@@ -367,8 +367,9 @@
         border-radius: 8px;
         transition: all 160ms ease;
       }
-      .office-nav-domain:hover {
-        color: rgba(244, 247, 255, 0.78);
+      .office-nav-domain:hover,
+      .office-nav-domain.is-active {
+        color: rgba(244, 247, 255, 0.86);
       }
       .office-nav-domain.is-collapsed {
         margin: 8px 0 4px;
@@ -390,6 +391,15 @@
         font-size: 13px;
         font-weight: 400;
         color: rgba(186, 199, 255, 0.62);
+      }
+      .office-nav-domain.is-collapsed.is-active {
+        border-color: rgba(140, 96, 255, 0.5);
+        background: linear-gradient(135deg, rgba(124, 77, 255, 0.92), rgba(74, 92, 218, 0.76));
+        color: #fff;
+        box-shadow: 0 12px 28px rgba(87, 70, 255, 0.2);
+      }
+      .office-nav-domain.is-collapsed.is-active::after {
+        color: rgba(255, 255, 255, 0.74);
       }
       .office-nav-btn.is-domain-hidden {
         display: none;
@@ -4036,7 +4046,7 @@
                   <p class="eyebrow">Office Core</p>
                 </div>
                 <div class="office-nav-group">
-                  <div class="office-nav-domain" data-domain-target="overview" data-domain-focus="summary">Command Center</div>
+                  <div class="office-nav-domain" data-domain-target="overview" data-domain-focus="summary" data-open-label="Office" data-collapsed-label="Office Overview">Office</div>
                   <button class="office-nav-btn active" data-office-target="overview" data-office-focus="summary" type="button">
                     <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h8V3H3z"></path><path d="M13 21h8v-6h-8z"></path><path d="M13 10h8V3h-8z"></path><path d="M3 21h8v-4H3z"></path></svg></span>
                     <span class="office-nav-copy"><strong>Overview</strong></span>

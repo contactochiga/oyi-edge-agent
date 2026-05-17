@@ -4817,6 +4817,25 @@
       .join("");
   }
 
+  function updateOfficeDomainActiveStates() {
+    Array.from(document.querySelectorAll(".office-nav-domain")).forEach(function (domain) {
+      let isActive = false;
+      const target = domain.getAttribute("data-domain-target");
+      const focus = domain.getAttribute("data-domain-focus");
+      if (target === state.workspaceTab && (!focus || focus === state.overviewFocus)) {
+        isActive = true;
+      }
+      let next = domain.nextElementSibling;
+      while (!isActive && next && !next.classList.contains("office-nav-domain")) {
+        if (next.classList.contains("office-nav-btn") && next.classList.contains("active")) {
+          isActive = true;
+        }
+        next = next.nextElementSibling;
+      }
+      domain.classList.toggle("is-active", isActive);
+    });
+  }
+
   function renderWorkspaceTabs() {
     if (!canAccessTab(state.workspaceTab)) {
       state.workspaceTab = "overview";
@@ -4845,6 +4864,7 @@
         target === state.workspaceTab && (!focus || focus === state.overviewFocus);
       node.classList.toggle("active", isActive);
     });
+    updateOfficeDomainActiveStates();
     Array.from(document.querySelectorAll("[data-panel]")).forEach(function (panel) {
       panel.classList.toggle("active", panel.getAttribute("data-panel") === state.workspaceTab);
     });
@@ -6097,6 +6117,11 @@
     function setCollapsed(collapsed) {
       domain.classList.toggle("is-collapsed", collapsed);
       domain.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      const collapsedLabel = domain.getAttribute("data-collapsed-label");
+      const openLabel = domain.getAttribute("data-open-label");
+      if (collapsedLabel || openLabel) {
+        domain.textContent = collapsed ? (collapsedLabel || openLabel || domain.textContent) : (openLabel || collapsedLabel || domain.textContent);
+      }
       let next = domain.nextElementSibling;
       while (next && !next.classList.contains("office-nav-domain")) {
         if (next.classList.contains("office-nav-btn")) {
@@ -6128,6 +6153,7 @@
     }
 
     setCollapsed(true);
+    updateOfficeDomainActiveStates();
     domain.addEventListener("click", toggleDomain);
     domain.addEventListener("keydown", function (event) {
       if (event.key === "Enter" || event.key === " ") {
