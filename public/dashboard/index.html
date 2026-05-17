@@ -316,6 +316,9 @@
         position: relative;
         height: calc(100vh - 72px);
         overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(8, 16, 31, 0.98), rgba(5, 8, 17, 0.98)),
+          radial-gradient(circle at 0% 0%, rgba(124, 77, 255, 0.18), transparent 34%);
       }
       .utility-hidden {
         display: none !important;
@@ -326,11 +329,12 @@
         right: 10px;
         z-index: 5;
         margin: 0;
-        width: 32px;
-        height: 32px;
-        border-radius: 10px;
-        background: rgba(149, 166, 255, 0.09);
-        color: #dce6ff;
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(220, 230, 255, 0.82);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         display: grid;
         place-items: center;
       }
@@ -349,52 +353,99 @@
       }
       .office-nav-group {
         display: grid;
-        gap: 6px;
+        gap: 4px;
+      }
+      .office-nav-domain {
+        margin: 14px 10px 4px;
+        font-size: 9.5px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(185, 199, 255, 0.42);
+        cursor: pointer;
+        user-select: none;
+        border-radius: 8px;
+        transition: all 160ms ease;
+      }
+      .office-nav-domain:hover {
+        color: rgba(244, 247, 255, 0.78);
+      }
+      .office-nav-domain.is-collapsed {
+        margin: 8px 0 4px;
+        padding: 10px 11px;
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px solid rgba(255, 255, 255, 0.065);
+        background: rgba(255, 255, 255, 0.045);
+        color: rgba(220, 230, 255, 0.86);
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: none;
+      }
+      .office-nav-domain.is-collapsed::after {
+        content: "+";
+        font-size: 13px;
+        font-weight: 400;
+        color: rgba(186, 199, 255, 0.62);
+      }
+      .office-nav-btn.is-domain-hidden {
+        display: none;
       }
       .office-nav-btn {
         width: 100%;
-        min-height: 40px;
-        padding: 7px 9px;
-        border-radius: 11px;
+        min-height: 38px;
+        padding: 6px 10px;
+        border-radius: 8px;
         background: transparent;
         border: 1px solid transparent;
-        box-shadow: var(--shadow);
+        box-shadow: none;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 11px;
         text-align: left;
-        color: #dce6ff;
+        color: rgba(220, 230, 255, 0.74);
+        transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+      }
+      .office-nav-btn:hover {
+        background: rgba(255, 255, 255, 0.045);
+        border-color: rgba(255, 255, 255, 0.06);
+        color: #fff;
       }
       .office-nav-btn.active {
-        border-color: rgba(124, 77, 255, 0.42);
-        background: linear-gradient(135deg, rgba(124, 77, 255, 0.8), rgba(54, 163, 255, 0.42));
-        box-shadow: 0 16px 35px rgba(87, 70, 255, 0.24);
+        border-color: rgba(140, 96, 255, 0.5);
+        background: linear-gradient(135deg, rgba(124, 77, 255, 0.92), rgba(74, 92, 218, 0.76));
+        box-shadow: 0 12px 28px rgba(87, 70, 255, 0.2);
         color: #fff;
       }
       .office-nav-btn.active .office-nav-icon {
-        background: rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.15);
         color: #fff;
+        border-color: rgba(255, 255, 255, 0.16);
       }
       .office-nav-icon {
-        width: 28px;
-        height: 28px;
-        border-radius: 9px;
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
         display: grid;
         place-items: center;
-        background: rgba(149, 166, 255, 0.1);
-        color: #bac7ff;
+        background: rgba(255, 255, 255, 0.055);
+        border: 1px solid rgba(255, 255, 255, 0.065);
+        color: rgba(186, 199, 255, 0.9);
         flex: 0 0 auto;
       }
       .office-nav-icon svg {
-        width: 18px;
-        height: 18px;
+        width: 15.5px;
+        height: 15.5px;
       }
       .office-nav-copy {
         min-width: 0;
         display: block;
       }
       .office-nav-copy strong {
-        font-size: 11px;
+        font-size: 11.5px;
         font-weight: 500;
         line-height: 1.15;
       }
@@ -439,21 +490,21 @@
       }
       .mini-office-btn {
         width: 100%;
-        min-height: 42px;
-        border-radius: 13px;
-        background: rgba(149, 166, 255, 0.07);
-        border: 1px solid rgba(149, 166, 255, 0.1);
+        min-height: 38px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.045);
+        border: 1px solid rgba(255, 255, 255, 0.065);
         display: grid;
         place-items: center;
-        color: #bac7ff;
+        color: rgba(186, 199, 255, 0.9);
       }
       .mini-office-btn svg {
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
       }
       .mini-office-btn.active {
-        background: linear-gradient(135deg, rgba(124, 77, 255, 0.85), rgba(54, 163, 255, 0.46));
-        border-color: rgba(124, 77, 255, 0.35);
+        background: linear-gradient(135deg, rgba(124, 77, 255, 0.95), rgba(74, 92, 218, 0.72));
+        border-color: rgba(140, 96, 255, 0.48);
         color: #fff;
       }
       .card,
@@ -3985,85 +4036,71 @@
                   <p class="eyebrow">Office Core</p>
                 </div>
                 <div class="office-nav-group">
+                  <div class="office-nav-domain" data-domain-target="overview" data-domain-focus="summary">Command Center</div>
                   <button class="office-nav-btn active" data-office-target="overview" data-office-focus="summary" type="button">
-                    <span class="office-nav-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h8V3H3z"></path><path d="M13 21h8v-6h-8z"></path><path d="M13 10h8V3h-8z"></path><path d="M3 21h8v-4H3z"></path></svg>
-                    </span>
-                    <span class="office-nav-copy">
-                      <strong>Office Overview</strong>
-                    </span>
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h8V3H3z"></path><path d="M13 21h8v-6h-8z"></path><path d="M13 10h8V3h-8z"></path><path d="M3 21h8v-4H3z"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Overview</strong></span>
                   </button>
+                  <button class="office-nav-btn" data-office-target="overview" data-office-focus="live_infrastructure" type="button">
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"></path><path d="M12 7v5l3 2"></path><path d="M19 3v5h-5"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Live Infrastructure</strong></span>
+                  </button>
+                  <div class="office-nav-domain" data-domain-target="facility" data-domain-focus="facility">Estate Supervision</div>
                   <button class="office-nav-btn" data-office-target="facility" data-office-focus="facility" type="button">
-                    <span class="office-nav-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg>
-                    </span>
-                    <span class="office-nav-copy">
-                      <strong>Estate Facilities</strong>
-                    </span>
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Estates</strong></span>
                   </button>
                   <button class="office-nav-btn" data-office-target="smart_buildings" data-office-focus="smart_buildings" type="button">
-                    <span class="office-nav-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 9h.01"></path><path d="M15 9h.01"></path><path d="M9 13h.01"></path><path d="M15 13h.01"></path></svg>
-                    </span>
-                    <span class="office-nav-copy">
-                      <strong>Smart Buildings</strong>
-                    </span>
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 9h.01"></path><path d="M15 13h.01"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Buildings & Homes</strong></span>
                   </button>
+                  <div class="office-nav-domain" data-domain-target="devices" data-domain-focus="devices">Hardware & Edge</div>
                   <button class="office-nav-btn" data-office-target="devices" data-office-focus="devices" type="button">
-                    <span class="office-nav-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="12" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg>
-                    </span>
-                    <span class="office-nav-copy">
-                      <strong>Devices</strong>
-                    </span>
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="12" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Hardware Devices</strong></span>
                   </button>
-                  <button class="office-nav-btn" data-office-target="web_presence" data-office-focus="web_presence" type="button">
-                    <span class="office-nav-icon">
-	                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg>
-                    </span>
-                    <span class="office-nav-copy">
-	                      <strong>Documents</strong>
-                    </span>
+                  <div class="office-nav-domain" data-domain-target="crm_agents" data-domain-focus="crm_agents">CRM & Support</div>
+                  <button class="office-nav-btn" data-office-target="crm_agents" data-office-focus="crm_agents" type="button">
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-6"></path></svg></span>
+                    <span class="office-nav-copy"><strong>CRM & Deployments</strong></span>
                   </button>
                   <button class="office-nav-btn" data-office-target="support" data-office-focus="support" type="button">
-                    <span class="office-nav-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                    </span>
-                    <span class="office-nav-copy">
-                      <strong>Customer Support</strong>
-                    </span>
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Support Tickets</strong></span>
                   </button>
-                  <button class="office-nav-btn" data-office-target="crm_agents" data-office-focus="crm_agents" type="button">
-                    <span class="office-nav-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-6"></path></svg>
-                    </span>
-                    <span class="office-nav-copy">
-                      <strong>CRM and Agents</strong>
-                    </span>
+                  <div class="office-nav-domain" data-domain-target="web_presence" data-domain-focus="web_presence">Documents & Plans</div>
+                  <button class="office-nav-btn" data-office-target="web_presence" data-office-focus="web_presence" type="button">
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Documents & Plans</strong></span>
                   </button>
-                  <button class="office-nav-btn" data-office-target="team" data-office-focus="staff_roles" type="button">
-                    <span class="office-nav-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                    </span>
-                    <span class="office-nav-copy">
-                      <strong>Staff and Roles</strong>
-                    </span>
+                  <div class="office-nav-domain" data-domain-target="reports" data-domain-focus="reports">Infrastructure Intelligence</div>
+                  <button class="office-nav-btn" data-office-target="reports" data-office-focus="reports" type="button">
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"></path><path d="M12 7v5l3 2"></path><path d="M19 3v5h-5"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Reports & Analytics</strong></span>
                   </button>
+                  <div class="office-nav-domain" data-domain-target="audit" data-domain-focus="governance">Knowledge & Audit</div>
                   <button class="office-nav-btn" data-office-target="audit" data-office-focus="governance" type="button">
-                    <span class="office-nav-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"></path><path d="M9 12l2 2 4-4"></path></svg>
-                    </span>
-                    <span class="office-nav-copy">
-                      <strong>Knowledge Pack</strong>
-                    </span>
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"></path><path d="M9 12l2 2 4-4"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Knowledge & Audit</strong></span>
+                  </button>
+                  <div class="office-nav-domain" data-domain-target="crm_agents" data-domain-focus="ai_operations">AI Operations</div>
+                  <button class="office-nav-btn" data-office-target="crm_agents" data-office-focus="ai_operations" type="button">
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"></path><path d="M12 18v4"></path><path d="M4.93 4.93l2.83 2.83"></path><path d="M16.24 16.24l2.83 2.83"></path><circle cx="12" cy="12" r="4"></circle></svg></span>
+                    <span class="office-nav-copy"><strong>Agent Console</strong></span>
+                  </button>
+                  <div class="office-nav-domain" data-domain-target="settings" data-domain-focus="platform_infrastructure">Platform Infrastructure</div>
+                  <button class="office-nav-btn" data-office-target="settings" data-office-focus="platform_infrastructure" type="button">
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Integrations & Health</strong></span>
+                  </button>
+                  <div class="office-nav-domain" data-domain-target="team" data-domain-focus="staff_roles">Administration</div>
+                  <button class="office-nav-btn" data-office-target="team" data-office-focus="staff_roles" type="button">
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+                    <span class="office-nav-copy"><strong>Staff & Roles</strong></span>
                   </button>
                   <button class="office-nav-btn" data-office-target="settings" data-office-focus="settings" type="button">
-                    <span class="office-nav-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6A1.7 1.7 0 0 0 10.4 3V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.34.53.56.9.6H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.4z"></path></svg>
-                    </span>
-                    <span class="office-nav-copy">
-                      <strong>Settings</strong>
-                    </span>
+                    <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path></svg></span>
+                    <span class="office-nav-copy"><strong>System Settings</strong></span>
                   </button>
                 </div>
               </div>
@@ -4151,34 +4188,34 @@
             <div class="list utility-hidden" id="leadList"></div>
           </div>
           <div class="left-mini-rail" id="leftMiniRail">
-            <button class="mini-office-btn active" data-office-target="overview" data-office-focus="summary" type="button" aria-label="Office Overview">
+            <button class="mini-office-btn active" data-office-target="overview" data-office-focus="summary" type="button" aria-label="Overview">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h8V3H3z"></path><path d="M13 21h8v-6h-8z"></path><path d="M13 10h8V3h-8z"></path><path d="M3 21h8v-4H3z"></path></svg>
             </button>
-            <button class="mini-office-btn" data-office-target="facility" data-office-focus="facility" type="button" aria-label="Estate Facilities">
+            <button class="mini-office-btn" data-office-target="facility" data-office-focus="facility" type="button" aria-label="Estates">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg>
             </button>
-            <button class="mini-office-btn" data-office-target="smart_buildings" data-office-focus="smart_buildings" type="button" aria-label="Smart Buildings">
+            <button class="mini-office-btn" data-office-target="smart_buildings" data-office-focus="smart_buildings" type="button" aria-label="Buildings & Homes">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 9h.01"></path><path d="M15 9h.01"></path><path d="M9 13h.01"></path><path d="M15 13h.01"></path></svg>
             </button>
-            <button class="mini-office-btn" data-office-target="devices" data-office-focus="devices" type="button" aria-label="Devices">
+            <button class="mini-office-btn" data-office-target="devices" data-office-focus="devices" type="button" aria-label="Hardware Devices">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="12" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg>
             </button>
-	            <button class="mini-office-btn" data-office-target="web_presence" data-office-focus="web_presence" type="button" aria-label="Documents">
+	            <button class="mini-office-btn" data-office-target="web_presence" data-office-focus="web_presence" type="button" aria-label="Documents & Plans">
 	              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg>
             </button>
-            <button class="mini-office-btn" data-office-target="support" data-office-focus="support" type="button" aria-label="Customer Support">
+            <button class="mini-office-btn" data-office-target="support" data-office-focus="support" type="button" aria-label="Support Tickets">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
             </button>
-            <button class="mini-office-btn" data-office-target="crm_agents" data-office-focus="crm_agents" type="button" aria-label="CRM and Agents">
+            <button class="mini-office-btn" data-office-target="crm_agents" data-office-focus="crm_agents" type="button" aria-label="CRM & Deployments">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-6"></path></svg>
             </button>
-            <button class="mini-office-btn" data-office-target="team" data-office-focus="staff_roles" type="button" aria-label="Staff and Roles">
+            <button class="mini-office-btn" data-office-target="team" data-office-focus="staff_roles" type="button" aria-label="Staff & Roles">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </button>
-            <button class="mini-office-btn" data-office-target="audit" data-office-focus="governance" type="button" aria-label="Knowledge Pack">
+            <button class="mini-office-btn" data-office-target="audit" data-office-focus="governance" type="button" aria-label="Knowledge & Audit">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"></path><path d="M9 12l2 2 4-4"></path></svg>
             </button>
-            <button class="mini-office-btn" data-office-target="settings" data-office-focus="settings" type="button" aria-label="Settings">
+            <button class="mini-office-btn" data-office-target="settings" data-office-focus="settings" type="button" aria-label="System Settings">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6A1.7 1.7 0 0 0 10.4 3V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.34.53.56.9.6H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.4z"></path></svg>
             </button>
           </div>

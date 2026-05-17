@@ -4853,6 +4853,10 @@
         title: "Welcome back",
         subtitle: "Here is what is happening across your ecosystem today.",
       },
+      live_infrastructure: {
+        title: "Live Infrastructure",
+        subtitle: "Realtime map, twin, heat, health, alerts, devices, and estate infrastructure command view.",
+      },
       facility: {
         title: "Estate Facilities",
         subtitle:
@@ -6084,6 +6088,52 @@
       }
       state.workspaceTab = target;
       renderWorkspaceTabs();
+    });
+  });
+  Array.from(document.querySelectorAll(".office-nav-domain")).forEach(function (domain) {
+    domain.setAttribute("role", "button");
+    domain.setAttribute("tabindex", "0");
+
+    function setCollapsed(collapsed) {
+      domain.classList.toggle("is-collapsed", collapsed);
+      domain.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      let next = domain.nextElementSibling;
+      while (next && !next.classList.contains("office-nav-domain")) {
+        if (next.classList.contains("office-nav-btn")) {
+          next.classList.toggle("is-domain-hidden", collapsed);
+        }
+        next = next.nextElementSibling;
+      }
+    }
+
+    function routeToDomain() {
+      const target = domain.getAttribute("data-domain-target");
+      const focus = domain.getAttribute("data-domain-focus");
+      if (target && canAccessTab(target)) {
+        state.workspaceTab = target;
+        if (focus) state.overviewFocus = focus;
+        renderWorkspaceTabs();
+      }
+    }
+
+    function toggleDomain() {
+      const collapsed = domain.classList.contains("is-collapsed");
+      if (collapsed) {
+        routeToDomain();
+        setCollapsed(false);
+      } else {
+        routeToDomain();
+        setCollapsed(true);
+      }
+    }
+
+    setCollapsed(true);
+    domain.addEventListener("click", toggleDomain);
+    domain.addEventListener("keydown", function (event) {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggleDomain();
+      }
     });
   });
   Array.from((el.notificationFilters || document).querySelectorAll("[data-notification-filter]")).forEach(
