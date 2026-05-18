@@ -1080,8 +1080,8 @@
         ],
       },
       facility: {
-        title: "Estate Facilities",
-        subtitle: "Subscribed estates, buildings, communities, requests, packages, wallets, and operational posture.",
+        title: "Estate Portfolio",
+        subtitle: "Portfolio-level estate intelligence across subscribed estates, buildings, communities, requests, packages, wallets, and operational posture.",
         badge: estateKeys.length ? "Connected" : "Awaiting sync",
         tone: estateKeys.length ? "" : "warning",
         primaryMetric: estateKeys.length,
@@ -1178,8 +1178,8 @@
         }),
       },
       crm_agents: {
-        title: "CRM and Agents",
-        subtitle: "Commercial pipeline, demos, lead ownership, Oma, Osa, and agent execution visibility.",
+        title: "CRM & Support",
+        subtitle: "Leads, customers, organizations, conversations, support tickets, escalations, and deployment pipeline visibility.",
         badge: totals.leads ? "Active" : "Standby",
         tone: totals.leads ? "" : "warning",
         primaryMetric: totals.leads || 0,
@@ -1220,8 +1220,8 @@
         }),
       },
       governance: {
-        title: "Knowledge Pack",
-        subtitle: "Knowledge records, audit activity, trace evidence, agent reasoning, and accountable operational memory.",
+        title: "Knowledge & Audit",
+        subtitle: "Audit logs, trace records, knowledge base, audit activity, trace evidence, agent reasoning, and accountable operational memory.",
         badge: latestAudit.length ? "Live" : "Idle",
         tone: latestAudit.length ? "" : "warning",
         primaryMetric: state.audit.length,
@@ -3620,32 +3620,54 @@
     const navByTab = {
       overview: [],
       facility: [
-        { label: "Estates", type: "facet", value: "estates", active: true },
-        { label: "Packages", type: "facet", value: "packages" },
-        { label: "Wallets", type: "facet", value: "wallets" },
-        { label: "Support", type: "tab", value: "support" },
-        { label: "Knowledge Pack", type: "tab", value: "audit" },
+        { label: "Dashboard", type: "tab", value: "facility", active: true },
+        { label: "Estates", type: "facet", value: "estates" },
+        { label: "Buildings", type: "tab", value: "smart_buildings" },
+        { label: "Facility Accounts", type: "facet", value: "accounts" },
+        { label: "Deployments", type: "facet", value: "deployments" },
+        { label: "Performance", type: "tab", value: "reports" },
+        { label: "Monitoring", type: "facet", value: "monitoring" },
       ],
-      smart_buildings: [
-        { label: "Buildings", type: "facet", value: "buildings", active: true },
-        { label: "Homes", type: "facet", value: "homes" },
-        { label: "Hardware Devices", type: "facet", value: "devices" },
-        { label: "Wallets", type: "facet", value: "wallets" },
-        { label: "Support", type: "tab", value: "support" },
+      smart_buildings: [],
+      devices: [
+        { label: "Dashboard", type: "tab", value: "devices", active: true },
+        { label: "Registry", type: "facet", value: "registry" },
+        { label: "Discovery", type: "facet", value: "discovery" },
+        { label: "Control", type: "facet", value: "control" },
+        { label: "Telemetry", type: "facet", value: "telemetry" },
+        { label: "Edge Agents", type: "facet", value: "edge_agents" },
+        { label: "Reports", type: "tab", value: "reports" },
+        { label: "Integrations", type: "tab", value: "settings" },
       ],
 	      web_presence: [
-	        { label: "Proposals", type: "facet", value: "proposals", active: true },
-	        { label: "Invoices", type: "facet", value: "invoices" },
+	        { label: "Dashboard", type: "tab", value: "web_presence", active: true },
+	        { label: "Proposals", type: "facet", value: "proposals" },
 	        { label: "Contracts", type: "facet", value: "contracts" },
-	        { label: "Shared Files", type: "facet", value: "files" },
+	        { label: "Invoices", type: "facet", value: "invoices" },
+	        { label: "Reports", type: "tab", value: "reports" },
+	        { label: "Drawings", type: "facet", value: "drawings" },
+	        { label: "Estate Plans", type: "facet", value: "estate_plans" },
+	        { label: "Asset Files", type: "facet", value: "asset_files" },
+	        { label: "Generated PDFs", type: "facet", value: "generated_pdfs" },
+	        { label: "Studio", type: "facet", value: "studio" },
       ],
       support: [
         { label: "Open cases", type: "tab", value: "notifications" },
         { label: "Founder escalations", type: "tab", value: "founder" },
         { label: "Assigned teams", type: "facet", value: "teams" },
       ],
-      crm_agents: [],
-      devices: [],
+      crm_agents: [
+        { label: "Dashboard", type: "tab", value: "crm_agents", active: true },
+        { label: "Leads", type: "crm_view", value: "crm" },
+        { label: "Customers", type: "facet", value: "customers" },
+        { label: "Organizations", type: "facet", value: "organizations" },
+        { label: "Conversations", type: "tab", value: "conversation" },
+        { label: "Support Tickets", type: "tab", value: "notifications" },
+        { label: "Escalations", type: "tab", value: "founder" },
+        { label: "Account Managers", type: "facet", value: "account_managers" },
+        { label: "Sales Pipeline", type: "tab", value: "commercial" },
+        { label: "Deployment Pipeline", type: "facet", value: "deployment_pipeline" },
+      ],
       conversation: [
         { label: "Oma", type: "agent", value: "marketing" },
         { label: "Osa", type: "agent", value: "sales" },
@@ -3673,15 +3695,21 @@
         { label: "Reports", type: "tab", value: "reports" },
       ],
       reports: [
-        { label: "Overview", type: "tab", value: "overview" },
-        { label: "Commercial", type: "tab", value: "commercial" },
-        { label: "Trace", type: "tab", value: "traces" },
+        { label: "Dashboard", type: "tab", value: "reports", active: true },
+        { label: "Analytics", type: "facet", value: "analytics" },
+        { label: "AI Insights", type: "facet", value: "ai_insights" },
+        { label: "Reports", type: "facet", value: "reports" },
+        { label: "Predictive Operations", type: "facet", value: "predictive_operations" },
+        { label: "Diagnostics", type: "facet", value: "diagnostics" },
       ],
       team: [
-        { label: "Staff accounts", type: "tab", value: "team", active: true },
-        { label: "+ Create", type: "staff_action", value: "createStaffAction" },
-        { label: "Invites", type: "staff_action", value: "inviteStaffAction" },
-        { label: "Password", type: "staff_action", value: "passwordStaffAction" },
+        { label: "Dashboard", type: "tab", value: "team", active: true },
+        { label: "Staff & Roles", type: "facet", value: "staff_roles" },
+        { label: "Permissions", type: "facet", value: "permissions" },
+        { label: "System Settings", type: "tab", value: "settings" },
+        { label: "Integrations", type: "tab", value: "settings" },
+        { label: "Accounts", type: "facet", value: "accounts" },
+        { label: "Super Admin", type: "facet", value: "super_admin" },
       ],
       notifications: [
         { label: "Open inbox", type: "tab", value: "notifications", active: true },
@@ -3694,18 +3722,44 @@
         { label: "CRM", type: "tab", value: "conversation" },
       ],
       audit: [
-        { label: "Knowledge Pack", type: "tab", value: "audit", active: true },
-        { label: "Trace explorer", type: "tab", value: "traces" },
-        { label: "Staff", type: "tab", value: "team" },
+        { label: "Dashboard", type: "tab", value: "audit", active: true },
+        { label: "Audit Logs", type: "facet", value: "audit_logs" },
+        { label: "Trace Explorer", type: "tab", value: "traces" },
+        { label: "Knowledge Base", type: "facet", value: "knowledge_base" },
+        { label: "AI Memory", type: "facet", value: "ai_memory" },
+        { label: "Activity History", type: "facet", value: "activity_history" },
+        { label: "Governance Logs", type: "facet", value: "governance_logs" },
       ],
       traces: [
         { label: "Trace explorer", type: "tab", value: "traces", active: true },
-        { label: "Knowledge pack", type: "tab", value: "audit" },
+        { label: "Knowledge & Audit", type: "tab", value: "audit" },
         { label: "CRM", type: "tab", value: "crm_agents" },
+      ],
+      settings: [
+        { label: "Dashboard", type: "tab", value: "settings", active: true },
+        { label: "Realtime", type: "facet", value: "realtime" },
+        { label: "Storage", type: "facet", value: "storage" },
+        { label: "API Health", type: "facet", value: "api_health" },
+        { label: "Webhooks", type: "facet", value: "webhooks" },
+        { label: "Sync", type: "facet", value: "sync" },
+        { label: "Provider Status", type: "facet", value: "provider_status" },
       ],
     };
 
-    const items = navByTab[state.workspaceTab] || navByTab.overview;
+    const items =
+      state.workspaceTab === "crm_agents" && state.overviewFocus === "ai_operations"
+        ? [
+            { label: "Dashboard", type: "tab", value: "crm_agents", active: true },
+            { label: "Oyi AI", type: "crm_view", value: "agents" },
+            { label: "Oma", type: "agent", value: "marketing" },
+            { label: "Osa", type: "agent", value: "sales" },
+            { label: "Agent Console", type: "crm_view", value: "agents" },
+            { label: "Voice Command", type: "facet", value: "voice_command" },
+            { label: "Tool Registry", type: "facet", value: "tool_registry" },
+            { label: "Execution", type: "facet", value: "execution" },
+            { label: "Activity", type: "facet", value: "activity" },
+          ]
+        : navByTab[state.workspaceTab] || navByTab.overview;
     if (!items.length) {
       el.sectionNav.classList.add("is-hidden");
       el.sectionNav.innerHTML = "";
@@ -4878,9 +4932,9 @@
         subtitle: "Realtime map, twin, heat, health, alerts, devices, and estate infrastructure command view.",
       },
       facility: {
-        title: "Estate Facilities",
+        title: "Estate Portfolio",
         subtitle:
-          "View subscribed estates, community activity, package posture, buildings, wallets, and estate support from one office.",
+          "Portfolio dashboard for subscribed estates, community activity, package posture, buildings, wallets, and estate support from one office.",
       },
       smart_buildings: {
         title: "Smart Building Supervision",
@@ -4903,11 +4957,9 @@
           "Watch support load, estate complaints, customer requests, and escalation pressure in real time.",
       },
       crm_agents: {
-        title: state.crmOfficeView === "agents" ? "Agent Supervision" : "CRM and Agent Supervision",
+        title: "CRM & Support",
         subtitle:
-          state.crmOfficeView === "agents"
-            ? "Review Oma, Osa, future Office agents, and their live operating posture from one control surface."
-            : "Coordinate Oma, Osa, demos, proposals, commercial movement, and record ownership from Office.",
+          "Manage leads, customers, organizations, conversations, support tickets, escalations, account managers, sales pipeline, and deployment pipeline.",
       },
       staff_roles: {
         title: "Staff and Role Supervision",
@@ -4915,9 +4967,9 @@
           "Manage accounts, permissions, assignment posture, and operator readiness from one authority layer.",
       },
       governance: {
-        title: "Knowledge Pack Supervision",
+        title: "Knowledge & Audit",
         subtitle:
-          "Control audit, trace evidence, human authority actions, and accountable operational oversight.",
+          "Control audit logs, trace evidence, human authority actions, and accountable operational oversight.",
       },
     };
 
@@ -4952,16 +5004,16 @@
         subtitle: "Manage deal stages, proposals, conversion movement, and commercial posture.",
       },
       reports: {
-        title: "Office Reporting",
-        subtitle: "Read pipeline, source, stage, and owner breakdowns across the operation.",
+        title: "Infrastructure Intelligence",
+        subtitle: "Analytics, AI insights, predictive operations, diagnostics, trends, and infrastructure reports.",
       },
       team: {
-        title: "Staff and Roles",
-        subtitle: "Create accounts, issue invites, and manage permissions across the Office.",
+        title: "Administration",
+        subtitle: "Manage staff, roles, permissions, accounts, super admin controls, and system settings.",
       },
       settings: {
-        title: "Settings",
-        subtitle: "Configure integrations, notification routing, security posture, and production sync settings.",
+        title: "Platform Infrastructure",
+        subtitle: "Monitor realtime events, storage, API health, webhooks, sync, provider status, and environment health.",
       },
       notifications: {
         title: "Customer Support",
@@ -4972,8 +5024,8 @@
         subtitle: "Review escalations that require direct human authority and intervention.",
       },
       audit: {
-        title: "Knowledge Pack",
-        subtitle: "Review knowledge activity, staff actions, agent traces, and system evidence in human-readable form.",
+        title: "Knowledge & Audit",
+        subtitle: "Review audit logs, trace activity, AI memory, governance logs, system events, and compliance history.",
       },
       traces: {
         title: "Knowledge and Trace",
@@ -6108,58 +6160,6 @@
       }
       state.workspaceTab = target;
       renderWorkspaceTabs();
-    });
-  });
-  Array.from(document.querySelectorAll(".office-nav-domain")).forEach(function (domain) {
-    domain.setAttribute("role", "button");
-    domain.setAttribute("tabindex", "0");
-
-    function setCollapsed(collapsed) {
-      domain.classList.toggle("is-collapsed", collapsed);
-      domain.setAttribute("aria-expanded", collapsed ? "false" : "true");
-      const collapsedLabel = domain.getAttribute("data-collapsed-label");
-      const openLabel = domain.getAttribute("data-open-label");
-      if (collapsedLabel || openLabel) {
-        domain.textContent = collapsed ? (collapsedLabel || openLabel || domain.textContent) : (openLabel || collapsedLabel || domain.textContent);
-      }
-      let next = domain.nextElementSibling;
-      while (next && !next.classList.contains("office-nav-domain")) {
-        if (next.classList.contains("office-nav-btn")) {
-          next.classList.toggle("is-domain-hidden", collapsed);
-        }
-        next = next.nextElementSibling;
-      }
-    }
-
-    function routeToDomain() {
-      const target = domain.getAttribute("data-domain-target");
-      const focus = domain.getAttribute("data-domain-focus");
-      if (target && canAccessTab(target)) {
-        state.workspaceTab = target;
-        if (focus) state.overviewFocus = focus;
-        renderWorkspaceTabs();
-      }
-    }
-
-    function toggleDomain() {
-      const collapsed = domain.classList.contains("is-collapsed");
-      if (collapsed) {
-        routeToDomain();
-        setCollapsed(false);
-      } else {
-        routeToDomain();
-        setCollapsed(true);
-      }
-    }
-
-    setCollapsed(true);
-    updateOfficeDomainActiveStates();
-    domain.addEventListener("click", toggleDomain);
-    domain.addEventListener("keydown", function (event) {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        toggleDomain();
-      }
     });
   });
   Array.from((el.notificationFilters || document).querySelectorAll("[data-notification-filter]")).forEach(
