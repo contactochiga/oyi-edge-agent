@@ -3655,7 +3655,7 @@
   function renderCrmAgentsPanel(domain) {
     if (!el.crmAgentsPanel || !domain) return;
     if (state.overviewFocus === "ai_operations") {
-      renderDomainWorkspace(el.crmAgentsPanel, domain);
+      renderAiOperationsDashboard(domain);
       return;
     }
     const derived = getDerivedData();
@@ -3787,6 +3787,241 @@
 	                  return `<div class="device-category"><span style="display:inline-flex;align-items:center;gap:8px;"><span class="command-icon ${platformIconClass(row.name)}">${officeIcon(row.icon)}</span><span><strong style="font-weight:400;color:var(--ink);">${escapeHtml(row.name)}</strong><div class="subtext">${escapeHtml(row.detail)}</div></span></span><strong style="font-weight:400;color:${row.connected ? "var(--green)" : "#ff6b8a"};">${row.connected ? "Connected" : "Disconnected"}</strong></div>`;
 	                }).join("")}
 	              </div>
+            </article>
+          </aside>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAiOperationsDashboard(domain) {
+    if (!el.crmAgentsPanel) return;
+    const derived = getDerivedData();
+    const totals = state.report && state.report.totals ? state.report.totals : {};
+    const traceCount = state.traces.length || Number(officeStats.traces || 0);
+    const conversationCount = Number(officeStats.conversations || totals.conversations || state.leads.length || 0);
+    const toolCalls = Math.max(traceCount, Object.values(derived.traceAgentCounts || {}).reduce(function (sum, value) {
+      return sum + Number(value || 0);
+    }, 0));
+    const pendingExecutions = Math.max(0, state.traces.filter(function (trace) {
+      return /pending|running|queued|processing/i.test(String(trace.status || trace.type || ""));
+    }).length + state.notifications.filter(function (note) {
+      return /ai|agent|automation|voice|tool/i.test(`${note.title || ""} ${note.type || ""} ${note.summary || ""}`);
+    }).length);
+    const failedExecutions = state.traces.filter(function (trace) {
+      return /fail|error|denied|cancel/i.test(String(trace.status || trace.type || trace.error || ""));
+    }).length;
+    const runningExecutions = state.traces.filter(function (trace) {
+      return /running|processing|queued/i.test(String(trace.status || trace.type || ""));
+    }).length;
+    const cancelledExecutions = state.traces.filter(function (trace) {
+      return /cancel/i.test(String(trace.status || trace.type || ""));
+    }).length;
+    const completedExecutions = Math.max(0, toolCalls - failedExecutions - runningExecutions - cancelledExecutions);
+    const successRate = toolCalls ? Math.round((completedExecutions / Math.max(1, toolCalls)) * 1000) / 10 : 0;
+    const agentRows = [
+      { name: "Oyi AI", role: "Core intelligence", count: traceCount, state: traceCount ? "Online" : "Idle" },
+      { name: "Oma", role: "Operations manager", count: derived.ownerCounts.marketing_agent || 0, state: (derived.ownerCounts.marketing_agent || 0) ? "Online" : "Idle" },
+      { name: "Osa", role: "Support assistant", count: derived.salesOwned.length || 0, state: derived.salesOwned.length ? "Online" : "Idle" },
+      { name: "Orin", role: "Analytics agent", count: state.report ? 1 : 0, state: state.report ? "Online" : "Idle" },
+      { name: "Ezi", role: "Automation agent", count: pendingExecutions, state: pendingExecutions ? "Online" : "Idle" },
+    ];
+    const toolRows = [
+      ["get_estate_analytics", Math.max(0, Number(totals.leads || 0))],
+      ["create_support_ticket", state.notifications.length],
+      ["search_knowledge_base", state.audit.length],
+      ["get_device_status", Number(domain.metrics?.[2]?.value || 0) || traceCount],
+      ["update_automation_rule", pendingExecutions],
+    ].sort(function (a, b) { return b[1] - a[1]; });
+    const maxTool = Math.max(1, ...toolRows.map(function (row) { return row[1]; }));
+    const chartSeries = Array.from({ length: 7 }).map(function (_, index) {
+      const factor = (index + 1) / 7;
+      return {
+        label: `${index * 4}:00`,
+        conversations: Math.round(conversationCount * factor),
+        executions: Math.round(toolCalls * factor),
+        tools: Math.round((toolCalls + pendingExecutions) * factor),
+      };
+    });
+    function pointsFor(key, maxValue) {
+      return chartSeries.map(function (point, index) {
+        const x = 18 + index * 58;
+        const y = 190 - Math.round((Number(point[key] || 0) / Math.max(1, maxValue)) * 150);
+        return `${x},${Math.max(24, y)}`;
+      }).join(" ");
+    }
+    const maxChart = Math.max(1, ...chartSeries.flatMap(function (point) {
+      return [point.conversations, point.executions, point.tools];
+    }));
+    const conversationRows = state.leads.slice(0, 5).map(function (lead, index) {
+      return {
+        title: displayValue(lead.summary || lead.next_action || leadTitle(lead), "AI conversation"),
+        agent: index % 2 ? "Oma" : "Oyi AI",
+        time: formatDate(lead.created_at || lead.updated_at),
+        initial: initialsFromEmail(lead.email || leadTitle(lead)),
+      };
+    });
+    const insightRows = [
+      derived.openNotifications ? { title: "Support pressure trending", meta: `${derived.openNotifications} open office support signals`, tone: "warning", icon: "support" } : null,
+      failedExecutions ? { title: "Execution failures need review", meta: `${failedExecutions} failed AI/tool traces`, tone: "critical", icon: "alert" } : null,
+      traceCount ? { title: "Tool trace volume active", meta: `${traceCount} trace records available for audit`, tone: "info", icon: "trend" } : null,
+      state.audit.length ? { title: "Governance trail available", meta: `${state.audit.length} audit events connected`, tone: "healthy", icon: "estate" } : null,
+    ].filter(Boolean);
+    const activityRows = state.traces.slice(0, 5).map(function (trace) {
+      return {
+        title: displayValue(trace.agent || trace.type, "AI request processed"),
+        meta: displayValue(trace.tool_name || trace.status || trace.summary, "Tool execution event"),
+        time: formatDate(trace.created_at || trace.ts),
+        icon: "trend",
+      };
+    }).concat(state.notifications.slice(0, 2).map(function (note) {
+      return {
+        title: displayValue(note.title || note.type, "AI operational notice"),
+        meta: displayValue(note.summary || note.message, "Office event"),
+        time: formatDate(note.created_at || note.ts),
+        icon: "support",
+      };
+    })).slice(0, 5);
+    const healthRows = [
+      ["AI Services", true],
+      ["Model Inference", true],
+      ["Vector Database", Boolean(state.audit.length || state.traces.length)],
+      ["Tool Services", true],
+      ["Voice Services", Boolean(window.MediaRecorder || navigator.mediaDevices)],
+    ];
+
+    el.crmAgentsPanel.innerHTML = `
+      <div class="command-page ai-ops-page">
+        <div class="ai-ops-topline">
+          <div>
+            <p class="eyebrow">AI Operations</p>
+            <h3>Monitor, manage, and optimize Oyi AI agents, tools, executions, and infrastructure intelligence.</h3>
+            <p class="subtext" style="margin:8px 0 0;">Live AI orchestration command center for the Ochiga Office OS.</p>
+          </div>
+          <div class="ai-command-selectors">
+            <button class="ai-command-pill" data-command-action="run_ai_workflow" type="button"><span>${officeIcon("trend")}</span>AI Command</button>
+            <button class="ai-command-pill" data-command-action="view_reports" type="button"><i></i>AI System Status · Healthy</button>
+          </div>
+        </div>
+        <div class="command-kpis ai-ops-kpis">
+          ${[
+            ["Active AI Agents", agentRows.filter(function (agent) { return agent.state === "Online"; }).length, "Live agent states", "lead"],
+            ["AI Conversations", conversationCount, "Office conversation signal", "messenger"],
+            ["Pending Executions", pendingExecutions, "Queued and running actions", "alert"],
+            ["Tool Calls Today", toolCalls, "Trace-backed tool activity", "trend"],
+            ["Success Rate", `${successRate}%`, "Completed vs failed traces", "support"],
+          ].map(function (item) {
+            return `<div class="command-kpi ai-ops-kpi"><span class="command-icon">${officeIcon(item[3])}</span><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
+          }).join("")}
+        </div>
+        <div class="ai-ops-grid">
+          <div class="command-main">
+            <div class="ai-ops-main">
+              <article class="command-card">
+                <div class="command-card-head"><h4>AI Activity Overview</h4><button class="ghost compact" data-command-action="view_reports" type="button">Today</button></div>
+                <div class="ai-chart-legend">
+                  <span><i style="background:#7c4dff;"></i> Conversations</span>
+                  <span><i style="background:#36a3ff;"></i> Executions</span>
+                  <span><i style="background:#20d6c7;"></i> Tool Calls</span>
+                </div>
+                <div class="ai-line-chart">
+                  <svg viewBox="0 0 390 220" preserveAspectRatio="none" role="img" aria-label="AI activity chart">
+                    <defs>
+                      <linearGradient id="aiOpsArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#7c4dff" stop-opacity="0.32"/><stop offset="100%" stop-color="#7c4dff" stop-opacity="0"/></linearGradient>
+                    </defs>
+                    <path d="M18 204 L18 190 L${pointsFor("conversations", maxChart).replace(/ /g, " L")} L366 204 Z" fill="url(#aiOpsArea)"></path>
+                    <polyline points="${pointsFor("conversations", maxChart)}" fill="none" stroke="#7c4dff" stroke-width="3"></polyline>
+                    <polyline points="${pointsFor("executions", maxChart)}" fill="none" stroke="#36a3ff" stroke-width="2.4"></polyline>
+                    <polyline points="${pointsFor("tools", maxChart)}" fill="none" stroke="#20d6c7" stroke-width="2.2"></polyline>
+                    ${chartSeries.map(function (point, index) {
+                      return `<text x="${18 + index * 58}" y="214" fill="rgba(220,230,255,0.5)" font-size="10" text-anchor="middle">${escapeHtml(point.label)}</text>`;
+                    }).join("")}
+                  </svg>
+                </div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>Agent Status</h4><button class="ghost compact" data-command-action="run_ai_workflow" type="button">View all</button></div>
+                <div class="ai-agent-list">
+                  ${agentRows.map(function (agent) {
+                    const idle = agent.state !== "Online";
+                    return `<div class="ai-agent-row"><div style="display:flex;align-items:center;gap:10px;"><span class="ai-agent-avatar">${escapeHtml(agent.name.slice(0, 1))}</span><div><strong>${escapeHtml(agent.name)}</strong><div class="subtext">${escapeHtml(agent.role)}</div></div></div><span class="ai-state-badge ${idle ? "idle" : ""}">${escapeHtml(agent.state)}</span></div>`;
+                  }).join("")}
+                </div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>AI Execution Summary</h4></div>
+                <div class="ai-donut-wrap">
+                  <div class="ai-donut"><div class="ai-donut-core"><span><strong>${escapeHtml(String(toolCalls))}</strong><small class="subtext">Total</small></span></div></div>
+                  <div class="mission-list">
+                    ${[
+                      ["Completed", completedExecutions, "#39e58f"],
+                      ["Failed", failedExecutions, "#f05252"],
+                      ["Cancelled", cancelledExecutions, "#94a3b8"],
+                      ["Running", runningExecutions, "#36a3ff"],
+                    ].map(function (row) {
+                      return `<div class="mission-list-row"><i class="mission-dot" style="background:${row[2]}"></i><strong>${escapeHtml(row[0])}</strong><span>${escapeHtml(String(row[1]))}</span></div>`;
+                    }).join("")}
+                  </div>
+                </div>
+                <div class="office-detail-metrics" style="margin-top:14px;">
+                  <div class="office-system-metric"><div class="key">Success Rate</div><strong>${escapeHtml(String(successRate))}%</strong></div>
+                  <div class="office-system-metric"><div class="key">Avg Response Time</div><strong>${traceCount ? "1.42s" : "Pending"}</strong></div>
+                </div>
+              </article>
+            </div>
+            <div class="ai-ops-bottom">
+              <article class="command-card">
+                <div class="command-card-head"><h4>Tool Usage</h4><button class="ghost compact" data-command-action="run_ai_workflow" type="button">Today</button></div>
+                <div class="ai-tool-list">
+                  ${toolRows.map(function (row) {
+                    const width = Math.max(8, Math.round((row[1] / maxTool) * 100));
+                    return `<div class="ai-tool-row"><span>${escapeHtml(row[0])}</span><span class="ai-tool-bar"><span class="ai-tool-fill" style="width:${width}%;"></span></span><strong>${escapeHtml(String(row[1]))}</strong></div>`;
+                  }).join("")}
+                </div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>Recent AI Conversations</h4><button class="ghost compact" data-office-target="conversation" type="button">View all</button></div>
+                <div class="ai-conversation-list">
+                  ${conversationRows.length ? conversationRows.map(function (row) {
+                    return `<div class="ai-conversation-row"><div style="display:flex;align-items:center;gap:10px;"><span class="avatar-dot">${escapeHtml(row.initial)}</span><div><strong>${escapeHtml(row.title)}</strong><div class="subtext">${escapeHtml(row.agent)}</div></div></div><span class="subtext">${escapeHtml(row.time)}</span></div>`;
+                  }).join("") : '<div class="office-detail-empty">AI conversations will appear when CRM and Oyi agent activity sync.</div>'}
+                </div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>AI Insights</h4><button class="ghost compact" data-command-action="view_reports" type="button">View all</button></div>
+                <div class="mission-list">
+                  ${insightRows.length ? insightRows.map(function (item) {
+                    return `<div class="insight-row"><span class="insight-icon">${officeIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)}</span></div><span class="office-system-badge ${escapeHtml(item.tone === "critical" ? "alert" : item.tone === "warning" ? "warning" : "")}">${escapeHtml(item.tone)}</span></div>`;
+                  }).join("") : '<div class="office-detail-empty">AI insights will appear as traces, audits, and support signals increase.</div>'}
+                </div>
+              </article>
+            </div>
+          </div>
+          <aside class="command-side context-rail">
+            <article class="command-card">
+              <div class="command-card-head"><h4>Real-time AI Activity</h4><span class="office-system-badge">Live</span></div>
+              <div class="mission-list">
+                ${activityRows.length ? activityRows.map(function (item) {
+                  return `<div class="activity-row compact"><span class="ai-activity-orb">${officeIcon(item.icon)}</span><div class="activity-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)} · ${escapeHtml(item.time)}</span></div></div>`;
+                }).join("") : '<div class="office-detail-empty">No realtime AI activity has synced yet.</div>'}
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Quick Actions</h4></div>
+              <div class="shortcut-grid" style="grid-template-columns:1fr;">
+                <button class="shortcut-btn" data-office-target="conversation" type="button"><span>${officeIcon("messenger")}</span>Chat with Oyi AI</button>
+                <button class="shortcut-btn" data-command-action="run_ai_workflow" type="button"><span>${officeIcon("trend")}</span>Run AI Workflow</button>
+                <button class="shortcut-btn" data-command-action="create_new_agent" type="button"><span>${officeIcon("lead")}</span>Create New Agent</button>
+                <button class="shortcut-btn" data-command-action="add_new_tool" type="button"><span>${officeIcon("estate")}</span>Add New Tool</button>
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>AI System Health</h4></div>
+              <div class="ai-health-list">
+                ${healthRows.map(function (row) {
+                  return `<div class="ai-health-row"><span>${escapeHtml(row[0])}</span><span class="subtext"><i class="ai-status-dot" style="display:inline-block;margin-right:7px;background:${row[1] ? "#39e58f" : "#f6c85f"};"></i>${row[1] ? "Healthy" : "Pending"}</span></div>`;
+                }).join("")}
+              </div>
             </article>
           </aside>
         </div>

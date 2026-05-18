@@ -2040,6 +2040,234 @@
       .command-card {
         padding: 14px;
       }
+      .ai-ops-page {
+        gap: 14px;
+      }
+      .ai-ops-topline {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        padding-bottom: 2px;
+      }
+      .ai-ops-topline h3 {
+        margin: 4px 0 0;
+        font-size: 23px;
+        line-height: 1.08;
+        font-weight: 580;
+        letter-spacing: -0.02em;
+      }
+      .ai-command-selectors {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .ai-command-pill {
+        min-height: 42px;
+        border-radius: 12px;
+        border: 1px solid rgba(149, 166, 255, 0.16);
+        background: linear-gradient(145deg, rgba(17,25,50,0.84), rgba(8,13,28,0.88));
+        color: #dce6ff;
+        padding: 0 13px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+      }
+      .ai-command-pill i {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #39e58f;
+        box-shadow: 0 0 18px rgba(57, 229, 143, 0.65);
+      }
+      .ai-ops-kpis {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+      .ai-ops-kpi {
+        position: relative;
+        overflow: hidden;
+        min-height: 104px;
+      }
+      .ai-ops-kpi::after {
+        content: "";
+        position: absolute;
+        right: -26px;
+        top: 18px;
+        width: 72px;
+        height: 72px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(124,77,255,0.34), transparent 68%);
+        pointer-events: none;
+      }
+      .ai-ops-kpi .command-icon {
+        position: absolute;
+        right: 14px;
+        top: 14px;
+      }
+      .ai-ops-kpi strong {
+        margin-top: 26px;
+        font-size: 30px;
+        line-height: 1;
+      }
+      .ai-ops-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 306px;
+        gap: 14px;
+      }
+      .ai-ops-main {
+        display: grid;
+        grid-template-columns: 1.24fr 0.86fr 0.95fr;
+        gap: 14px;
+      }
+      .ai-ops-wide {
+        grid-column: span 1;
+      }
+      .ai-ops-bottom {
+        display: grid;
+        grid-template-columns: 0.88fr 1fr 1.08fr;
+        gap: 14px;
+      }
+      .ai-line-chart {
+        position: relative;
+        height: 246px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(124,77,255,0.08), rgba(54,163,255,0.035));
+      }
+      .ai-line-chart svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .ai-chart-legend,
+      .ai-health-row,
+      .ai-agent-row,
+      .ai-conversation-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .ai-chart-legend {
+        justify-content: flex-start;
+        margin-bottom: 10px;
+        color: rgba(220,230,255,0.7);
+        font-size: 11px;
+      }
+      .ai-chart-legend i,
+      .ai-status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+      .ai-agent-list,
+      .ai-tool-list,
+      .ai-conversation-list,
+      .ai-health-list {
+        display: grid;
+        gap: 10px;
+      }
+      .ai-agent-row,
+      .ai-conversation-row,
+      .ai-health-row {
+        padding: 10px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.035);
+        border: 1px solid rgba(149,166,255,0.08);
+      }
+      .ai-agent-avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 13px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: linear-gradient(135deg, rgba(124,77,255,0.78), rgba(54,163,255,0.38));
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+      .ai-state-badge {
+        border-radius: 999px;
+        padding: 5px 8px;
+        font-size: 10px;
+        color: #72f3ae;
+        background: rgba(57,229,143,0.12);
+        border: 1px solid rgba(57,229,143,0.16);
+      }
+      .ai-state-badge.idle {
+        color: #f6c85f;
+        background: rgba(246,200,95,0.12);
+        border-color: rgba(246,200,95,0.16);
+      }
+      .ai-donut-wrap {
+        display: grid;
+        grid-template-columns: 156px 1fr;
+        gap: 16px;
+        align-items: center;
+      }
+      .ai-donut {
+        width: 148px;
+        height: 148px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: conic-gradient(#39e58f 0 76%, #f05252 76% 86%, #94a3b8 86% 94%, #36a3ff 94% 100%);
+      }
+      .ai-donut-core {
+        width: 96px;
+        height: 96px;
+        border-radius: 999px;
+        background: #0b1124;
+        border: 1px solid rgba(149,166,255,0.14);
+        display: grid;
+        place-items: center;
+        text-align: center;
+      }
+      .ai-donut-core strong {
+        display: block;
+        font-size: 22px;
+        font-weight: 580;
+      }
+      .ai-tool-row {
+        display: grid;
+        grid-template-columns: 1fr 132px 42px;
+        gap: 10px;
+        align-items: center;
+        font-size: 12px;
+      }
+      .ai-tool-bar {
+        height: 9px;
+        border-radius: 999px;
+        background: rgba(149,166,255,0.12);
+        overflow: hidden;
+      }
+      .ai-tool-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #7c4dff, #36a3ff);
+      }
+      .ai-activity-orb {
+        width: 34px;
+        height: 34px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: radial-gradient(circle, rgba(124,77,255,0.7), rgba(54,163,255,0.16));
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+      @media (max-width: 1180px) {
+        .ai-ops-grid,
+        .ai-ops-main,
+        .ai-ops-bottom {
+          grid-template-columns: 1fr;
+        }
+        .ai-ops-kpis {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
       .command-card-head {
         display: flex;
         align-items: center;
