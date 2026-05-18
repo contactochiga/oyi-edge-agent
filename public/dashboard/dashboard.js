@@ -671,6 +671,13 @@
     return owner || "Unassigned";
   }
 
+  function crmOwnerLabel(owner) {
+    if (owner === "marketing_agent") return "Marketing desk";
+    if (owner === "sales_agent") return "Sales desk";
+    if (owner === "human") return "Human owner";
+    return displayValue(String(owner || "").replace(/_agent\b/g, "").replace(/_/g, " "), "Unassigned");
+  }
+
   function roleLabel(role) {
     if (role === "admin") return "Admin";
     if (role === "founder") return "Founder";
@@ -735,6 +742,17 @@
     if (tab === "settings") return hasPermission("view_users") || hasPermission("view_reports");
     if (tab === "traces") return hasPermission("view_traces");
     return true;
+  }
+
+  function setOfficeWorkspace(target, focus) {
+    if (!target || !canAccessOfficeModule(target, focus)) return;
+    state.workspaceTab = target;
+    if (target === "crm_agents") {
+      state.overviewFocus = focus === "ai_operations" ? "ai_operations" : "crm_agents";
+    } else if (focus) {
+      state.overviewFocus = focus;
+    }
+    renderWorkspaceTabs();
   }
 
   function displayValue(value, fallback) {
@@ -3743,10 +3761,10 @@
 	              <div class="command-card-head"><h4>Account Manager Workload</h4><button class="ghost compact" type="button">View accounts</button></div>
 	              <div class="agent-strip">
 	                ${accountManagers.length ? accountManagers.map(function (entry) {
-	                  return `<div class="agent-mini-card">
+                  return `<div class="agent-mini-card">
 	                    <div style="display:flex;align-items:center;gap:10px;">
 	                      <span class="avatar-dot">${escapeHtml(String(entry.label || "C").slice(0, 1).toUpperCase())}</span>
-                        <div><strong>${escapeHtml(displayValue(entry.label, "Unassigned"))}</strong><div class="subtext">Relationship owner</div></div>
+                        <div><strong>${escapeHtml(crmOwnerLabel(entry.label))}</strong><div class="subtext">Relationship owner</div></div>
                       </div>
                       <div class="agent-spark" style="margin-top:10px;">
                         <div class="agent-spark-row"><span>Records</span><span class="agent-spark-track"><span class="agent-spark-fill" style="width:${Math.min(100, Number(entry.value || 0) * 8)}%;"></span></span><strong>${escapeHtml(String(entry.value || 0))}</strong></div>
@@ -3796,9 +3814,6 @@
     const activeAiOpsView = state.aiOpsView || "dashboard";
     const aiOpsTabs = [
       ["dashboard", "Dashboard", "summary"],
-      ["oyi_ai", "Oyi AI", "ai_operations"],
-      ["oma", "Oma", "support"],
-      ["osa", "Osa", "messenger"],
       ["agent_console", "Agent Console", "estate"],
       ["voice_command", "Voice Command", "trend"],
       ["tool_registry", "Tool Registry", "settings"],
@@ -3827,11 +3842,11 @@
     const completedExecutions = Math.max(0, toolCalls - failedExecutions - runningExecutions - cancelledExecutions);
     const successRate = toolCalls ? Math.round((completedExecutions / Math.max(1, toolCalls)) * 1000) / 10 : 0;
     const agentRows = [
-      { name: "Oyi AI", role: "Core intelligence", count: traceCount, state: traceCount ? "Online" : "Idle" },
-      { name: "Oma", role: "Operations manager", count: derived.ownerCounts.marketing_agent || 0, state: (derived.ownerCounts.marketing_agent || 0) ? "Online" : "Idle" },
-      { name: "Osa", role: "Support assistant", count: derived.salesOwned.length || 0, state: derived.salesOwned.length ? "Online" : "Idle" },
-      { name: "Orin", role: "Analytics agent", count: state.report ? 1 : 0, state: state.report ? "Online" : "Idle" },
-      { name: "Ezi", role: "Automation agent", count: pendingExecutions, state: pendingExecutions ? "Online" : "Idle" },
+      { name: "Oyi AI", role: "Core intelligence", icon: "ai_operations", count: traceCount, state: traceCount ? "Online" : "Idle" },
+      { name: "Oma", role: "Operations manager", icon: "support", count: derived.ownerCounts.marketing_agent || 0, state: (derived.ownerCounts.marketing_agent || 0) ? "Online" : "Idle" },
+      { name: "Osa", role: "Support assistant", icon: "messenger", count: derived.salesOwned.length || 0, state: derived.salesOwned.length ? "Online" : "Idle" },
+      { name: "Orin", role: "Analytics agent", icon: "trend", count: state.report ? 1 : 0, state: state.report ? "Online" : "Idle" },
+      { name: "Ezi", role: "Automation agent", icon: "settings", count: pendingExecutions, state: pendingExecutions ? "Online" : "Idle" },
     ];
     const toolRows = [
       ["get_estate_analytics", Math.max(0, Number(totals.leads || 0))],
@@ -3869,10 +3884,10 @@
       };
     });
     const insightRows = [
-      derived.openNotifications ? { title: "Support pressure trending", meta: `${derived.openNotifications} open office support signals`, tone: "warning", icon: "support" } : null,
-      failedExecutions ? { title: "Execution failures need review", meta: `${failedExecutions} failed AI/tool traces`, tone: "critical", icon: "alert" } : null,
-      traceCount ? { title: "Tool trace volume active", meta: `${traceCount} trace records available for audit`, tone: "info", icon: "trend" } : null,
-      state.audit.length ? { title: "Governance trail available", meta: `${state.audit.length} audit events connected`, tone: "healthy", icon: "estate" } : null,
+      derived.openNotifications ? { title: "Support pressure trending", meta: `${derived.openNotifications} open support signals requiring AI-assisted routing review`, tone: "warning", icon: "support" } : null,
+      failedExecutions ? { title: "Execution failures need review", meta: `${failedExecutions} failed tool traces need inspection before automation escalation`, tone: "critical", icon: "alert" } : null,
+      traceCount ? { title: "Tool trace volume active", meta: `${traceCount} trace records are available for operational audit and diagnostics`, tone: "info", icon: "trend" } : null,
+      state.audit.length ? { title: "Governance trail available", meta: `${state.audit.length} audit events are connected to the AI operations trail`, tone: "healthy", icon: "estate" } : null,
     ].filter(Boolean);
     const activityRows = state.traces.slice(0, 5).map(function (trace) {
       return {
@@ -3957,7 +3972,7 @@
                 <div class="ai-agent-list">
                   ${agentRows.map(function (agent) {
                     const idle = agent.state !== "Online";
-                    return `<div class="ai-agent-row"><div style="display:flex;align-items:center;gap:10px;"><span class="ai-agent-avatar">${escapeHtml(agent.name.slice(0, 1))}</span><div><strong>${escapeHtml(agent.name)}</strong><div class="subtext">${escapeHtml(agent.role)}</div></div></div><span class="ai-state-badge ${idle ? "idle" : ""}">${escapeHtml(agent.state)}</span></div>`;
+                    return `<div class="ai-agent-row"><div style="display:flex;align-items:center;gap:10px;"><span class="ai-agent-avatar">${officeIcon(agent.icon)}</span><div><strong>${escapeHtml(agent.name)}</strong><div class="subtext">${escapeHtml(agent.role)}</div></div></div><span class="ai-state-badge ${idle ? "idle" : ""}">${escapeHtml(agent.state)}</span></div>`;
                   }).join("")}
                 </div>
               </article>
@@ -4002,7 +4017,7 @@
               </article>
               <article class="command-card">
                 <div class="command-card-head"><h4>AI Insights</h4><button class="ghost compact" data-command-action="view_reports" type="button">View all</button></div>
-                <div class="mission-list">
+                <div class="mission-list ai-insight-list">
                   ${insightRows.length ? insightRows.map(function (item) {
                     return `<div class="insight-row"><span class="insight-icon">${officeIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)}</span></div><span class="office-system-badge ${escapeHtml(item.tone === "critical" ? "alert" : item.tone === "warning" ? "warning" : "")}">${escapeHtml(item.tone)}</span></div>`;
                   }).join("") : '<div class="office-detail-empty">AI insights will appear as traces, audits, and support signals increase.</div>'}
@@ -4021,7 +4036,7 @@
             </article>
             <article class="command-card">
               <div class="command-card-head"><h4>Quick Actions</h4></div>
-              <div class="shortcut-grid" style="grid-template-columns:1fr;">
+              <div class="shortcut-grid ai-quick-actions">
                 <button class="shortcut-btn" data-office-target="conversation" type="button"><span>${officeIcon("messenger")}</span>Chat with Oyi AI</button>
                 <button class="shortcut-btn" data-command-action="run_ai_workflow" type="button"><span>${officeIcon("trend")}</span>Run AI Workflow</button>
                 <button class="shortcut-btn" data-command-action="create_new_agent" type="button"><span>${officeIcon("lead")}</span>Create New Agent</button>
@@ -4103,8 +4118,9 @@
         { label: "Deployment Pipeline", type: "facet", value: "deployment_pipeline" },
       ],
       conversation: [
-        { label: "Oma", type: "agent", value: "marketing" },
-        { label: "Osa", type: "agent", value: "sales" },
+        { label: "Open", type: "crm_view", value: "open" },
+        { label: "All", type: "crm_view", value: "all" },
+        { label: "Support", type: "tab", value: "notifications" },
         { label: "Commercial", type: "tab", value: "commercial" },
         { label: "Trace", type: "tab", value: "traces" },
       ],
@@ -4184,9 +4200,6 @@
       state.workspaceTab === "crm_agents" && state.overviewFocus === "ai_operations"
         ? [
             { label: "Dashboard", type: "tab", value: "crm_agents", active: true },
-            { label: "Oyi AI", type: "crm_view", value: "agents" },
-            { label: "Oma", type: "agent", value: "marketing" },
-            { label: "Osa", type: "agent", value: "sales" },
             { label: "Agent Console", type: "crm_view", value: "agents" },
             { label: "Voice Command", type: "facet", value: "voice_command" },
             { label: "Tool Registry", type: "facet", value: "tool_registry" },
@@ -5336,6 +5349,9 @@
   }
 
   function renderWorkspaceTabs() {
+    if (state.workspaceTab === "crm_agents" && !["crm_agents", "ai_operations"].includes(state.overviewFocus)) {
+      state.overviewFocus = "crm_agents";
+    }
     if (!canAccessTab(state.workspaceTab)) {
       state.workspaceTab = "overview";
     }
@@ -5428,12 +5444,19 @@
       devices: overviewHeadings.devices,
       web_presence: overviewHeadings.web_presence,
       support: overviewHeadings.support,
-      crm_agents: overviewHeadings.crm_agents,
+      crm_agents:
+        state.overviewFocus === "ai_operations"
+          ? {
+              title: "AI Operations",
+              subtitle:
+                "Monitor Oyi AI, agent console activity, voice command, tool registry, execution, and AI operational activity.",
+            }
+          : overviewHeadings.crm_agents,
       conversation: {
-        title: state.selectedLead ? leadTitle(state.selectedLead) : "Agents and CRM",
+        title: state.selectedLead ? leadTitle(state.selectedLead) : "CRM Conversations",
         subtitle: state.selectedLead
           ? leadMetaLine(state.selectedLead)
-          : "Run Oma, Osa, records, handoffs, and live internal agent threads.",
+          : "Review customer conversations, support context, commercial handoffs, and relationship history.",
       },
       timeline: {
         title: "Operational Timeline",
@@ -6600,14 +6623,7 @@
     node.addEventListener("click", function () {
       const target = node.getAttribute("data-office-target");
       const focus = node.getAttribute("data-office-focus");
-      if (!target || !canAccessOfficeModule(target, focus)) {
-        return;
-      }
-      if (focus) {
-        state.overviewFocus = focus;
-      }
-      state.workspaceTab = target;
-      renderWorkspaceTabs();
+      setOfficeWorkspace(target, focus);
     });
   });
   Array.from((el.notificationFilters || document).querySelectorAll("[data-notification-filter]")).forEach(
@@ -6714,9 +6730,7 @@
       const focus = officeTargetNode.getAttribute("data-office-focus");
       if (target && canAccessOfficeModule(target, focus)) {
         event.preventDefault();
-        if (focus) state.overviewFocus = focus;
-        state.workspaceTab = target;
-        renderWorkspaceTabs();
+        setOfficeWorkspace(target, focus);
         return;
       }
     }
