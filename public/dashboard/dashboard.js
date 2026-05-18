@@ -79,10 +79,16 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>',
     crm_agents:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-6"></path></svg>',
+    ai_operations:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"></path><path d="M12 18v4"></path><path d="M4.93 4.93l2.83 2.83"></path><path d="M16.24 16.24l2.83 2.83"></path><circle cx="12" cy="12" r="4"></circle></svg>',
     staff_roles:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
     governance:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"></path><path d="M9 12l2 2 4-4"></path></svg>',
+    infrastructure_intelligence:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"></path><path d="M12 7v5l3 2"></path><path d="M19 3v5h-5"></path></svg>',
+    platform_infrastructure:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path></svg>',
   };
 
   const derivedCache = {
@@ -92,6 +98,19 @@
 
   const auditSearchCache = new WeakMap();
   const traceSearchCache = new WeakMap();
+
+  const OFFICE_MODULE_REGISTRY = [
+    { key: "overview", focus: "summary", permissions: ["view_office", "view_reports"] },
+    { key: "facility", focus: "facility", permissions: ["view_estates", "view_reports"] },
+    { key: "devices", focus: "devices", permissions: ["view_devices", "view_reports"] },
+    { key: "crm_agents", focus: "crm_agents", permissions: ["manage_leads", "view_reports"] },
+    { key: "web_presence", focus: "web_presence", permissions: ["documents.generate", "manage_commercial", "view_reports"] },
+    { key: "reports", focus: "reports", permissions: ["view_reports"] },
+    { key: "crm_agents", focus: "ai_operations", permissions: ["manage_leads", "view_reports", "view_traces"] },
+    { key: "audit", focus: "governance", permissions: ["view_audit", "audit.read"] },
+    { key: "settings", focus: "platform_infrastructure", permissions: ["view_integrations", "view_users", "view_reports"] },
+    { key: "team", focus: "staff_roles", permissions: ["view_users", "manage_users", "change_password"] },
+  ];
 
   function invalidateDerivedData() {
     state.dataRevision += 1;
@@ -668,7 +687,30 @@
     );
   }
 
+  function isSuperAdmin() {
+    const role = String((state.session && state.session.role) || "").toLowerCase();
+    return ["super_admin", "ochiga_admin", "admin", "founder", "system_admin"].includes(role);
+  }
+
+  function hasAnyPermission(permissions) {
+    if (isSuperAdmin()) return true;
+    return asList(permissions).some(function (permission) {
+      return hasPermission(permission);
+    });
+  }
+
+  function canAccessOfficeModule(target, focus) {
+    if (!target) return false;
+    if (isSuperAdmin()) return true;
+    if (target === "overview") return true;
+    const module = OFFICE_MODULE_REGISTRY.find(function (item) {
+      return item.key === target && (!item.focus || !focus || item.focus === focus);
+    });
+    return module ? hasAnyPermission(module.permissions) : canAccessTab(target);
+  }
+
   function canAccessTab(tab) {
+    if (isSuperAdmin()) return true;
     if (tab === "facility" || tab === "smart_buildings" || tab === "devices" || tab === "web_presence") {
       return hasPermission("view_reports");
     }
@@ -1362,6 +1404,118 @@
       { title: "Activity types", entries: topEntries(auditActionCounts, 5) },
       { title: "Agent evidence", entries: topEntries(traceAgentCounts, 5) },
     ];
+
+    result.domains.ai_operations = {
+      title: "AI Operations",
+      subtitle: "Dedicated Oyi AI command layer for Oma, Osa, voice command, tool registry, executions, AI conversations, permissions, and AI activity.",
+      badge: state.traces.length || officeStats.traces ? "Observing" : "Standby",
+      tone: state.traces.length || officeStats.traces ? "" : "warning",
+      primaryMetric: state.traces.length || officeStats.traces || 0,
+      primaryLabel: "AI Events",
+      metrics: [
+        { label: "Active agents", value: 3 },
+        { label: "AI conversations", value: officeStats.conversations || 0 },
+        { label: "Tool traces", value: state.traces.length || officeStats.traces || 0 },
+        { label: "Permission reviews", value: openEscalations },
+      ],
+      batches: [
+        { label: "Oma records", value: derived.ownerCounts.marketing_agent || 0 },
+        { label: "Osa records", value: salesOwned.length },
+        { label: "Executions", value: state.traces.length || 0 },
+        { label: "Safety events", value: openEscalations },
+      ],
+      charts: [
+        { title: "Agent trace volume", entries: topEntries(traceAgentCounts, 5) },
+        { title: "AI decision sources", entries: topEntries((state.report && state.report.by_owner) || {}, 5) },
+      ],
+      items: latestTraces.slice(0, 6).map(function (trace) {
+        return {
+          title: displayValue(trace.agent || trace.type, "AI activity"),
+          meta: `${displayValue(trace.tool_name, "tool")} · ${trace.created_at || trace.ts ? formatDate(trace.created_at || trace.ts) : "time pending"}`,
+          body: displayValue(trace.summary || trace.message || trace.status, "No AI trace summary recorded."),
+        };
+      }),
+    };
+
+    result.domains.infrastructure_intelligence = {
+      title: "Infrastructure Intelligence",
+      subtitle: "Analytics, AI insights, predictive operations, diagnostics, estate comparisons, device intelligence, support intelligence, and operational trends.",
+      badge: state.report ? "Live analytics" : "Awaiting report",
+      tone: state.report ? "" : "warning",
+      primaryMetric: totals.leads || estateKeys.length || 0,
+      primaryLabel: "Signals",
+      metrics: [
+        { label: "Health score", value: `${Math.max(0, 100 - openNotifications)}%` },
+        { label: "Estate comparisons", value: estateKeys.length },
+        { label: "Incident signals", value: openNotifications },
+        { label: "Support insights", value: openEscalations },
+      ],
+      batches: [
+        { label: "Analytics", value: state.report ? 1 : 0 },
+        { label: "AI insights", value: latestAudit.length || 0 },
+        { label: "Reports", value: officeStats.reports || (state.report ? 1 : 0) },
+        { label: "Diagnostics", value: state.traces.length || 0 },
+      ],
+      charts: [
+        { title: "Operational status", entries: topEntries((state.report && state.report.by_status) || notificationStatusCounts, 5) },
+        { title: "Infrastructure categories", entries: topEntries(projectTypeCounts, 5) },
+      ],
+      items: [
+        { title: "Predictive operations", meta: "Support + device signal", body: "Warnings are derived from support pressure, device state, edge health, and estate activity." },
+        { title: "Device intelligence", meta: "Hardware orchestration", body: "Online/offline trends, failed commands, and assignment state surface here as hardware telemetry expands." },
+        { title: "Incident intelligence", meta: "Realtime bridge", body: "Alerts, support tickets, and audit events feed this module through the unified event layer." },
+      ],
+    };
+
+    result.domains.platform_infrastructure = {
+      title: "Platform Infrastructure",
+      subtitle: "System-level realtime events, storage, API health, webhooks, sync, provider status, edge sync, and environment health.",
+      badge: "System layer",
+      tone: "",
+      primaryMetric: activeChannels,
+      primaryLabel: "Channels",
+      metrics: [
+        { label: "Realtime channels", value: activeChannels },
+        { label: "Storage records", value: officeStats.office_files || officeStats.documents || 0 },
+        { label: "Providers", value: crmIntegrationStatusRows().filter(function (row) { return row.connected; }).length },
+        { label: "Audit events", value: state.audit.length || officeStats.audit_events || 0 },
+      ],
+      batches: [
+        { label: "Realtime", value: activeChannels },
+        { label: "Storage", value: officeStats.office_files || 0 },
+        { label: "API Health", value: 1 },
+        { label: "Webhooks", value: officeStats.webhooks || 0 },
+      ],
+      charts: [
+        { title: "Provider status", entries: crmIntegrationStatusRows().map(function (row) { return { label: row.name, value: row.connected ? 1 : 0 }; }) },
+        { title: "Event stream", entries: topEntries(auditActionCounts, 5) },
+      ],
+      items: crmIntegrationStatusRows().slice(0, 6).map(function (row) {
+        return {
+          title: row.name,
+          meta: row.connected ? "Connected" : "Disconnected",
+          body: row.connected ? "Provider credentials are present in the platform environment." : "Provider needs verified credentials before production use.",
+        };
+      }),
+    };
+
+    result.domains.administration = {
+      title: "Administration",
+      subtitle: "Staff, roles, permissions, system settings, integration settings, accounts, super admin controls, and facility administration.",
+      badge: state.adminUsers.length ? "Active" : "Setup",
+      tone: state.adminUsers.length ? "" : "warning",
+      primaryMetric: state.adminUsers.length || officeStats.admin_users || 0,
+      primaryLabel: "Staff",
+      metrics: [
+        { label: "Staff count", value: state.adminUsers.length || officeStats.admin_users || 0 },
+        { label: "Role groups", value: Object.keys(roleCounts).length },
+        { label: "Permission status", value: state.currentUser?.role || "viewer" },
+        { label: "Admin actions", value: latestAudit.length },
+      ],
+      batches: result.domains.staff_roles.batches || [],
+      charts: result.domains.staff_roles.charts || [],
+      items: result.domains.staff_roles.items || [],
+    };
 
     return result;
   }
@@ -3424,12 +3578,14 @@
 
     const overviewCards = [
       ["facility", domains.facility],
-      ["smart_buildings", domains.smart_buildings],
-      ["web_presence", domains.web_presence],
-      ["support", domains.support],
+      ["devices", domains.devices || domains.smart_buildings],
       ["crm_agents", domains.crm_agents],
-      ["staff_roles", domains.staff_roles],
+      ["web_presence", domains.web_presence],
+      ["infrastructure_intelligence", domains.infrastructure_intelligence],
+      ["ai_operations", domains.ai_operations],
       ["governance", domains.governance],
+      ["platform_infrastructure", domains.platform_infrastructure],
+      ["administration", domains.administration],
     ];
 
     el.overviewDomainGrid.innerHTML = overviewCards
@@ -3443,9 +3599,27 @@
               ? "team"
               : key === "governance"
                 ? "audit"
+                : key === "infrastructure_intelligence"
+                  ? "reports"
+                  : key === "platform_infrastructure"
+                    ? "settings"
+                    : key === "administration"
+                      ? "team"
+                      : key === "ai_operations"
+                        ? "crm_agents"
                 : key;
+        const cardFocus =
+          key === "infrastructure_intelligence"
+            ? "reports"
+            : key === "platform_infrastructure"
+              ? "platform_infrastructure"
+              : key === "administration"
+                ? "staff_roles"
+                : key === "ai_operations"
+                  ? "ai_operations"
+                  : key;
         return `
-          <article class="office-system-card" data-overview-domain="${escapeHtml(cardTarget)}">
+          <article class="office-system-card" data-overview-domain="${escapeHtml(cardTarget)}" data-overview-focus="${escapeHtml(cardFocus)}">
             <div class="office-system-top">
               <span class="office-system-icon">${DOMAIN_ICONS[key] || DOMAIN_ICONS.summary}</span>
               <div class="office-system-title">
@@ -3461,8 +3635,10 @@
     Array.from(el.overviewDomainGrid.querySelectorAll("[data-overview-domain]")).forEach(function (node) {
       node.addEventListener("click", function () {
         const target = node.getAttribute("data-overview-domain");
+        const focus = node.getAttribute("data-overview-focus");
         if (!target || !canAccessTab(target)) return;
         state.workspaceTab = target;
+        if (focus) state.overviewFocus = focus;
         renderWorkspaceTabs();
       });
     });
@@ -3471,13 +3647,17 @@
     renderDeviceWorkspace();
 	    renderDocumentsWorkspace(domains.web_presence);
 	    renderSupportWorkspace(domains.support);
-    renderCrmAgentsPanel(domains.crm_agents);
+    renderCrmAgentsPanel(state.overviewFocus === "ai_operations" ? domains.ai_operations : domains.crm_agents);
     bindOfficeAssetActions(el.facilityPanel);
     bindOfficeAssetActions(el.smartBuildingsPanel);
   }
 
   function renderCrmAgentsPanel(domain) {
     if (!el.crmAgentsPanel || !domain) return;
+    if (state.overviewFocus === "ai_operations") {
+      renderDomainWorkspace(el.crmAgentsPanel, domain);
+      return;
+    }
     const derived = getDerivedData();
     const totals = state.report && state.report.totals ? state.report.totals : {};
     const marketingLeads = derived.marketingLeads;
@@ -3766,7 +3946,18 @@
       return;
     }
     el.sectionNav.classList.remove("is-hidden");
-    el.sectionNav.innerHTML = items
+    const visibleItems = items.filter(function (item) {
+      if (item.permission) return hasAnyPermission([item.permission]);
+      if (item.permissions) return hasAnyPermission(item.permissions);
+      if (item.type === "tab") return canAccessTab(item.value);
+      return true;
+    });
+    if (!visibleItems.length) {
+      el.sectionNav.classList.add("is-hidden");
+      el.sectionNav.innerHTML = "";
+      return;
+    }
+    el.sectionNav.innerHTML = visibleItems
       .map(function (item) {
         const active =
           item.active ||
@@ -4914,8 +5105,11 @@
     Array.from(el.officeNavButtons || []).forEach(function (node) {
       const target = node.getAttribute("data-office-target");
       const focus = node.getAttribute("data-office-focus");
+      const visible = canAccessOfficeModule(target, focus);
+      node.hidden = !visible;
+      node.setAttribute("aria-hidden", visible ? "false" : "true");
       const isActive =
-        target === state.workspaceTab && (!focus || focus === state.overviewFocus);
+        visible && target === state.workspaceTab && (!focus || focus === state.overviewFocus);
       node.classList.toggle("active", isActive);
     });
     updateOfficeDomainActiveStates();
@@ -6152,7 +6346,7 @@
     node.addEventListener("click", function () {
       const target = node.getAttribute("data-office-target");
       const focus = node.getAttribute("data-office-focus");
-      if (!target || !canAccessTab(target)) {
+      if (!target || !canAccessOfficeModule(target, focus)) {
         return;
       }
       if (focus) {
