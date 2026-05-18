@@ -41,6 +41,7 @@
     auditQuery: "",
     documentQuery: "",
     crmIntegrationsExpanded: false,
+    aiOpsView: "dashboard",
     liveInfraMode: "map",
     liveInfraPanel: "",
     liveInfraZoom: 1,
@@ -1117,7 +1118,7 @@
           {
             title: "Commercial and support pressure",
             meta: `${openNotifications} support events · ${state.report ? state.report.demos_booked || 0 : 0} demos`,
-            body: "CRM, support, and agent operations remain the main active surfaces already flowing through Office.",
+            body: "CRM, support, relationship ownership, and deployment pipeline pressure remain the main active commercial surfaces already flowing through Office.",
           },
         ],
       },
@@ -1228,15 +1229,15 @@
         primaryLabel: "Records",
         metrics: [
           { label: "Active records", value: totals.leads || 0 },
-          { label: "Oma-owned", value: derived.ownerCounts.marketing_agent || 0 },
-          { label: "Osa-owned", value: salesOwned.length },
+          { label: "Customers", value: derived.statusCounts.customer || derived.statusCounts.closed || 0 },
+          { label: "Organizations", value: Object.keys(derived.projectTypeCounts || {}).length },
           { label: "Demos booked", value: state.report ? state.report.demos_booked || 0 : 0 },
         ],
         items: hotRecords.slice(0, 6).map(function (lead) {
           return {
             title: leadTitle(lead),
             meta: `${displayValue(lead.company, "Company pending")} · score ${displayValue(lead.score, 0)}`,
-            body: `Stage: ${displayValue(lead.commercial_stage, "lead")} · Owner: ${ownerLabel(lead.owner)} · Next: ${displayValue(lead.next_action, "No next action yet")}`,
+            body: `Stage: ${displayValue(lead.commercial_stage, "lead")} · Source: ${displayValue(lead.source, lead.channel || "office")} · Next: ${displayValue(lead.next_action, "No next action yet")}`,
           };
         }),
       },
@@ -1379,7 +1380,7 @@
       { label: "Won deals", value: state.report ? state.report.deals_won || 0 : 0 },
     ];
     result.domains.crm_agents.charts = [
-      { title: "Owner allocation", entries: topEntries((state.report && state.report.by_owner) || {}, 5) },
+      { title: "Relationship ownership", entries: topEntries((state.report && state.report.by_owner) || {}, 5) },
       { title: "Deal stages", entries: topEntries((state.report && state.report.by_commercial_stage) || {}, 5) },
     ];
 
@@ -3223,8 +3224,14 @@
 	        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 10v9"/><path d="M6 6.5v.01"/><path d="M11 19v-5.3c0-2.2 1.3-3.7 3.3-3.7S18 11.4 18 14v5"/><path d="M11 10v9"/></svg>',
 	      tiktok:
 	        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 4v10.5a4.5 4.5 0 1 1-4.5-4.5"/><path d="M14 4c.8 3 2.7 4.8 5.5 5.2"/></svg>',
-	      google:
-	        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 19 7-14 5 10"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="15" r="2"/><path d="M10 11h8"/></svg>',
+      google:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 19 7-14 5 10"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="15" r="2"/><path d="M10 11h8"/></svg>',
+      settings:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2 2-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.56V20h-4v-.09a1.7 1.7 0 0 0-1-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-2-2 .06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1H3v-4h.09a1.7 1.7 0 0 0 1.56-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06 2-2 .06.06A1.7 1.7 0 0 0 8.2 5.4a1.7 1.7 0 0 0 1-1.56V4h4v.09a1.7 1.7 0 0 0 1 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2 2-.06.06A1.7 1.7 0 0 0 19.4 9c.5.2 1 .8 1.56 1H21v4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>',
+      activity:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h4l2-6 4 12 2-6h4"/></svg>',
+      ai_operations:
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M19.1 4.9l-2.8 2.8M7.7 16.3l-2.8 2.8"/></svg>',
 	    };
 	    return icons[name] || icons.alert;
 	  }
@@ -3660,33 +3667,13 @@
     }
     const derived = getDerivedData();
     const totals = state.report && state.report.totals ? state.report.totals : {};
-    const marketingLeads = derived.marketingLeads;
-    const salesLeads = derived.salesOwned;
-    const agentCards = [
-      {
-        key: "oma",
-        name: "Oma",
-        role: "Marketing agent",
-        leads: marketingLeads.length,
-        hot: derived.marketingHot,
-        demos: state.allDemos.filter(function (demo) {
-          return String(demo.owner || "").toLowerCase().includes("marketing");
-        }).length,
-        traces: Object.entries(derived.traceAgentCounts).reduce(function (sum, entry) {
-          return String(entry[0]).toLowerCase().includes("marketing") ? sum + entry[1] : sum;
-        }, 0),
-      },
-      {
-        key: "osa",
-        name: "Osa",
-        role: "Sales agent",
-        leads: salesLeads.length,
-        hot: derived.salesHot,
-        demos: state.allDemos.length,
-        traces: Object.entries(derived.traceAgentCounts).reduce(function (sum, entry) {
-          return String(entry[0]).toLowerCase().includes("sales") ? sum + entry[1] : sum;
-        }, 0),
-      },
+    const activeDeals = state.allProposals.length || derived.salesOwned.length;
+    const accountManagers = topEntries((state.report && state.report.by_owner) || {}, 5);
+    const supportSummary = [
+      ["Open Support", derived.openNotifications || 0],
+      ["Escalations", derived.openEscalations || 0],
+      ["Resolved", derived.resolvedNotifications || 0],
+      ["Human Owned", derived.humanOwned.length || 0],
     ];
 	    const channelRows = [
 	      ["Website", derived.channelCounts.website, "website"],
@@ -3715,16 +3702,16 @@
       <div class="command-page">
         <div class="command-head">
           <div>
-            <p class="eyebrow">CRM + Agent Command Center</p>
-            <h3>Manage leads, engage channels, and convert more deals with AI agents.</h3>
-            <p class="subtext" style="margin:8px 0 0;">Live CRM funnel, channel performance, agent output, deals, and integration posture.</p>
+            <p class="eyebrow">CRM + Support Command Center</p>
+            <h3>Manage leads, customers, organizations, conversations, support tickets, and deployment pipeline.</h3>
+            <p class="subtext" style="margin:8px 0 0;">Pure CRM workspace for relationship management, channel performance, support load, and commercial pipeline posture.</p>
           </div>
           <button class="ghost" data-command-action="view_reports" type="button">View full report</button>
         </div>
         <div class="command-kpis">
           ${[
             ["Total Leads", totals.leads || state.leads.length],
-            ["Active Deals", state.allProposals.length || salesLeads.length],
+            ["Active Deals", activeDeals],
             ["Conversion Rate", `${totals.sales_handoff_conversion_pct || 0}%`],
             ["Pipeline Value", formatCompactMoney(state.report?.pipeline_value || 0)],
             ["Closed Deals", derived.statusCounts.closed || 0],
@@ -3753,20 +3740,19 @@
               </div>
             </article>
             <article class="command-card">
-	              <div class="command-card-head"><h4>Agent Performance Overview</h4><button class="ghost compact" type="button">View all agents</button></div>
+	              <div class="command-card-head"><h4>Account Manager Workload</h4><button class="ghost compact" type="button">View accounts</button></div>
 	              <div class="agent-strip">
-	                ${agentCards.map(function (agent) {
+	                ${accountManagers.length ? accountManagers.map(function (entry) {
 	                  return `<div class="agent-mini-card">
 	                    <div style="display:flex;align-items:center;gap:10px;">
-	                      <span class="avatar-dot">${escapeHtml(agent.name.slice(0, 1))}</span>
-                      <div><strong>${escapeHtml(agent.name)}</strong><div class="subtext">${escapeHtml(agent.role)}</div></div>
-                    </div>
-                    <div class="agent-spark" style="margin-top:10px;">
-                      <div class="agent-spark-row"><span>Records</span><span class="agent-spark-track"><span class="agent-spark-fill" style="width:${Math.min(100, agent.leads * 8)}%;"></span></span><strong>${escapeHtml(String(agent.leads))}</strong></div>
-                      <div class="agent-spark-row"><span>Traces</span><span class="agent-spark-track"><span class="agent-spark-fill" style="width:${Math.min(100, agent.traces * 8)}%;"></span></span><strong>${escapeHtml(String(agent.traces))}</strong></div>
-                    </div>
-                  </div>`;
-                }).join("")}
+	                      <span class="avatar-dot">${escapeHtml(String(entry.label || "C").slice(0, 1).toUpperCase())}</span>
+                        <div><strong>${escapeHtml(displayValue(entry.label, "Unassigned"))}</strong><div class="subtext">Relationship owner</div></div>
+                      </div>
+                      <div class="agent-spark" style="margin-top:10px;">
+                        <div class="agent-spark-row"><span>Records</span><span class="agent-spark-track"><span class="agent-spark-fill" style="width:${Math.min(100, Number(entry.value || 0) * 8)}%;"></span></span><strong>${escapeHtml(String(entry.value || 0))}</strong></div>
+                      </div>
+                    </div>`;
+                  }).join("") : '<div class="office-detail-empty">Account manager workload will appear when CRM ownership data syncs.</div>'}
               </div>
             </article>
           </div>
@@ -3778,6 +3764,14 @@
                   const tone = note.status === "resolved" ? "healthy" : note.type === "founder_escalation" ? "critical" : index % 2 ? "warning" : "info";
                   return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot ${escapeHtml(tone === "healthy" ? "" : tone)}"></i></span><div class="activity-copy"><strong>${escapeHtml(note.title || note.type || "Activity")}</strong><span>${escapeHtml(formatDate(note.created_at || note.ts))}</span></div></div>`;
                 }).join("") || '<div class="subtext">No live CRM activity yet.</div>'}
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Support Breakdown</h4></div>
+              <div class="mission-list">
+                ${supportSummary.map(function (row) {
+                  return `<div class="device-category"><span>${escapeHtml(row[0])}</span><strong>${escapeHtml(String(row[1]))}</strong></div>`;
+                }).join("")}
               </div>
             </article>
 	            <article class="command-card">
@@ -3797,7 +3791,20 @@
   function renderAiOperationsDashboard(domain) {
     if (!el.crmAgentsPanel) return;
     const derived = getDerivedData();
+    const officeStats = state.officeStats || {};
     const totals = state.report && state.report.totals ? state.report.totals : {};
+    const activeAiOpsView = state.aiOpsView || "dashboard";
+    const aiOpsTabs = [
+      ["dashboard", "Dashboard", "summary"],
+      ["oyi_ai", "Oyi AI", "ai_operations"],
+      ["oma", "Oma", "support"],
+      ["osa", "Osa", "messenger"],
+      ["agent_console", "Agent Console", "estate"],
+      ["voice_command", "Voice Command", "trend"],
+      ["tool_registry", "Tool Registry", "settings"],
+      ["execution", "Execution", "alert"],
+      ["activity", "Activity", "activity"],
+    ];
     const traceCount = state.traces.length || Number(officeStats.traces || 0);
     const conversationCount = Number(officeStats.conversations || totals.conversations || state.leads.length || 0);
     const toolCalls = Math.max(traceCount, Object.values(derived.traceAgentCounts || {}).reduce(function (sum, value) {
@@ -3903,6 +3910,12 @@
             <button class="ai-command-pill" data-command-action="view_reports" type="button"><i></i>AI System Status · Healthy</button>
           </div>
         </div>
+        <div class="ai-ops-tabs" role="tablist" aria-label="AI Operations sections">
+          ${aiOpsTabs.map(function (tab) {
+            const active = activeAiOpsView === tab[0];
+            return `<button class="ai-ops-tab ${active ? "active" : ""}" data-ai-ops-tab="${escapeHtml(tab[0])}" type="button" role="tab" aria-selected="${active ? "true" : "false"}"><span>${officeIcon(tab[2])}</span>${escapeHtml(tab[1])}</button>`;
+          }).join("")}
+        </div>
         <div class="command-kpis ai-ops-kpis">
           ${[
             ["Active AI Agents", agentRows.filter(function (agent) { return agent.state === "Online"; }).length, "Live agent states", "lead"],
@@ -3984,7 +3997,7 @@
                 <div class="ai-conversation-list">
                   ${conversationRows.length ? conversationRows.map(function (row) {
                     return `<div class="ai-conversation-row"><div style="display:flex;align-items:center;gap:10px;"><span class="avatar-dot">${escapeHtml(row.initial)}</span><div><strong>${escapeHtml(row.title)}</strong><div class="subtext">${escapeHtml(row.agent)}</div></div></div><span class="subtext">${escapeHtml(row.time)}</span></div>`;
-                  }).join("") : '<div class="office-detail-empty">AI conversations will appear when CRM and Oyi agent activity sync.</div>'}
+                  }).join("") : '<div class="office-detail-empty">AI conversations will appear when Oyi activity syncs.</div>'}
                 </div>
               </article>
               <article class="command-card">
@@ -4027,6 +4040,12 @@
         </div>
       </div>
     `;
+    Array.from(el.crmAgentsPanel.querySelectorAll("[data-ai-ops-tab]")).forEach(function (node) {
+      node.addEventListener("click", function () {
+        state.aiOpsView = node.getAttribute("data-ai-ops-tab") || "dashboard";
+        renderAiOperationsDashboard(domain);
+      });
+    });
   }
 
   function renderSectionNav() {
@@ -6688,6 +6707,18 @@
       event.preventDefault();
       openOfficeAction(actionNode.getAttribute("data-command-action") || "");
       return;
+    }
+    const officeTargetNode = event.target.closest("[data-office-target]");
+    if (officeTargetNode) {
+      const target = officeTargetNode.getAttribute("data-office-target");
+      const focus = officeTargetNode.getAttribute("data-office-focus");
+      if (target && canAccessOfficeModule(target, focus)) {
+        event.preventDefault();
+        if (focus) state.overviewFocus = focus;
+        state.workspaceTab = target;
+        renderWorkspaceTabs();
+        return;
+      }
     }
     const closeNode = event.target.closest("[data-command-close]");
     if (closeNode) {
