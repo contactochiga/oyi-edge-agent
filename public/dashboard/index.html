@@ -2277,6 +2277,16 @@
         display: block;
         line-height: 1.42;
       }
+      .admin-kpis {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+      .admin-kpis .command-kpi {
+        min-height: 86px;
+      }
+      .admin-kpis .command-kpi strong {
+        font-size: 24px;
+        font-weight: 540;
+      }
       .ai-state-badge {
         border-radius: 999px;
         padding: 5px 8px;
@@ -4338,7 +4348,7 @@
                     <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"></path><path d="M12 7v5l3 2"></path><path d="M19 3v5h-5"></path></svg></span>
                     <span class="office-nav-copy"><strong>Infrastructure Intelligence</strong></span>
                   </button>
-                  <button class="office-nav-btn" data-office-target="crm_agents" data-office-focus="ai_operations" type="button">
+                  <button class="office-nav-btn" data-office-target="ai_operations" data-office-focus="ai_operations" type="button">
                     <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"></path><path d="M12 18v4"></path><path d="M4.93 4.93l2.83 2.83"></path><path d="M16.24 16.24l2.83 2.83"></path><circle cx="12" cy="12" r="4"></circle></svg></span>
                     <span class="office-nav-copy"><strong>AI Operations</strong></span>
                   </button>
@@ -4458,7 +4468,7 @@
             <button class="mini-office-btn" data-office-target="reports" data-office-focus="reports" type="button" aria-label="Infrastructure Intelligence">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"></path><path d="M12 7v5l3 2"></path><path d="M19 3v5h-5"></path></svg>
             </button>
-            <button class="mini-office-btn" data-office-target="crm_agents" data-office-focus="ai_operations" type="button" aria-label="AI Operations">
+            <button class="mini-office-btn" data-office-target="ai_operations" data-office-focus="ai_operations" type="button" aria-label="AI Operations">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"></path><path d="M12 18v4"></path><path d="M4.93 4.93l2.83 2.83"></path><path d="M16.24 16.24l2.83 2.83"></path><circle cx="12" cy="12" r="4"></circle></svg>
             </button>
             <button class="mini-office-btn" data-office-target="audit" data-office-focus="governance" type="button" aria-label="Knowledge & Audit">
@@ -4681,6 +4691,11 @@
                 <div id="crmAgentsPanel"></div>
               </div>
             </div>
+            <div class="tab-panel" data-panel="ai_operations">
+              <div class="tab-panel-scroll">
+                <div id="aiOperationsPanel"></div>
+              </div>
+            </div>
             <div class="tab-panel" data-panel="conversation">
               <div class="conversation-shell">
                 <div class="card terminal-card">
@@ -4825,12 +4840,13 @@
                 <div class="command-page">
                   <div class="command-head">
                     <div>
-                      <p class="eyebrow">Staff & Roles</p>
-                      <h3>Office identity and permission control</h3>
-                      <p class="subtext" style="margin:8px 0 0;">Create staff accounts, issue invites, manage passport/QR credentials, and update access scopes.</p>
+                      <p class="eyebrow">Administration</p>
+                      <h3>Office identity, permission, account, and super-admin control</h3>
+                      <p class="subtext" style="margin:8px 0 0;">Manage staff access, role posture, invitation flow, password security, credentials, and operational account readiness.</p>
                     </div>
                     <span class="office-system-badge">RBAC active</span>
                   </div>
+                  <div class="command-kpis admin-kpis" id="adminMetricsPanel"></div>
                   <div class="command-layout staff-command-layout">
                     <div class="command-main">
                       <div class="command-card">

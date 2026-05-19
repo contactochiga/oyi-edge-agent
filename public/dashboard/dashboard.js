@@ -107,7 +107,7 @@
     { key: "crm_agents", focus: "crm_agents", permissions: ["manage_leads", "view_reports"] },
     { key: "web_presence", focus: "web_presence", permissions: ["documents.generate", "manage_commercial", "view_reports"] },
     { key: "reports", focus: "reports", permissions: ["view_reports"] },
-    { key: "crm_agents", focus: "ai_operations", permissions: ["manage_leads", "view_reports", "view_traces"] },
+    { key: "ai_operations", focus: "ai_operations", permissions: ["manage_leads", "view_reports", "view_traces"] },
     { key: "audit", focus: "governance", permissions: ["view_audit", "audit.read"] },
     { key: "settings", focus: "platform_infrastructure", permissions: ["view_integrations", "view_users", "view_reports"] },
     { key: "team", focus: "staff_roles", permissions: ["view_users", "manage_users", "change_password"] },
@@ -377,6 +377,8 @@
     webPresencePanel: document.getElementById("webPresencePanel"),
     supportPanel: document.getElementById("supportPanel"),
     crmAgentsPanel: document.getElementById("crmAgentsPanel"),
+    aiOperationsPanel: document.getElementById("aiOperationsPanel"),
+    adminMetricsPanel: document.getElementById("adminMetricsPanel"),
     searchInput: document.getElementById("searchInput"),
     selectedCount: document.getElementById("selectedCount"),
     bulkOwnerSelect: document.getElementById("bulkOwnerSelect"),
@@ -728,6 +730,7 @@
     if (tab === "crm_agents") {
       return true;
     }
+    if (tab === "ai_operations") return hasPermission("view_reports") || hasPermission("view_traces");
     if (tab === "channels") return hasPermission("view_reports");
     if (tab === "bookings") return hasPermission("view_reports");
     if (tab === "commercial") return hasPermission("manage_commercial") || hasPermission("view_reports");
@@ -748,7 +751,9 @@
     if (!target || !canAccessOfficeModule(target, focus)) return;
     state.workspaceTab = target;
     if (target === "crm_agents") {
-      state.overviewFocus = focus === "ai_operations" ? "ai_operations" : "crm_agents";
+      state.overviewFocus = "crm_agents";
+    } else if (target === "ai_operations") {
+      state.overviewFocus = "ai_operations";
     } else if (focus) {
       state.overviewFocus = focus;
     }
@@ -3630,8 +3635,8 @@
                     ? "settings"
                     : key === "administration"
                       ? "team"
-                      : key === "ai_operations"
-                        ? "crm_agents"
+                : key === "ai_operations"
+                  ? "ai_operations"
                 : key;
         const cardFocus =
           key === "infrastructure_intelligence"
@@ -3672,17 +3677,14 @@
     renderDeviceWorkspace();
 	    renderDocumentsWorkspace(domains.web_presence);
 	    renderSupportWorkspace(domains.support);
-    renderCrmAgentsPanel(state.overviewFocus === "ai_operations" ? domains.ai_operations : domains.crm_agents);
+    renderCrmAgentsPanel(domains.crm_agents);
+    renderAiOperationsDashboard(domains.ai_operations);
     bindOfficeAssetActions(el.facilityPanel);
     bindOfficeAssetActions(el.smartBuildingsPanel);
   }
 
   function renderCrmAgentsPanel(domain) {
     if (!el.crmAgentsPanel || !domain) return;
-    if (state.overviewFocus === "ai_operations") {
-      renderAiOperationsDashboard(domain);
-      return;
-    }
     const derived = getDerivedData();
     const totals = state.report && state.report.totals ? state.report.totals : {};
     const activeDeals = state.allProposals.length || derived.salesOwned.length;
@@ -3807,7 +3809,7 @@
   }
 
   function renderAiOperationsDashboard(domain) {
-    if (!el.crmAgentsPanel) return;
+    if (!el.aiOperationsPanel) return;
     const derived = getDerivedData();
     const officeStats = state.officeStats || {};
     const totals = state.report && state.report.totals ? state.report.totals : {};
@@ -3912,7 +3914,7 @@
       ["Voice Services", Boolean(window.MediaRecorder || navigator.mediaDevices)],
     ];
 
-    el.crmAgentsPanel.innerHTML = `
+    el.aiOperationsPanel.innerHTML = `
       <div class="command-page ai-ops-page">
         <div class="ai-ops-topline">
           <div>
@@ -4055,7 +4057,7 @@
         </div>
       </div>
     `;
-    Array.from(el.crmAgentsPanel.querySelectorAll("[data-ai-ops-tab]")).forEach(function (node) {
+    Array.from(el.aiOperationsPanel.querySelectorAll("[data-ai-ops-tab]")).forEach(function (node) {
       node.addEventListener("click", function () {
         state.aiOpsView = node.getAttribute("data-ai-ops-tab") || "dashboard";
         renderAiOperationsDashboard(domain);
@@ -4116,6 +4118,14 @@
         { label: "Account Managers", type: "facet", value: "account_managers" },
         { label: "Sales Pipeline", type: "tab", value: "commercial" },
         { label: "Deployment Pipeline", type: "facet", value: "deployment_pipeline" },
+      ],
+      ai_operations: [
+        { label: "Dashboard", type: "tab", value: "ai_operations", active: true },
+        { label: "Agent Console", type: "facet", value: "agent_console" },
+        { label: "Voice Command", type: "facet", value: "voice_command" },
+        { label: "Tool Registry", type: "facet", value: "tool_registry" },
+        { label: "Execution", type: "facet", value: "execution" },
+        { label: "Activity", type: "facet", value: "activity" },
       ],
       conversation: [
         { label: "Open", type: "crm_view", value: "open" },
@@ -4197,16 +4207,7 @@
     };
 
     const items =
-      state.workspaceTab === "crm_agents" && state.overviewFocus === "ai_operations"
-        ? [
-            { label: "Dashboard", type: "tab", value: "crm_agents", active: true },
-            { label: "Agent Console", type: "crm_view", value: "agents" },
-            { label: "Voice Command", type: "facet", value: "voice_command" },
-            { label: "Tool Registry", type: "facet", value: "tool_registry" },
-            { label: "Execution", type: "facet", value: "execution" },
-            { label: "Activity", type: "facet", value: "activity" },
-          ]
-        : navByTab[state.workspaceTab] || navByTab.overview;
+      navByTab[state.workspaceTab] || navByTab.overview;
     if (!items.length) {
       el.sectionNav.classList.add("is-hidden");
       el.sectionNav.innerHTML = "";
@@ -5051,6 +5052,16 @@
 
   function renderTeamPanel() {
     if (!hasPermission("view_users")) {
+      if (el.adminMetricsPanel) {
+        el.adminMetricsPanel.innerHTML = [
+          ["Staff Accounts", "Blocked", "Permission required"],
+          ["Roles", "Blocked", "Permission required"],
+          ["Invites", "Blocked", "Permission required"],
+          ["Security", "Blocked", "Permission required"],
+        ].map(function (item) {
+          return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(item[1])}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
+        }).join("");
+      }
       el.teamPanel.innerHTML =
         '<div class="office-detail-empty">Your role cannot view office staff.</div>';
       el.createUserBtn.disabled = true;
@@ -5061,6 +5072,29 @@
       setTeamStatus("Your role cannot access office staff administration.", true);
       setInviteStatus("Your role cannot create invite links.", true);
       return;
+    }
+
+    if (el.adminMetricsPanel) {
+      const roleCounts = state.adminUsers.reduce(function (acc, user) {
+        const key = user.role || "viewer";
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
+      const activeUsers = state.adminUsers.filter(function (user) {
+        return String(user.status || "active").toLowerCase() === "active";
+      }).length;
+      const adminUsers = (roleCounts.admin || 0) + (roleCounts.founder || 0);
+      const pendingLogins = state.adminUsers.filter(function (user) {
+        return !user.last_login_at;
+      }).length;
+      el.adminMetricsPanel.innerHTML = [
+        ["Staff Accounts", state.adminUsers.length, `${activeUsers} active operators`],
+        ["Admin Roles", adminUsers, "Admin/founder authority"],
+        ["Pending Setup", pendingLogins, "No login recorded"],
+        ["Security", hasPermission("manage_security") ? "Ready" : "Restricted", "Invite/reset controls"],
+      ].map(function (item) {
+        return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
+      }).join("");
     }
 
     if (!state.adminUsers.length) {
@@ -5349,7 +5383,7 @@
   }
 
   function renderWorkspaceTabs() {
-    if (state.workspaceTab === "crm_agents" && !["crm_agents", "ai_operations"].includes(state.overviewFocus)) {
+    if (state.workspaceTab === "crm_agents" && state.overviewFocus !== "crm_agents") {
       state.overviewFocus = "crm_agents";
     }
     if (!canAccessTab(state.workspaceTab)) {
@@ -5363,6 +5397,7 @@
         "smart_buildings",
         "devices",
         "crm_agents",
+        "ai_operations",
         "support",
         "web_presence",
         "team",
@@ -5444,14 +5479,12 @@
       devices: overviewHeadings.devices,
       web_presence: overviewHeadings.web_presence,
       support: overviewHeadings.support,
-      crm_agents:
-        state.overviewFocus === "ai_operations"
-          ? {
-              title: "AI Operations",
-              subtitle:
-                "Monitor Oyi AI, agent console activity, voice command, tool registry, execution, and AI operational activity.",
-            }
-          : overviewHeadings.crm_agents,
+      crm_agents: overviewHeadings.crm_agents,
+      ai_operations: {
+        title: "AI Operations",
+        subtitle:
+          "Monitor Oyi AI, agent console activity, voice command, tool registry, execution, and AI operational activity.",
+      },
       conversation: {
         title: state.selectedLead ? leadTitle(state.selectedLead) : "CRM Conversations",
         subtitle: state.selectedLead
