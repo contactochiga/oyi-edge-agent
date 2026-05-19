@@ -125,7 +125,7 @@
     map[safeKey] = (map[safeKey] || 0) + (amount || 1);
   }
 
-  function topEntries(map, limit) {
+  const rankEntries = function (map, limit) {
     return Object.entries(map || {})
       .sort(function (a, b) {
         return Number(b[1] || 0) - Number(a[1] || 0);
@@ -134,7 +134,7 @@
       .map(function (entry) {
         return { label: entry[0], value: entry[1] };
       });
-  }
+  };
 
   function sourceMatches(source, pattern) {
     return pattern.test(String(source || ""));
@@ -1335,8 +1335,8 @@
         { label: "Users", value: officeStats.admin_users || state.adminUsers.length || 0 },
       ];
       result.domains.summary.charts = [
-        { title: "Pipeline status", entries: topEntries((state.report && state.report.by_status) || {}, 5) },
-        { title: "Commercial stages", entries: topEntries((state.report && state.report.by_commercial_stage) || {}, 5) },
+        { title: "Pipeline status", entries: rankEntries((state.report && state.report.by_status) || {}, 5) },
+        { title: "Commercial stages", entries: rankEntries((state.report && state.report.by_commercial_stage) || {}, 5) },
       ];
 
       result.domains.facility.batches = [
@@ -1346,8 +1346,8 @@
         { label: "Demos", value: state.allDemos.length || officeStats.demos || 0 },
       ];
       result.domains.facility.charts = [
-        { title: "Estate stages", entries: topEntries((state.report && state.report.by_commercial_stage) || {}, 5) },
-        { title: "Estate status", entries: topEntries((state.report && state.report.by_status) || {}, 5) },
+        { title: "Estate stages", entries: rankEntries((state.report && state.report.by_commercial_stage) || {}, 5) },
+        { title: "Estate status", entries: rankEntries((state.report && state.report.by_status) || {}, 5) },
       ];
 
       result.domains.smart_buildings.batches = [
@@ -1357,7 +1357,7 @@
         { label: "Wallet-linked users", value: smartBuildingRecords.length },
       ];
       result.domains.smart_buildings.charts = [
-        { title: "Building profiles", entries: topEntries(projectTypeCounts, 5) },
+        { title: "Building profiles", entries: rankEntries(projectTypeCounts, 5) },
         {
           title: "Channel activity",
           entries: channelNotificationLoad.slice(0, 5).map(function (channel) {
@@ -1392,8 +1392,8 @@
         { label: "Total alerts", value: officeStats.notifications || state.notifications.length || 0 },
       ];
       result.domains.support.charts = [
-        { title: "Support types", entries: topEntries(notificationTypeCounts, 5) },
-        { title: "Support status", entries: topEntries(notificationStatusCounts, 5) },
+        { title: "Support types", entries: rankEntries(notificationTypeCounts, 5) },
+        { title: "Support status", entries: rankEntries(notificationStatusCounts, 5) },
       ];
     }
 
@@ -1404,8 +1404,8 @@
       { label: "Won deals", value: state.report ? state.report.deals_won || 0 : 0 },
     ];
     result.domains.crm_agents.charts = [
-      { title: "Relationship ownership", entries: topEntries((state.report && state.report.by_owner) || {}, 5) },
-      { title: "Deal stages", entries: topEntries((state.report && state.report.by_commercial_stage) || {}, 5) },
+      { title: "Relationship ownership", entries: rankEntries((state.report && state.report.by_owner) || {}, 5) },
+      { title: "Deal stages", entries: rankEntries((state.report && state.report.by_commercial_stage) || {}, 5) },
     ];
 
     result.domains.staff_roles.batches = [
@@ -1415,8 +1415,8 @@
       { label: "Founders", value: roleCounts.founder || 0 },
     ];
     result.domains.staff_roles.charts = [
-      { title: "Role spread", entries: topEntries(roleCounts, 5) },
-      { title: "Account status", entries: topEntries(statusCounts, 5) },
+      { title: "Role spread", entries: rankEntries(roleCounts, 5) },
+      { title: "Account status", entries: rankEntries(statusCounts, 5) },
     ];
 
     result.domains.governance.batches = [
@@ -1426,8 +1426,8 @@
       { label: "Reviews", value: openEscalations },
     ];
     result.domains.governance.charts = [
-      { title: "Activity types", entries: topEntries(auditActionCounts, 5) },
-      { title: "Agent evidence", entries: topEntries(traceAgentCounts, 5) },
+      { title: "Activity types", entries: rankEntries(auditActionCounts, 5) },
+      { title: "Agent evidence", entries: rankEntries(traceAgentCounts, 5) },
     ];
 
     result.domains.ai_operations = {
@@ -1450,8 +1450,8 @@
         { label: "Safety events", value: openEscalations },
       ],
       charts: [
-        { title: "Agent trace volume", entries: topEntries(traceAgentCounts, 5) },
-        { title: "AI decision sources", entries: topEntries((state.report && state.report.by_owner) || {}, 5) },
+        { title: "Agent trace volume", entries: rankEntries(traceAgentCounts, 5) },
+        { title: "AI decision sources", entries: rankEntries((state.report && state.report.by_owner) || {}, 5) },
       ],
       items: latestTraces.slice(0, 6).map(function (trace) {
         return {
@@ -1482,8 +1482,8 @@
         { label: "Diagnostics", value: state.traces.length || 0 },
       ],
       charts: [
-        { title: "Operational status", entries: topEntries((state.report && state.report.by_status) || notificationStatusCounts, 5) },
-        { title: "Infrastructure categories", entries: topEntries(projectTypeCounts, 5) },
+        { title: "Operational status", entries: rankEntries((state.report && state.report.by_status) || notificationStatusCounts, 5) },
+        { title: "Infrastructure categories", entries: rankEntries(projectTypeCounts, 5) },
       ],
       items: [
         { title: "Predictive operations", meta: "Support + device signal", body: "Warnings are derived from support pressure, device state, edge health, and estate activity." },
@@ -1513,7 +1513,7 @@
       ],
       charts: [
         { title: "Provider status", entries: crmIntegrationStatusRows().map(function (row) { return { label: row.name, value: row.connected ? 1 : 0 }; }) },
-        { title: "Event stream", entries: topEntries(auditActionCounts, 5) },
+        { title: "Event stream", entries: rankEntries(auditActionCounts, 5) },
       ],
       items: crmIntegrationStatusRows().slice(0, 6).map(function (row) {
         return {
@@ -3693,13 +3693,25 @@
 
   function renderOfficeCommandPanels(domains) {
     const safeDomains = domains || buildOverviewDomains().domains;
-    renderEstateFacilitiesWorkspace(safeDomains.facility);
-    renderSmartBuildingsWorkspace(safeDomains.smart_buildings);
-    renderDeviceWorkspace();
-    renderDocumentsWorkspace(safeDomains.web_presence);
-    renderSupportWorkspace(safeDomains.support);
-    renderCrmAgentsPanel(safeDomains.crm_agents);
-    renderAiOperationsDashboard(safeDomains.ai_operations);
+    const renderers = [
+      [el.facilityPanel, function () { renderEstateFacilitiesWorkspace(safeDomains.facility); }],
+      [el.smartBuildingsPanel, function () { renderSmartBuildingsWorkspace(safeDomains.smart_buildings); }],
+      [el.devicePanel, renderDeviceWorkspace],
+      [el.webPresencePanel, function () { renderDocumentsWorkspace(safeDomains.web_presence); }],
+      [el.supportPanel, function () { renderSupportWorkspace(safeDomains.support); }],
+      [el.crmAgentsPanel, function () { renderCrmAgentsPanel(safeDomains.crm_agents); }],
+      [el.aiOperationsPanel, function () { renderAiOperationsDashboard(safeDomains.ai_operations); }],
+    ];
+    renderers.forEach(function (entry) {
+      try {
+        entry[1]();
+      } catch (error) {
+        console.error("[office-module-render]", error);
+        if (entry[0]) {
+          entry[0].innerHTML = `<div class="office-detail-empty">This module could not render: ${escapeHtml(error.message || "Unknown rendering error")}</div>`;
+        }
+      }
+    });
     bindOfficeAssetActions(el.facilityPanel);
     bindOfficeAssetActions(el.smartBuildingsPanel);
   }
@@ -3709,7 +3721,7 @@
     const derived = getDerivedData();
     const totals = state.report && state.report.totals ? state.report.totals : {};
     const activeDeals = state.allProposals.length || derived.salesOwned.length;
-    const accountManagers = topEntries((state.report && state.report.by_owner) || {}, 5);
+    const accountManagers = rankEntries((state.report && state.report.by_owner) || {}, 5);
     const supportSummary = [
       ["Open Support", derived.openNotifications || 0],
       ["Escalations", derived.openEscalations || 0],
