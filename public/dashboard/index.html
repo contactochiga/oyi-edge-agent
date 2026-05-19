@@ -2287,6 +2287,37 @@
         font-size: 24px;
         font-weight: 540;
       }
+      .admin-tabs {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        overflow-x: auto;
+        padding: 2px 0 0;
+        border-bottom: 1px solid rgba(149, 166, 255, 0.12);
+        scrollbar-width: none;
+      }
+      .admin-tabs::-webkit-scrollbar {
+        display: none;
+      }
+      .admin-tab {
+        min-height: 36px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: rgba(220,230,255,0.62);
+        padding: 0 0 10px;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .admin-tab:hover {
+        color: #f7f9ff;
+      }
+      .admin-tab.active {
+        color: #fff;
+        border-bottom-color: #7c4dff;
+      }
       .ai-state-badge {
         border-radius: 999px;
         padding: 5px 8px;
@@ -4845,6 +4876,15 @@
                       <p class="subtext" style="margin:8px 0 0;">Manage staff access, role posture, invitation flow, password security, credentials, and operational account readiness.</p>
                     </div>
                     <span class="office-system-badge">RBAC active</span>
+                  </div>
+                  <div class="admin-tabs" role="tablist" aria-label="Administration sections">
+                    <button class="admin-tab active" data-admin-section="dashboard" type="button">Dashboard</button>
+                    <button class="admin-tab" data-admin-section="staff" type="button">Staff & Roles</button>
+                    <button class="admin-tab" data-admin-section="permissions" type="button">Permissions</button>
+                    <button class="admin-tab" data-admin-section="settings" type="button">System Settings</button>
+                    <button class="admin-tab" data-admin-section="integrations" type="button">Integrations</button>
+                    <button class="admin-tab" data-admin-section="accounts" type="button">Accounts</button>
+                    <button class="admin-tab" data-admin-section="super_admin" type="button">Super Admin</button>
                   </div>
                   <div class="command-kpis admin-kpis" id="adminMetricsPanel"></div>
                   <div class="command-layout staff-command-layout">

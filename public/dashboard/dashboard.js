@@ -1946,6 +1946,27 @@
     });
   }
 
+  function handleAdminSection(section) {
+    Array.from(document.querySelectorAll("[data-admin-section]")).forEach(function (node) {
+      node.classList.toggle("active", node.getAttribute("data-admin-section") === section);
+    });
+    if (section === "settings" || section === "integrations") {
+      setOfficeWorkspace("settings", "platform_infrastructure");
+      return;
+    }
+    if (section === "permissions" || section === "super_admin") {
+      openOfficeAction("open_permissions");
+      return;
+    }
+    const target =
+      section === "dashboard"
+        ? document.querySelector(".staff-workspace .command-page")
+        : el.teamPanel;
+    if (target && typeof target.scrollIntoView === "function") {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   async function submitOfficeAction(action, form) {
     const formData = new FormData(form);
     const now = new Date().toISOString();
@@ -3373,6 +3394,7 @@
     const overview = buildOverviewDomains();
     const totals = overview.totals;
     const domains = overview.domains;
+    renderOfficeCommandPanels(domains);
     const officeTotals = state.officeData && state.officeData.totals ? state.officeData.totals : {};
     const connectedEstates = Number(officeTotals.estates || domains.facility.primaryMetric || 0);
     const connectedBuildings = Number(officeTotals.buildings || domains.smart_buildings.primaryMetric || 0);
@@ -3619,6 +3641,9 @@
     ];
 
     el.overviewDomainGrid.innerHTML = overviewCards
+      .filter(function (entry) {
+        return Boolean(entry[1]);
+      })
       .map(function (entry) {
         const key = entry[0];
         const domain = entry[1];
@@ -3672,13 +3697,17 @@
         renderWorkspaceTabs();
       });
     });
-    renderEstateFacilitiesWorkspace(domains.facility);
-    renderSmartBuildingsWorkspace(domains.smart_buildings);
+  }
+
+  function renderOfficeCommandPanels(domains) {
+    const safeDomains = domains || buildOverviewDomains().domains;
+    renderEstateFacilitiesWorkspace(safeDomains.facility);
+    renderSmartBuildingsWorkspace(safeDomains.smart_buildings);
     renderDeviceWorkspace();
-	    renderDocumentsWorkspace(domains.web_presence);
-	    renderSupportWorkspace(domains.support);
-    renderCrmAgentsPanel(domains.crm_agents);
-    renderAiOperationsDashboard(domains.ai_operations);
+    renderDocumentsWorkspace(safeDomains.web_presence);
+    renderSupportWorkspace(safeDomains.support);
+    renderCrmAgentsPanel(safeDomains.crm_agents);
+    renderAiOperationsDashboard(safeDomains.ai_operations);
     bindOfficeAssetActions(el.facilityPanel);
     bindOfficeAssetActions(el.smartBuildingsPanel);
   }
@@ -5554,6 +5583,7 @@
     renderTraceExplorer();
     renderTimeline();
     renderIntegrationHub();
+    renderOfficeCommandPanels();
     renderSectionNav();
     updateHeaderActions();
     updateDetailRailState();
@@ -6766,6 +6796,12 @@
         setOfficeWorkspace(target, focus);
         return;
       }
+    }
+    const adminSectionNode = event.target.closest("[data-admin-section]");
+    if (adminSectionNode) {
+      event.preventDefault();
+      handleAdminSection(adminSectionNode.getAttribute("data-admin-section") || "dashboard");
+      return;
     }
     const closeNode = event.target.closest("[data-command-close]");
     if (closeNode) {
