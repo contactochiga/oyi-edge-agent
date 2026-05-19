@@ -42,6 +42,7 @@
     documentQuery: "",
     crmIntegrationsExpanded: false,
     aiOpsView: "dashboard",
+    adminSection: "dashboard",
     liveInfraMode: "map",
     liveInfraPanel: "",
     liveInfraZoom: 1,
@@ -1947,21 +1948,12 @@
   }
 
   function handleAdminSection(section) {
+    state.adminSection = section || "dashboard";
     Array.from(document.querySelectorAll("[data-admin-section]")).forEach(function (node) {
-      node.classList.toggle("active", node.getAttribute("data-admin-section") === section);
+      node.classList.toggle("active", node.getAttribute("data-admin-section") === state.adminSection);
     });
-    if (section === "settings" || section === "integrations") {
-      setOfficeWorkspace("settings", "platform_infrastructure");
-      return;
-    }
-    if (section === "permissions" || section === "super_admin") {
-      openOfficeAction("open_permissions");
-      return;
-    }
-    const target =
-      section === "dashboard"
-        ? document.querySelector(".staff-workspace .command-page")
-        : el.teamPanel;
+    renderTeamPanel();
+    const target = document.querySelector(".staff-workspace .command-page");
     if (target && typeof target.scrollIntoView === "function") {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -5079,6 +5071,116 @@
       .join("");
   }
 
+  function renderAdminModuleSection(section) {
+    const roleCounts = state.adminUsers.reduce(function (acc, user) {
+      const key = user.role || "viewer";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const integrationRows = crmIntegrationStatusRows();
+    const rowsBySection = {
+      permissions: {
+        title: "Permission Control",
+        subtitle: "Role-based and action-based access posture across Office, Facility, Consumer, Edge, Plan Studio, and Digital Twin surfaces.",
+        cards: [
+          ["Super admins", (roleCounts.admin || 0) + (roleCounts.founder || 0), "Full governance authority"],
+          ["Operators", roleCounts.operator || 0, "Scoped operations access"],
+          ["Sales / CRM", roleCounts.sales || 0, "Commercial relationship access"],
+          ["Viewers", roleCounts.viewer || 0, "Read-only supervision"],
+        ],
+        actions: [
+          ["Queue permission review", "open_permissions", "governance"],
+          ["View audit trail", "view_reports", "trend"],
+        ],
+      },
+      settings: {
+        title: "System Settings",
+        subtitle: "Office defaults, notification behavior, security posture, integration readiness, and production sync controls.",
+        cards: [
+          ["Runtime", "Production grid", "Office command runtime"],
+          ["Security", "Role based", "Scoped access checks"],
+          ["Notifications", "Live", "Inbox and escalation routing"],
+          ["Audit", state.audit.length || 0, "Recorded governance events"],
+        ],
+        actions: [
+          ["Open platform infrastructure", "view_reports", "settings"],
+          ["Queue security review", "open_permissions", "governance"],
+        ],
+      },
+      integrations: {
+        title: "Integration Settings",
+        subtitle: "Provider credentials, CRM channels, maps, email, realtime, webhooks, and platform connectivity status.",
+        cards: [
+          ["Connected providers", integrationRows.filter(function (row) { return row.connected; }).length, "Verified environment credentials"],
+          ["Disconnected providers", integrationRows.filter(function (row) { return !row.connected; }).length, "Needs credential review"],
+          ["Realtime channels", state.channelOverview?.channels?.length || 0, "Office event channels"],
+          ["Map provider", state.mapConfig?.provider || "google", "Infrastructure map layer"],
+        ],
+        actions: [
+          ["View provider status", "view_reports", "trend"],
+          ["Add integration task", "add_new_tool", "settings"],
+        ],
+      },
+      accounts: {
+        title: "Accounts",
+        subtitle: "Office accounts, login readiness, staff identity state, invite posture, and account lifecycle controls.",
+        cards: [
+          ["Staff accounts", state.adminUsers.length, "Office identities"],
+          ["Active accounts", state.adminUsers.filter(function (user) { return String(user.status || "active") === "active"; }).length, "Currently enabled"],
+          ["Pending login", state.adminUsers.filter(function (user) { return !user.last_login_at; }).length, "No login recorded"],
+          ["Invite ready", hasPermission("manage_security") ? "Yes" : "Restricted", "Requires security permission"],
+        ],
+        actions: [
+          ["Open staff registry", "admin_staff", "lead"],
+          ["Create invite", "admin_invite", "messenger"],
+        ],
+      },
+      super_admin: {
+        title: "Super Admin",
+        subtitle: "High-authority controls for permissions, safety reviews, system access, and production governance.",
+        cards: [
+          ["Authority", isSuperAdmin() ? "Full" : "Restricted", "Super-admin visibility"],
+          ["Permission reviews", state.audit.filter(function (event) { return /permission/i.test(String(event.action || "")); }).length, "Governance records"],
+          ["Security controls", hasPermission("manage_security") ? "Ready" : "Restricted", "Credential and reset actions"],
+          ["Audit access", hasPermission("view_audit") ? "Enabled" : "Restricted", "Event visibility"],
+        ],
+        actions: [
+          ["Queue permission review", "open_permissions", "governance"],
+          ["Open audit", "admin_audit", "trend"],
+        ],
+      },
+    };
+    const sectionData = rowsBySection[section] || rowsBySection.settings;
+    el.teamPanel.innerHTML = `
+      <article class="team-card staff-profile-card admin-section-panel">
+        <div class="command-card-head">
+          <div>
+            <h4>${escapeHtml(sectionData.title)}</h4>
+            <p class="subtext" style="margin:6px 0 0;">${escapeHtml(sectionData.subtitle)}</p>
+          </div>
+          <span class="office-system-badge">Permission-aware</span>
+        </div>
+        <div class="office-detail-metrics admin-section-metrics">
+          ${sectionData.cards.map(function (card) {
+            return `<div class="office-system-metric"><div class="key">${escapeHtml(card[0])}</div><strong>${escapeHtml(String(card[1]))}</strong><span class="subtext">${escapeHtml(card[2])}</span></div>`;
+          }).join("")}
+        </div>
+        <div class="shortcut-grid admin-section-actions">
+          ${sectionData.actions.map(function (action) {
+            const special = action[1] === "admin_staff" || action[1] === "admin_invite" || action[1] === "admin_audit";
+            return `<button class="shortcut-btn" ${special ? `data-admin-shortcut="${escapeHtml(action[1])}"` : `data-command-action="${escapeHtml(action[1])}"`} type="button"><span>${officeIcon(action[2])}</span>${escapeHtml(action[0])}</button>`;
+          }).join("")}
+        </div>
+      </article>
+    `;
+    if (el.staffActivityPanel) {
+      const activity = state.audit.slice(0, 5).map(function (event) {
+        return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot"></i></span><div class="activity-copy"><strong>${escapeHtml(event.action || "admin activity")}</strong><span>${escapeHtml(event.actor_email || "system")} · ${escapeHtml(formatDate(event.created_at || event.timestamp))}</span></div></div>`;
+      }).join("");
+      el.staffActivityPanel.innerHTML = activity || '<div class="office-detail-empty">Admin activity appears when audit events sync.</div>';
+    }
+  }
+
   function renderTeamPanel() {
     if (!hasPermission("view_users")) {
       if (el.adminMetricsPanel) {
@@ -5124,6 +5226,15 @@
       ].map(function (item) {
         return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
       }).join("");
+    }
+
+    const activeAdminSection = state.adminSection || "dashboard";
+    Array.from(document.querySelectorAll("[data-admin-section]")).forEach(function (node) {
+      node.classList.toggle("active", node.getAttribute("data-admin-section") === activeAdminSection);
+    });
+    if (!["dashboard", "staff"].includes(activeAdminSection)) {
+      renderAdminModuleSection(activeAdminSection);
+      return;
     }
 
     if (!state.adminUsers.length) {
@@ -5955,6 +6066,7 @@
     renderAudit();
     renderTraceExplorer();
     renderTimeline();
+    renderWorkspaceTabs();
 
     if (state.selectedLeadId) {
       await selectLead(state.selectedLeadId, true);
@@ -6801,6 +6913,25 @@
     if (adminSectionNode) {
       event.preventDefault();
       handleAdminSection(adminSectionNode.getAttribute("data-admin-section") || "dashboard");
+      return;
+    }
+    const adminShortcutNode = event.target.closest("[data-admin-shortcut]");
+    if (adminShortcutNode) {
+      event.preventDefault();
+      const shortcut = adminShortcutNode.getAttribute("data-admin-shortcut") || "";
+      if (shortcut === "admin_staff") {
+        handleAdminSection("staff");
+      } else if (shortcut === "admin_invite") {
+        handleAdminSection("staff");
+        const invitePanel = document.getElementById("inviteStaffAction");
+        if (invitePanel) {
+          invitePanel.open = true;
+          invitePanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      } else if (shortcut === "admin_audit") {
+        state.workspaceTab = "audit";
+        renderWorkspaceTabs();
+      }
       return;
     }
     const closeNode = event.target.closest("[data-command-close]");
