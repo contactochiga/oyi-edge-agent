@@ -125,6 +125,17 @@
     map[safeKey] = (map[safeKey] || 0) + (amount || 1);
   }
 
+  function topEntries(map, limit) {
+    return Object.entries(map || {})
+      .sort(function (a, b) {
+        return Number(b[1] || 0) - Number(a[1] || 0);
+      })
+      .slice(0, limit || 5)
+      .map(function (entry) {
+        return { label: entry[0], value: entry[1] };
+      });
+  }
+
   function sourceMatches(source, pattern) {
     return pattern.test(String(source || ""));
   }
@@ -1094,17 +1105,6 @@
     const projectTypeCounts = derived.projectTypeCounts;
     const notificationTypeCounts = derived.notificationTypeCounts;
     const notificationStatusCounts = derived.notificationStatusCounts;
-
-    function topEntries(map, limit) {
-      return Object.entries(map || {})
-        .sort(function (a, b) {
-          return b[1] - a[1];
-        })
-        .slice(0, limit || 5)
-        .map(function (entry) {
-          return { label: entry[0], value: entry[1] };
-        });
-    }
 
     const officeDomains = state.officeData && state.officeData.domains ? state.officeData.domains : null;
     const usingOfficeDomains = Boolean(officeDomains);
