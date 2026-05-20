@@ -1326,6 +1326,63 @@
         height: 100%;
         font-size: 14px;
       }
+      .infra-marker.pin {
+        width: 30px;
+        height: 38px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        color: var(--tone, #28e68d);
+      }
+      .infra-marker.pin::before,
+      .infra-marker.pin::after {
+        inset: 9px 3px -2px;
+        border-radius: 999px;
+      }
+      .infra-marker.pin span {
+        filter: drop-shadow(0 0 15px color-mix(in srgb, var(--tone, #28e68d) 70%, transparent));
+      }
+      .infra-marker.pin svg {
+        width: 28px;
+        height: 34px;
+        fill: rgba(7, 16, 31, 0.86);
+      }
+      .infra-pop-card {
+        position: absolute;
+        left: calc(100% + 10px);
+        top: 50%;
+        min-width: 168px;
+        padding: 9px 10px;
+        border-radius: 11px;
+        color: #eef4ff;
+        background: rgba(5, 12, 28, 0.9);
+        border: 1px solid rgba(149, 166, 255, 0.18);
+        box-shadow: 0 18px 38px rgba(0,0,0,0.42);
+        transform: translateY(-50%) translateX(-6px);
+        opacity: 0;
+        pointer-events: none;
+        text-align: left;
+        backdrop-filter: blur(14px);
+        transition: opacity 160ms ease, transform 160ms ease;
+      }
+      .infra-pop-card strong {
+        display: block;
+        font-size: 11px;
+        font-style: normal;
+        font-weight: 560;
+      }
+      .infra-pop-card small {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 10px;
+        font-style: normal;
+      }
+      .infra-marker:hover .infra-pop-card {
+        opacity: 1;
+        transform: translateY(-50%) translateX(0);
+      }
       .infra-marker:hover {
         transform: translate(-50%, -50%) scale(1.08);
       }
@@ -1339,6 +1396,81 @@
       .infra-marker.access { --tone: #28e68d; }
       .infra-marker.utility { --tone: #ffc247; }
       .infra-marker.edge { --tone: #9c6bff; }
+      .infra-marker.pin.healthy { --tone: #28e68d; }
+      .infra-marker.pin.warning { --tone: #ffc247; }
+      .infra-marker.pin.critical { --tone: #ff416d; }
+      .live-twin-scene {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 76%, rgba(40,230,141,0.14), transparent 18%),
+          radial-gradient(circle at 38% 36%, rgba(54,163,255,0.22), transparent 26%),
+          radial-gradient(circle at 70% 40%, rgba(124,77,255,0.18), transparent 22%),
+          linear-gradient(130deg, rgba(4,8,19,0.96), rgba(8,13,28,0.94));
+      }
+      .live-twin-grid {
+        position: absolute;
+        inset: 18% 7% 5%;
+        border: 1px solid rgba(54,163,255,0.18);
+        border-radius: 42%;
+        transform: perspective(820px) rotateX(62deg) rotateZ(-5deg);
+        background-image:
+          linear-gradient(rgba(54,163,255,0.16) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(40,230,141,0.08) 1px, transparent 1px);
+        background-size: 40px 40px;
+        box-shadow: inset 0 0 38px rgba(54,163,255,0.12), 0 0 56px rgba(40,230,141,0.08);
+        animation: liveTwinScan 8s ease-in-out infinite;
+      }
+      .live-twin-scene .building {
+        z-index: 2;
+        animation: twinRise 900ms ease both;
+        animation-delay: var(--delay, 0ms);
+      }
+      .live-twin-title {
+        position: absolute;
+        left: 18px;
+        bottom: 94px;
+        z-index: 3;
+        max-width: 260px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(5,12,28,0.62);
+        border: 1px solid rgba(149,166,255,0.14);
+        backdrop-filter: blur(12px);
+      }
+      .live-twin-title strong {
+        display: block;
+        font-size: 12px;
+        font-weight: 560;
+      }
+      .live-twin-title span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .live-heat {
+        position: absolute;
+        z-index: 1;
+        width: 210px;
+        height: 150px;
+        border-radius: 999px;
+        filter: blur(18px);
+        mix-blend-mode: screen;
+        animation: heatBreath 4.4s ease-in-out infinite;
+      }
+      .live-heat-a { left: 19%; top: 33%; background: rgba(40,230,141,0.28); }
+      .live-heat-b { left: 46%; top: 31%; background: rgba(255,194,71,0.3); animation-delay: 500ms; }
+      .live-heat-c { left: 67%; top: 48%; background: rgba(255,65,109,0.32); animation-delay: 900ms; }
+      @keyframes twinRise {
+        from { opacity: 0; transform: skewY(-12deg) rotate(-3deg) translateY(18px); }
+        to { opacity: 1; transform: skewY(-12deg) rotate(-3deg) translateY(0); }
+      }
+      @keyframes liveTwinScan {
+        0%, 100% { opacity: 0.42; transform: perspective(820px) rotateX(62deg) rotateZ(-5deg) translateY(8px); }
+        50% { opacity: 0.78; transform: perspective(820px) rotateX(62deg) rotateZ(-5deg) translateY(-6px); }
+      }
       .live-infra-controls {
         position: absolute;
         z-index: 8;
@@ -2165,15 +2297,18 @@
       }
       .ai-ops-main {
         display: grid;
-        grid-template-columns: 1.24fr 0.86fr 0.95fr;
+        grid-template-columns: 1.34fr 0.86fr;
         gap: 14px;
+      }
+      .ai-ops-main > .command-card:nth-child(3) {
+        grid-column: 1 / -1;
       }
       .ai-ops-wide {
         grid-column: span 1;
       }
       .ai-ops-bottom {
         display: grid;
-        grid-template-columns: 0.88fr 1fr 1.08fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 14px;
       }
       .ai-line-chart {
@@ -2228,7 +2363,7 @@
       .ai-agent-avatar {
         width: 32px;
         height: 32px;
-        border-radius: 12px;
+        border-radius: 10px;
         display: grid;
         place-items: center;
         color: #fff;
@@ -2248,19 +2383,49 @@
         line-height: 1.45;
       }
       .ai-quick-actions {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
         gap: 8px;
       }
       .ai-quick-actions .shortcut-btn {
-        min-height: 72px;
-        border-radius: 12px;
-        padding: 10px;
+        min-height: 46px;
+        border-radius: 10px;
+        padding: 8px 10px;
         gap: 7px;
+        flex-direction: row;
+        justify-content: flex-start;
       }
       .ai-quick-actions .shortcut-btn span {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+      }
+      .ai-voice-panel {
+        position: relative;
+        overflow: hidden;
+      }
+      .ai-voice-wave {
+        height: 116px;
         border-radius: 12px;
+        background:
+          linear-gradient(180deg, rgba(54,163,255,0.1), rgba(40,230,141,0.04)),
+          repeating-linear-gradient(90deg, rgba(54,163,255,0.14) 0 1px, transparent 1px 18px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+      }
+      .ai-voice-wave i {
+        width: 3px;
+        height: calc(16px + var(--h, 20px));
+        border-radius: 999px;
+        background: linear-gradient(180deg, #36a3ff, #28e68d);
+        opacity: 0.72;
+        animation: aiVoicePulse 1.6s ease-in-out infinite;
+        animation-delay: var(--d, 0ms);
+      }
+      @keyframes aiVoicePulse {
+        0%, 100% { transform: scaleY(0.55); opacity: 0.45; }
+        50% { transform: scaleY(1); opacity: 0.92; }
       }
       .ai-insight-list .insight-row {
         display: grid;
@@ -2921,6 +3086,30 @@
 	        display: grid;
 	        grid-template-columns: 1fr;
 	        gap: 12px;
+	      }
+	      .estate-all-grid {
+	        display: none;
+	        grid-template-columns: repeat(3, minmax(0, 1fr));
+	        gap: 12px;
+	      }
+	      .estate-portfolio-card {
+	        cursor: pointer;
+	        transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+	      }
+	      .estate-portfolio-card:hover {
+	        transform: translateY(-2px);
+	        border-color: rgba(54,163,255,0.34);
+	        box-shadow: 0 0 28px rgba(54,163,255,0.14);
+	      }
+	      .estate-view-list .estate-command-map,
+	      .estate-view-list .estate-selected-card,
+	      .estate-view-all .estate-command-map,
+	      .estate-view-all .estate-selected-card,
+	      .estate-view-all .estate-split-grid {
+	        display: none;
+	      }
+	      .estate-view-all .estate-all-grid {
+	        display: grid;
 	      }
 	      .estate-list-panel,
 	      .estate-detail-panel {

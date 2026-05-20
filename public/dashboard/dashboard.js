@@ -43,6 +43,8 @@
     crmIntegrationsExpanded: false,
     aiOpsView: "dashboard",
     adminSection: "dashboard",
+    moduleFacet: {},
+    estatePortfolioView: "map",
     liveInfraMode: "map",
     liveInfraPanel: "",
     liveInfraZoom: 1,
@@ -2153,15 +2155,6 @@
 	        value: proposal.value || proposal.amount || 0,
 	        created_at: proposal.created_at,
 	      };
-	    })).concat(audit.slice(0, 6).map(function (event) {
-	      return {
-	        title: event.action || "Shared office record",
-	        type: displayValue(event.target_type, "Record"),
-	        owner: event.actor_email || "System",
-	        status: "Logged",
-	        value: 0,
-	        created_at: event.created_at,
-	      };
 	    }));
 	    const documentQuery = state.documentQuery.trim().toLowerCase();
 	    const visibleDocs = documentQuery
@@ -2349,6 +2342,34 @@
 	    return "healthy";
 	  }
 
+  function infrastructureMapStyles() {
+    return [
+      { elementType: "geometry", stylers: [{ color: "#06101f" }] },
+      { elementType: "labels", stylers: [{ visibility: "off" }] },
+      { featureType: "administrative", stylers: [{ visibility: "off" }] },
+      { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#071426" }] },
+      { featureType: "poi", stylers: [{ visibility: "off" }] },
+      { featureType: "road", elementType: "geometry", stylers: [{ color: "#14243d" }, { lightness: -10 }] },
+      { featureType: "road", elementType: "labels", stylers: [{ visibility: "off" }] },
+      { featureType: "transit", stylers: [{ visibility: "off" }] },
+      { featureType: "water", elementType: "geometry", stylers: [{ color: "#031528" }] },
+    ];
+  }
+
+  function googleEstatePinIcon(maps, tone) {
+    const color = tone === "critical" ? "#ff416d" : tone === "warning" ? "#ffc247" : "#28e68d";
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="42" height="52" viewBox="0 0 42 52"><defs><filter id="g" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="4" result="b"/><feColorMatrix in="b" values="0 0 0 0 ${tone === "critical" ? "1" : tone === "warning" ? "1" : "0.16"} 0 0 0 0 ${tone === "critical" ? "0.25" : tone === "warning" ? "0.76" : "0.9"} 0 0 0 0 ${tone === "critical" ? "0.43" : tone === "warning" ? "0.28" : "0.55"} 0 0 0 .8 0"/></filter></defs><ellipse cx="21" cy="45" rx="11" ry="4" fill="#000" opacity=".38"/><path filter="url(#g)" d="M21 4c-8.8 0-16 7.1-16 15.9C5 31.8 21 48 21 48s16-16.2 16-28.1C37 11.1 29.8 4 21 4Z" fill="${color}" opacity=".48"/><path d="M21 4c-8.8 0-16 7.1-16 15.9C5 31.8 21 48 21 48s16-16.2 16-28.1C37 11.1 29.8 4 21 4Z" fill="#07101f" stroke="${color}" stroke-width="2"/><circle cx="21" cy="20" r="6.5" fill="${color}"/><circle cx="21" cy="20" r="2.4" fill="#fff"/></svg>`;
+    return {
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+      scaledSize: new maps.Size(34, 42),
+      anchor: new maps.Point(17, 39),
+    };
+  }
+
+  function estateInfoCardHtml(estate, status) {
+    return `<div style="font-family:Inter,Arial,sans-serif;min-width:210px;color:#eaf3ff;background:#07101f;border:1px solid rgba(149,166,255,.22);border-radius:12px;padding:10px;box-shadow:0 18px 40px rgba(0,0,0,.45);"><strong style="display:block;font-size:13px;margin-bottom:5px;">${escapeHtml(estate.name || "Estate")}</strong><span style="display:block;color:#9aa8c7;font-size:11px;line-height:1.45;">${escapeHtml(displayValue(estate.location, "Location pending"))}</span><span style="display:block;margin-top:7px;color:#dce6ff;font-size:11px;">Status: ${escapeHtml(status)}</span><span style="display:block;margin-top:5px;color:#9aa8c7;font-size:10px;">Click to inspect. Double-click to open portfolio.</span></div>`;
+  }
+
 	  function deviceCategoryIcon(category) {
 	    const key = String(category || "").toLowerCase();
 	    if (key.includes("camera") || key.includes("cctv") || key.includes("surveillance")) return officeIcon("camera");
@@ -2399,14 +2420,7 @@
 	          mapTypeControl: false,
 	          streetViewControl: false,
 	          fullscreenControl: true,
-	          styles: [
-	            { elementType: "geometry", stylers: [{ color: "#08111f" }] },
-	            { elementType: "labels.text.fill", stylers: [{ color: "#d8e6ff" }] },
-	            { elementType: "labels.text.stroke", stylers: [{ color: "#07101f" }] },
-	            { featureType: "road", elementType: "geometry", stylers: [{ color: "#162641" }] },
-	            { featureType: "water", elementType: "geometry", stylers: [{ color: "#06172f" }] },
-	            { featureType: "poi", stylers: [{ visibility: "off" }] },
-	          ],
+	          styles: infrastructureMapStyles(),
 	        });
 	        const bounds = new maps.LatLngBounds();
 	        markerRecords.forEach(function (record) {
@@ -2416,17 +2430,17 @@
 	            position: record.position,
 	            map,
 	            title: record.estate.name || "Estate",
-	            icon: {
-	              path: maps.SymbolPath.CIRCLE,
-	              scale: 8,
-	              fillColor: tone === "critical" ? "#ff416d" : tone === "warning" ? "#ffc247" : "#28e68d",
-	              fillOpacity: 0.96,
-	              strokeColor: "#07101f",
-	              strokeWeight: 2,
-	            },
+	            icon: googleEstatePinIcon(maps, tone),
+	          });
+	          const info = new maps.InfoWindow({
+	            content: estateInfoCardHtml(record.estate, status),
+	          });
+	          marker.addListener("mouseover", function () {
+	            info.open({ map, anchor: marker });
 	          });
 	          marker.addListener("click", function () {
 	            state.selectedOfficeEstateId = record.estate.id || "";
+	            info.open({ map, anchor: marker });
 	            renderEstateFacilitiesWorkspace(domain);
 	          });
 	          bounds.extend(record.position);
@@ -2444,6 +2458,7 @@
   function renderOverviewGoogleMap(estates) {
 	    const mapHost = el.officeCityMap;
 	    if (!mapHost) return;
+	    if (!["map", "hybrid"].includes(state.liveInfraMode || "map")) return;
 	    const mapConfig = state.mapConfig || {};
 	    const googleConfig = mapConfig.google_maps || {};
 	    const provider = String(mapConfig.provider || "static").toLowerCase();
@@ -2459,20 +2474,14 @@
 	    mapHost.innerHTML = "";
 	    loadGoogleMaps(apiKey)
 	      .then(function (maps) {
+	        if (!["map", "hybrid"].includes(state.liveInfraMode || "map")) return;
 	        const map = new maps.Map(mapHost, {
 	          center: markerRecords[0].position,
 	          zoom: markerRecords.length > 1 ? 10 : 14,
 	          mapTypeControl: false,
 	          streetViewControl: false,
 	          fullscreenControl: true,
-	          styles: [
-	            { elementType: "geometry", stylers: [{ color: "#08111f" }] },
-	            { elementType: "labels.text.fill", stylers: [{ color: "#d8e6ff" }] },
-	            { elementType: "labels.text.stroke", stylers: [{ color: "#07101f" }] },
-	            { featureType: "road", elementType: "geometry", stylers: [{ color: "#162641" }] },
-	            { featureType: "water", elementType: "geometry", stylers: [{ color: "#06172f" }] },
-	            { featureType: "poi", stylers: [{ visibility: "off" }] },
-	          ],
+	          styles: infrastructureMapStyles(),
 	        });
 	        const bounds = new maps.LatLngBounds();
 	        markerRecords.forEach(function (record) {
@@ -2482,17 +2491,13 @@
 	            position: record.position,
 	            map,
 	            title: record.estate.name || "Estate",
-	            icon: {
-	              path: maps.SymbolPath.CIRCLE,
-	              scale: 7,
-	              fillColor: tone === "critical" ? "#ff416d" : tone === "warning" ? "#ffc247" : "#28e68d",
-	              fillOpacity: 0.98,
-	              strokeColor: "#07101f",
-	              strokeWeight: 2,
-	            },
+	            icon: googleEstatePinIcon(maps, tone),
 	          });
 	          const info = new maps.InfoWindow({
-	            content: `<div style="font-family:Inter,Arial,sans-serif;min-width:180px;color:#0f172a;"><strong>${escapeHtml(record.estate.name || "Estate")}</strong><br><span>${escapeHtml(displayValue(record.estate.location, "Location pending"))}</span><br><span>Status: ${escapeHtml(status)}</span></div>`,
+	            content: estateInfoCardHtml(record.estate, status),
+	          });
+	          marker.addListener("mouseover", function () {
+	            info.open({ map, anchor: marker });
 	          });
 	          marker.addListener("click", function () {
 	            state.selectedOfficeEstateId = record.estate.id || "";
@@ -2529,6 +2534,7 @@
       access: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>',
       utility: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m13 2-8 12h7l-1 8 8-12h-7l1-8Z"/></svg>',
       edge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M12 8v8M8 10v4M16 10v4"/></svg>',
+      pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s7-6.6 7-13a7 7 0 0 0-14 0c0 6.4 7 13 7 13Z"/><circle cx="12" cy="9" r="2.5"/></svg>',
     };
     return icons[kind] || "•";
   }
@@ -2588,6 +2594,29 @@
     ];
   }
 
+  function renderTwinInfrastructureCanvas(mode, signals, selectedEstate) {
+    const selectedName = selectedEstate ? selectedEstate.name || "Selected estate" : "Connected estate layer";
+    const selectedLocation = selectedEstate ? displayValue(selectedEstate.location, "Location pending") : "Portfolio infrastructure mesh";
+    const buildings = ["b1", "b2", "b3", "b4", "b5", "b6"].map(function (name, index) {
+      return `<span class="building ${name}" style="--delay:${index * 120}ms"></span>`;
+    }).join("");
+    const heat = mode === "heatmap"
+      ? '<span class="live-heat live-heat-a"></span><span class="live-heat live-heat-b"></span><span class="live-heat live-heat-c"></span>'
+      : "";
+    return `
+      <div class="live-twin-scene ${escapeHtml(mode)}">
+        <span class="city-glow"></span>
+        <span class="live-twin-grid"></span>
+        ${heat}
+        ${buildings}
+        <div class="live-twin-title">
+          <strong>${escapeHtml(selectedName)}</strong>
+          <span>${escapeHtml(selectedLocation)}</span>
+        </div>
+      </div>
+    `;
+  }
+
   function renderLiveInfrastructureView(estates) {
     const collections = officeCollections();
     const devices = asList(collections.devices);
@@ -2613,6 +2642,16 @@
       mapHost.classList.toggle("mode-hybrid", mode === "hybrid");
       mapHost.classList.toggle("mode-heatmap", mode === "heatmap");
       mapHost.style.setProperty("--live-infra-zoom", String(state.liveInfraZoom || 1));
+      if (["twin", "heatmap"].includes(mode)) {
+        mapHost.classList.remove("has-live-google", "is-loading");
+        mapHost.innerHTML = renderTwinInfrastructureCanvas(mode, signals, selectedEstate);
+      } else if (mode === "hybrid") {
+        if (!mapHost.classList.contains("has-live-google")) {
+          renderOverviewGoogleMap(estates);
+        }
+      } else if (!mapHost.classList.contains("has-live-google")) {
+        renderOverviewGoogleMap(estates);
+      }
     }
     if (el.liveInfraOverlay) {
       el.liveInfraOverlay.classList.toggle("mode-map", mode === "map");
@@ -2625,6 +2664,7 @@
       button.classList.toggle("active", button.getAttribute("data-live-infra-mode") === mode);
       button.onclick = function () {
         state.liveInfraMode = button.getAttribute("data-live-infra-mode") || "map";
+        state.liveInfraZoom = 1;
         renderLiveInfrastructureView(estates);
       };
     });
@@ -2659,14 +2699,10 @@
         })
         .map(function (signal) {
           const estateId = signal.estate ? signal.estate.id || "" : "";
-          return `<button class="infra-marker ${escapeHtml(signal.kind)} ${escapeHtml(signal.tone)}" data-live-infra-estate="${escapeHtml(estateId)}" style="--x:${escapeHtml(signal.x)};--y:${escapeHtml(signal.y)}" title="${escapeHtml(signal.label)}" type="button"><span>${liveInfraIcon(signal.kind)}</span></button>`;
-        })
-        .join("");
-      const labels = signals.slice(0, 4).map(function (signal) {
-        const estateId = signal.estate ? signal.estate.id || "" : "";
-        return `<button class="city-label ${escapeHtml(signal.tone)}" data-live-infra-estate="${escapeHtml(estateId)}" type="button" style="--x:${escapeHtml(signal.x)};--y:calc(${escapeHtml(signal.y)} + 30px);">${escapeHtml(signal.label)}<small>${escapeHtml(signal.tone)}</small></button>`;
-      }).join("");
-      el.liveInfraOverlay.innerHTML = `<div id="officeMapLabels">${labels}</div>${markers}`;
+          const markerKind = mode === "map" ? "pin" : signal.kind;
+          return `<button class="infra-marker ${escapeHtml(markerKind)} ${escapeHtml(signal.tone)}" data-live-infra-estate="${escapeHtml(estateId)}" style="--x:${escapeHtml(signal.x)};--y:${escapeHtml(signal.y)}" title="${escapeHtml(signal.label)}" type="button"><span>${liveInfraIcon(markerKind)}</span><em class="infra-pop-card"><strong>${escapeHtml(signal.label)}</strong><small>${escapeHtml(signal.tone)} · click for report</small></em></button>`;
+        }).join("");
+      el.liveInfraOverlay.innerHTML = `<div id="officeMapLabels"></div>${markers}`;
       el.officeMapLabels = document.getElementById("officeMapLabels");
       Array.from(el.liveInfraOverlay.querySelectorAll("[data-live-infra-estate]")).forEach(function (node) {
         node.addEventListener("click", function () {
@@ -2840,9 +2876,26 @@
 	        <button class="estate-map-chip ${tone}" data-estate-select="${escapeHtml(estate.id || "")}" type="button" style="--x:${pos[5]};--y:${pos[6]};"><strong>${escapeHtml(estate.name || `Estate ${index + 1}`)}</strong><span>${escapeHtml(tone)} · ${escapeHtml(String(health))}%</span></button>`;
 	    }).join("");
 	    const selectedStatus = selectedEstate ? String(selectedEstate.subscription_status || selectedEstate.status || "pending") : "pending";
+	    const estatePortfolioView = state.estatePortfolioView || "map";
+	    const estateCards = estates.map(function (estate) {
+	      const stats = estateStats(estate);
+	      const status = String(estate.subscription_status || estate.status || "pending");
+	      return `<article class="command-card estate-portfolio-card" data-estate-select="${escapeHtml(estate.id || "")}">
+	        <div class="command-card-head">
+	          <div><h4>${escapeHtml(estate.name || "Unnamed estate")}</h4><div class="subtext">${escapeHtml(displayValue(estate.location, "Location pending"))}</div></div>
+	          <span class="office-system-badge ${estateToneFromStatus(status) === "healthy" ? "" : estateToneFromStatus(status)}">${escapeHtml(status)}</span>
+	        </div>
+	        <div class="office-detail-metrics">
+	          ${metricTile("Units", stats.estateHomes.length || estate.homes_count || 0)}
+	          ${metricTile("Buildings", stats.estateBuildings.length || estate.buildings_count || 0)}
+	          ${metricTile("Devices", stats.estateDevices.length || estate.devices_count || 0)}
+	        </div>
+	        <div class="subtext" style="margin-top:10px;">Wallet ${escapeHtml(formatCompactMoney(stats.walletBalance))} · Support ${escapeHtml(String(stats.estateSupport.length))}</div>
+	      </article>`;
+	    }).join("");
 
 	    el.facilityPanel.innerHTML = `
-	      <div class="command-page">
+	      <div class="command-page estate-view-${escapeHtml(estatePortfolioView)}">
 	        <div class="command-head">
 	          <div>
 	            <p class="eyebrow">Estate Facilities</p>
@@ -2856,9 +2909,9 @@
 	          </div>
 	        </div>
 	        <div class="estate-tabs">
-	          <button class="estate-tab active" type="button">Map View</button>
-	          <button class="estate-tab" type="button">List View</button>
-	          <button class="estate-tab" type="button">All Estates</button>
+	          <button class="estate-tab ${estatePortfolioView === "map" ? "active" : ""}" data-estate-view="map" type="button">Map View</button>
+	          <button class="estate-tab ${estatePortfolioView === "list" ? "active" : ""}" data-estate-view="list" type="button">List View</button>
+	          <button class="estate-tab ${estatePortfolioView === "all" ? "active" : ""}" data-estate-view="all" type="button">All Estates</button>
 	        </div>
 	        <div class="command-kpis">
 	          ${[
@@ -2907,6 +2960,9 @@
 	              </div>
 	            ` : '<div class="office-detail-empty">Select an estate marker to inspect its command dashboard.</div>'}
 	            </article>
+	            <section class="estate-all-grid">
+	              ${estateCards || '<div class="office-detail-empty">No estate facility records have synced into Office yet.</div>'}
+	            </section>
 	            <section class="estate-split-grid">
 	              <article class="command-card estate-list-panel estate-registry-wide">
 	                <div class="command-card-head"><h4>Estate Registry</h4><button class="ghost compact" type="button">All Estates</button></div>
@@ -2943,6 +2999,12 @@
 	    Array.from(el.facilityPanel.querySelectorAll("[data-estate-select]")).forEach(function (node) {
 	      node.addEventListener("click", function () {
 	        state.selectedOfficeEstateId = node.getAttribute("data-estate-select") || "";
+	        renderEstateFacilitiesWorkspace(domain);
+	      });
+	    });
+	    Array.from(el.facilityPanel.querySelectorAll("[data-estate-view]")).forEach(function (node) {
+	      node.addEventListener("click", function () {
+	        state.estatePortfolioView = node.getAttribute("data-estate-view") || "map";
 	        renderEstateFacilitiesWorkspace(domain);
 	      });
 	    });
@@ -4002,13 +4064,17 @@
                   </svg>
                 </div>
               </article>
-              <article class="command-card">
-                <div class="command-card-head"><h4>Agent Status</h4><button class="ghost compact" data-command-action="run_ai_workflow" type="button">View all</button></div>
-                <div class="ai-agent-list">
-                  ${agentRows.map(function (agent) {
-                    const idle = agent.state !== "Online";
-                    return `<div class="ai-agent-row"><div style="display:flex;align-items:center;gap:10px;"><span class="ai-agent-avatar">${officeIcon(agent.icon)}</span><div><strong>${escapeHtml(agent.name)}</strong><div class="subtext">${escapeHtml(agent.role)}</div></div></div><span class="ai-state-badge ${idle ? "idle" : ""}">${escapeHtml(agent.state)}</span></div>`;
+              <article class="command-card ai-voice-panel">
+                <div class="command-card-head"><h4>Voice Command Layer</h4><button class="ghost compact" data-command-action="run_ai_workflow" type="button">Open</button></div>
+                <div class="ai-voice-wave" aria-label="Voice command signal">
+                  ${Array.from({ length: 28 }).map(function (_, index) {
+                    return `<i style="--h:${10 + ((index * 11) % 42)}px;--d:${index * 34}ms"></i>`;
                   }).join("")}
+                </div>
+                <div class="office-batch-row" style="margin-top:10px;">
+                  <span class="office-batch">Wake <strong>Hey Oyi</strong></span>
+                  <span class="office-batch">Mode <strong>${window.MediaRecorder || navigator.mediaDevices ? "Ready" : "Pending"}</strong></span>
+                  <span class="office-batch">Audited <strong>On</strong></span>
                 </div>
               </article>
               <article class="command-card">
@@ -4051,11 +4117,12 @@
                 </div>
               </article>
               <article class="command-card">
-                <div class="command-card-head"><h4>AI Insights</h4><button class="ghost compact" data-command-action="view_reports" type="button">View all</button></div>
-                <div class="mission-list ai-insight-list">
-                  ${insightRows.length ? insightRows.map(function (item) {
-                    return `<div class="insight-row"><span class="insight-icon">${officeIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)}</span></div><span class="office-system-badge ${escapeHtml(item.tone === "critical" ? "alert" : item.tone === "warning" ? "warning" : "")}">${escapeHtml(item.tone)}</span></div>`;
-                  }).join("") : '<div class="office-detail-empty">AI insights will appear as traces, audits, and support signals increase.</div>'}
+                <div class="command-card-head"><h4>Agent Status</h4><button class="ghost compact" data-command-action="run_ai_workflow" type="button">View all</button></div>
+                <div class="ai-agent-list">
+                  ${agentRows.map(function (agent) {
+                    const idle = agent.state !== "Online";
+                    return `<div class="ai-agent-row"><div style="display:flex;align-items:center;gap:10px;"><span class="ai-agent-avatar">${officeIcon(agent.icon)}</span><div><strong>${escapeHtml(agent.name)}</strong><div class="subtext">${escapeHtml(agent.role)}</div></div></div><span class="ai-state-badge ${idle ? "idle" : ""}">${escapeHtml(agent.state)}</span></div>`;
+                  }).join("")}
                 </div>
               </article>
             </div>
@@ -4067,6 +4134,14 @@
                 ${activityRows.length ? activityRows.map(function (item) {
                   return `<div class="activity-row compact"><span class="ai-activity-orb">${officeIcon(item.icon)}</span><div class="activity-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)} · ${escapeHtml(item.time)}</span></div></div>`;
                 }).join("") : '<div class="office-detail-empty">No realtime AI activity has synced yet.</div>'}
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>AI Insights</h4><button class="ghost compact" data-command-action="view_reports" type="button">View all</button></div>
+              <div class="mission-list ai-insight-list">
+                ${insightRows.length ? insightRows.map(function (item) {
+                  return `<div class="insight-row"><span class="insight-icon">${officeIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)}</span></div><span class="office-system-badge ${escapeHtml(item.tone === "critical" ? "alert" : item.tone === "warning" ? "warning" : "")}">${escapeHtml(item.tone)}</span></div>`;
+                }).join("") : '<div class="office-detail-empty">AI insights will appear as traces, audits, and support signals increase.</div>'}
               </div>
             </article>
             <article class="command-card">
@@ -4261,8 +4336,9 @@
     el.sectionNav.innerHTML = visibleItems
       .map(function (item) {
         const active =
-          item.active ||
+          (item.active && !state.moduleFacet[state.workspaceTab]) ||
           (item.type === "tab" && item.value === state.workspaceTab) ||
+          (item.type === "facet" && item.value === state.moduleFacet[state.workspaceTab]) ||
           (item.type === "focus" && item.value === state.overviewFocus) ||
           (item.type === "crm_view" && item.value === state.crmOfficeView) ||
           (item.type === "agent" &&
@@ -4278,6 +4354,7 @@
         const type = node.getAttribute("data-section-nav-type");
         const value = node.getAttribute("data-section-nav-value");
         if (type === "tab" && value && canAccessTab(value)) {
+          delete state.moduleFacet[state.workspaceTab];
           state.workspaceTab = value;
           renderWorkspaceTabs();
           return;
@@ -4295,6 +4372,11 @@
         }
         if (type === "crm_view" && value) {
           state.crmOfficeView = value;
+          renderWorkspaceTabs();
+          return;
+        }
+        if (type === "facet" && value) {
+          state.moduleFacet[state.workspaceTab] = value;
           renderWorkspaceTabs();
           return;
         }
