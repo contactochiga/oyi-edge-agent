@@ -2919,7 +2919,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         }
         authorizePermission(authContext, "view_storage");
         const filename = path.basename(decodeURIComponent(storageMatch[1]));
-        await serveFile(res, path.join(config.officeStorageDir, filename));
+        await serveFile(res, storageService.filePathFor(filename));
         return;
       }
 

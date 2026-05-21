@@ -32,7 +32,7 @@ services:
       - key: OFFICE_EMAIL_FROM
         value: Ochiga Office <office@ochiga.com.ng>
       - key: OFFICE_STORAGE_DIR
-        value: /var/data/office-storage
+        value: data/office-storage
       - key: LEAD_AGENTS_ALLOWED_ORIGINS
         sync: false
       - key: LEAD_AGENTS_ADMIN_EMAIL

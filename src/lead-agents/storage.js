@@ -47,7 +47,25 @@ function sanitizePurpose(value) {
 
 function createStorageService(config) {
   const driver = String(config.officeStorageDriver || config.storageDriver || "local").toLowerCase();
-  const rootDir = config.officeStorageDir;
+  const fallbackRootDir = path.join(process.cwd(), "data", "office-storage");
+  let rootDir = config.officeStorageDir || fallbackRootDir;
+
+  async function ensureRootDir() {
+    try {
+      await fs.mkdir(rootDir, { recursive: true });
+      return rootDir;
+    } catch (error) {
+      const canFallback =
+        rootDir !== fallbackRootDir &&
+        ["EACCES", "EPERM", "EROFS", "ENOENT"].includes(String(error && error.code));
+      if (!canFallback) {
+        throw error;
+      }
+      rootDir = fallbackRootDir;
+      await fs.mkdir(rootDir, { recursive: true });
+      return rootDir;
+    }
+  }
 
   async function putBuffer(input) {
     if (driver !== "local") {
@@ -59,9 +77,9 @@ function createStorageService(config) {
     const id = `${purpose}_${Date.now().toString(36)}_${crypto.randomBytes(6).toString("hex")}`;
     const mimeType = input.mime_type || input.mimeType || "application/octet-stream";
     const ext = input.extension || extensionForMime(mimeType);
-    await fs.mkdir(rootDir, { recursive: true });
+    const activeRootDir = await ensureRootDir();
     const filename = `${id}${ext}`;
-    const filePath = path.join(rootDir, filename);
+    const filePath = path.join(activeRootDir, filename);
     await fs.writeFile(filePath, input.buffer);
     return {
       id,
@@ -105,11 +123,16 @@ function createStorageService(config) {
 
   return {
     driver,
-    rootDir,
+    get rootDir() {
+      return rootDir;
+    },
     purposes: STORAGE_PURPOSES,
     putBuffer,
     putDataUrl,
     putText,
+    filePathFor(filename) {
+      return path.join(rootDir, path.basename(String(filename || "")));
+    },
     health() {
       return { driver, configured: Boolean(rootDir), root_dir: rootDir || "" };
     },
