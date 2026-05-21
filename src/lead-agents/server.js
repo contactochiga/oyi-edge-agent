@@ -1120,24 +1120,6 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
     "assets",
     "ochiga-logo.png"
   );
-  const websiteIndexPath = path.join(
-    process.cwd(),
-    "public",
-    "website",
-    "index.html"
-  );
-  const websiteStylesPath = path.join(
-    process.cwd(),
-    "public",
-    "website",
-    "styles.css"
-  );
-  const websiteScriptPath = path.join(
-    process.cwd(),
-    "public",
-    "website",
-    "app.js"
-  );
   const digitalTwinIndexPath = path.join(
     process.cwd(),
     "public",
@@ -1596,33 +1578,6 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           return;
         }
         await serveFile(res, dashboardLogoPath);
-        return;
-      }
-
-      if (pathname === "/website" || pathname === "/website/") {
-        if (req.method !== "GET") {
-          methodNotAllowed(res, "GET");
-          return;
-        }
-        await serveFile(res, websiteIndexPath);
-        return;
-      }
-
-      if (pathname === "/website/styles.css") {
-        if (req.method !== "GET") {
-          methodNotAllowed(res, "GET");
-          return;
-        }
-        await serveFile(res, websiteStylesPath);
-        return;
-      }
-
-      if (pathname === "/website/app.js") {
-        if (req.method !== "GET") {
-          methodNotAllowed(res, "GET");
-          return;
-        }
-        await serveFile(res, websiteScriptPath);
         return;
       }
 
