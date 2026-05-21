@@ -5631,19 +5631,20 @@
       return;
     }
 
+    const roleCounts = state.adminUsers.reduce(function (acc, user) {
+      const key = user.role || "viewer";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const activeUsers = state.adminUsers.filter(function (user) {
+      return String(user.status || "active").toLowerCase() === "active";
+    }).length;
+    const adminUsers = (roleCounts.admin || 0) + (roleCounts.founder || 0);
+    const pendingLogins = state.adminUsers.filter(function (user) {
+      return !user.last_login_at;
+    }).length;
+
     if (el.adminMetricsPanel) {
-      const roleCounts = state.adminUsers.reduce(function (acc, user) {
-        const key = user.role || "viewer";
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-      }, {});
-      const activeUsers = state.adminUsers.filter(function (user) {
-        return String(user.status || "active").toLowerCase() === "active";
-      }).length;
-      const adminUsers = (roleCounts.admin || 0) + (roleCounts.founder || 0);
-      const pendingLogins = state.adminUsers.filter(function (user) {
-        return !user.last_login_at;
-      }).length;
       el.adminMetricsPanel.innerHTML = [
         ["Staff Accounts", state.adminUsers.length, `${activeUsers} active operators`],
         ["Admin Roles", adminUsers, "Admin/founder authority"],
