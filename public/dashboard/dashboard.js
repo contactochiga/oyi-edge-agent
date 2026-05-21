@@ -770,8 +770,34 @@
     return true;
   }
 
+  function normalizeOfficeWorkspace(target, focus) {
+    const normalized = { target, focus, facet: "" };
+    if (target === "support" || target === "notifications") {
+      normalized.target = "crm_agents";
+      normalized.focus = "crm_agents";
+      normalized.facet = "support_tickets";
+    } else if (target === "founder") {
+      normalized.target = "crm_agents";
+      normalized.focus = "crm_agents";
+      normalized.facet = "escalations";
+    } else if (target === "commercial" || target === "bookings") {
+      normalized.target = "crm_agents";
+      normalized.focus = "crm_agents";
+      normalized.facet = target === "bookings" ? "deployment_pipeline" : "sales_pipeline";
+    } else if (target === "channels") {
+      normalized.target = "crm_agents";
+      normalized.focus = "crm_agents";
+      normalized.facet = "conversations";
+    }
+    return normalized;
+  }
+
   function setOfficeWorkspace(target, focus) {
+    const destination = normalizeOfficeWorkspace(target, focus);
+    target = destination.target;
+    focus = destination.focus;
     if (!target || !canAccessOfficeModule(target, focus)) return;
+    if (destination.facet) setModuleFacet(target, destination.facet);
     state.workspaceTab = target;
     if (target === "crm_agents") {
       state.overviewFocus = "crm_agents";
@@ -781,6 +807,48 @@
       state.overviewFocus = focus;
     }
     renderWorkspaceTabs();
+  }
+
+  function setModuleFacet(workspace, facet) {
+    if (!workspace) return;
+    if (!facet || facet === "dashboard") {
+      delete state.moduleFacet[workspace];
+    } else {
+      state.moduleFacet[workspace] = facet;
+    }
+    if (workspace === "ai_operations") {
+      state.aiOpsView = facet || "dashboard";
+    }
+    if (workspace === "team") {
+      const sectionMap = {
+        staff_roles: "staff",
+        permissions: "permissions",
+        settings: "settings",
+        integrations: "integrations",
+        accounts: "accounts",
+        super_admin: "super_admin",
+      };
+      state.adminSection = sectionMap[facet] || "dashboard";
+    }
+  }
+
+  function requiredPermissionForOfficeAction(action) {
+    const map = {
+      add_estate: "manage_office",
+      import_estates: "manage_office",
+      geocode_estates: "manage_office",
+      add_building: "manage_office",
+      add_device: "manage_office",
+      import_devices: "manage_office",
+      create_ticket: "manage_notifications",
+      create_document: "manage_documents",
+      upload_document: "manage_documents",
+      create_invoice: "manage_documents",
+      create_contract: "manage_documents",
+      document_actions: "manage_documents",
+      open_permissions: "manage_users",
+    };
+    return map[action] || "";
   }
 
   function displayValue(value, fallback) {
@@ -1779,6 +1847,11 @@
   }
 
   function openOfficeAction(action) {
+    const requiredPermission = requiredPermissionForOfficeAction(action);
+    if (requiredPermission && !hasPermission(requiredPermission)) {
+      setBulkStatus(`Permission required: ${requiredPermission}. This Office action is hidden or blocked for your role.`, true);
+      return;
+    }
     const collections = officeCollections();
     const estates = asList(collections.estates);
     const buildings = asList(collections.buildings);
@@ -1964,30 +2037,26 @@
       return;
     }
     if (action === "view_reports") {
-      state.workspaceTab = "reports";
-      renderWorkspaceTabs();
+      setOfficeWorkspace("reports", "reports");
       return;
     }
     if (action === "run_ai_workflow") {
-      state.workspaceTab = "ai_operations";
-      state.overviewFocus = "ai_operations";
-      state.aiOpsView = "execution";
+      setOfficeWorkspace("ai_operations", "ai_operations");
+      setModuleFacet("ai_operations", "execution");
       renderWorkspaceTabs();
       setBulkStatus("AI Execution workspace opened. Select an execution profile or review pending workflow activity.");
       return;
     }
     if (action === "create_new_agent") {
-      state.workspaceTab = "ai_operations";
-      state.overviewFocus = "ai_operations";
-      state.aiOpsView = "agent_console";
+      setOfficeWorkspace("ai_operations", "ai_operations");
+      setModuleFacet("ai_operations", "agent_console");
       renderWorkspaceTabs();
       setBulkStatus("Agent Console opened. Agent creation is governed from the permissioned AI Operations workspace.");
       return;
     }
     if (action === "add_new_tool") {
-      state.workspaceTab = "ai_operations";
-      state.overviewFocus = "ai_operations";
-      state.aiOpsView = "tool_registry";
+      setOfficeWorkspace("ai_operations", "ai_operations");
+      setModuleFacet("ai_operations", "tool_registry");
       renderWorkspaceTabs();
       setBulkStatus("Tool Registry opened. Add or review available Oyi tools from the AI Operations workspace.");
       return;
@@ -2242,19 +2311,32 @@
           source: "proposals",
 	      };
 	    }));
+	    const activeFacet = state.moduleFacet.web_presence || "dashboard";
+	    const facetDocs = docs.filter(function (doc) {
+	      const type = String(doc.type || "").toLowerCase();
+	      if (activeFacet === "proposals") return type.includes("proposal");
+	      if (activeFacet === "contracts") return type.includes("contract");
+	      if (activeFacet === "invoices") return type.includes("invoice");
+	      if (activeFacet === "reports") return type.includes("report");
+	      if (activeFacet === "drawings") return /drawing|blueprint/.test(type);
+	      if (activeFacet === "estate_plans") return /plan/.test(type);
+	      if (activeFacet === "asset_files") return doc.source === "office_documents" || Boolean(documentUrl(doc));
+	      if (activeFacet === "generated_pdfs") return /pdf/.test(type) || /pdf/i.test(String(doc.metadata?.generated_format || doc.file_url || ""));
+	      return true;
+	    });
 	    const documentQuery = state.documentQuery.trim().toLowerCase();
 	    const visibleDocs = documentQuery
-	      ? docs.filter(function (doc) {
+	      ? facetDocs.filter(function (doc) {
 	          return [doc.title, doc.type, doc.owner, doc.status].join(" ").toLowerCase().includes(documentQuery);
 	        })
-	      : docs;
+	      : facetDocs;
 	    el.webPresencePanel.innerHTML = `
 	      <div class="command-page">
 	        <div class="command-head">
 	          <div>
 	            <p class="eyebrow">Documents</p>
 	            <h3>Control proposals, invoices, contracts, PDFs, and shared office records.</h3>
-	            <p class="subtext" style="margin:8px 0 0;">A production-ready document surface for generated files, signed agreements, billing records, and shared data.</p>
+	            <p class="subtext" style="margin:8px 0 0;">A production-ready document surface for generated files, signed agreements, operational reports, plans, and shared data. ${activeFacet === "dashboard" ? "" : `Current section: ${escapeHtml(activeFacet.replace(/_/g, " "))}.`}</p>
 	          </div>
 	          <div class="toolbar">
 	            <button class="primary" data-command-action="document_actions" type="button">+ Create / Upload</button>
@@ -2360,7 +2442,7 @@
 	        </div>
 	        <div class="command-layout">
 	          <section class="command-card">
-	            <div class="command-card-head"><h4>Support Queue</h4><button class="ghost compact" data-command-action="view_reports" type="button">View all</button></div>
+	            <div class="command-card-head"><h4>Support Queue</h4><button class="ghost compact" data-office-target="support" type="button">View all</button></div>
 	            <div class="mission-list">
 	              ${supportRows.length ? supportRows.slice(0, 10).map(function (item) {
 	                const title = item.title || item.summary || item.type || "Support case";
@@ -2603,10 +2685,8 @@
 	            info.open({ map, anchor: marker });
 	          });
 	          marker.addListener("dblclick", function () {
-	            state.workspaceTab = "facility";
-	            state.overviewFocus = "facility";
 	            state.selectedOfficeEstateId = record.estate.id || "";
-	            renderWorkspaceTabs();
+	            setOfficeWorkspace("facility", "facility");
 	          });
 	          bounds.extend(record.position);
 	        });
@@ -2829,8 +2909,7 @@
       }).join("");
       Array.from(el.liveInfraActions.querySelectorAll("[data-office-target]")).forEach(function (button) {
         button.addEventListener("click", function () {
-          state.workspaceTab = button.getAttribute("data-office-target") || "overview";
-          renderWorkspaceTabs();
+          setOfficeWorkspace(button.getAttribute("data-office-target") || "overview");
         });
       });
     }
@@ -2896,8 +2975,7 @@
       const openButton = el.liveInfraPanel.querySelector("[data-office-target]");
       if (openButton) {
         openButton.addEventListener("click", function () {
-          state.workspaceTab = "facility";
-          renderWorkspaceTabs();
+          setOfficeWorkspace("facility", "facility");
         });
       }
     }
@@ -2976,6 +3054,7 @@
 	    }).join("");
 	    const selectedStatus = selectedEstate ? String(selectedEstate.subscription_status || selectedEstate.status || "pending") : "pending";
 	    const estatePortfolioView = state.estatePortfolioView || "map";
+	    const activeFacet = state.moduleFacet.facility || "dashboard";
 	    const estateCards = estates.map(function (estate) {
 	      const stats = estateStats(estate);
 	      const status = String(estate.subscription_status || estate.status || "pending");
@@ -3024,6 +3103,13 @@
 	            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Synced from Office data</div></div>`;
 	          }).join("")}
 	        </div>
+	        ${activeFacet !== "dashboard" ? `<article class="command-card module-section-banner">
+	          <div class="command-card-head">
+	            <h4>${escapeHtml(activeFacet.replace(/_/g, " "))}</h4>
+	            <span class="office-system-badge">${estates.length ? "Live Data" : "Pending Integration"}</span>
+	          </div>
+	          <div class="subtext">Estate Portfolio section view is using the same estate, building, facility account, deployment, performance, and monitoring data stream.</div>
+	        </article>` : ""}
 	        <div class="command-layout">
 	          <div class="command-main">
 	            <section class="estate-command-map estate-map-with-detail">
@@ -3064,7 +3150,7 @@
 	            </section>
 	            <section class="estate-split-grid">
 	              <article class="command-card estate-list-panel estate-registry-wide">
-	                <div class="command-card-head"><h4>Estate Registry</h4><button class="ghost compact" type="button">All Estates</button></div>
+	                <div class="command-card-head"><h4>Estate Registry</h4><button class="ghost compact" data-estate-view="all" type="button">All Estates</button></div>
 	                <input class="estate-search" type="search" placeholder="Search estates..." />
 	                <table class="estate-table">
 	                  <thead><tr><th>Estate</th><th>Status</th><th>Health</th><th>Units</th><th>Actions</th></tr></thead>
@@ -3180,7 +3266,7 @@
 	            <h3>Monitor connected homes, units, permissions, and automation posture.</h3>
 	            <p class="subtext" style="margin:8px 0 0;">Minimal smart-building command surface for homes, hardware, wallets, support, community, and utilities.</p>
 	          </div>
-	          <button class="ghost" type="button">View building sync</button>
+	          <button class="ghost" data-office-target="settings" type="button">View building sync</button>
 	        </div>
 	        <div class="command-kpis">
 	          ${[
@@ -3230,6 +3316,7 @@
   function renderDeviceWorkspace() {
     if (!el.devicePanel) return;
     const collections = officeCollections();
+    const activeFacet = state.moduleFacet.devices || "dashboard";
     const estates = asList(collections.estates);
     const buildings = asList(collections.buildings);
     const homes = asList(collections.homes);
@@ -3262,34 +3349,38 @@
 	        )
 	      : null;
 	    const moduleCategories = [
-	      "Security",
-	      "Access Control",
-	      "Maintenance",
-	      "Occupants",
-	      "Sensors",
-	      "Occupancy",
-	      "Energy & Utilities",
-	      "Automation Hubs",
+	      "Security & Access",
+	      "Cameras & Surveillance",
+	      "Environment & Sensors",
+	      "Utilities",
+	      "Traffic & Mobility",
+	      "Comfort & Automation",
+	      "Lighting",
+	      "Meters",
+	      "Edge Infrastructure",
+	      "Smart Home Devices",
 	    ];
 	    const categories = normalizedDevices.reduce(function (acc, device) {
 	      const raw = String(device.category || device.module || device.type || "General Hardware");
-	      const key = /camera|cctv|surveillance|alarm/i.test(raw)
-	        ? "Security"
+	      const key = /camera|cctv|surveillance/i.test(raw)
+	        ? "Cameras & Surveillance"
 	        : /access|lock|gate|visitor/i.test(raw)
-	          ? "Access Control"
-	          : /maintenance|fault|repair/i.test(raw)
-	            ? "Maintenance"
-	            : /occupant|resident|people/i.test(raw)
-	              ? "Occupants"
-	              : /occupancy|presence/i.test(raw)
-	                ? "Occupancy"
-	                : /energy|utility|meter|power|water/i.test(raw)
-	                  ? "Energy & Utilities"
-	                  : /hub|gateway|controller|automation/i.test(raw)
-	                    ? "Automation Hubs"
-	                    : /sensor|temperature|climate|smoke/i.test(raw)
-	                      ? "Sensors"
-	                      : raw;
+	          ? "Security & Access"
+	          : /traffic|parking|vehicle|plate|anpr|mobility/i.test(raw)
+	            ? "Traffic & Mobility"
+	            : /meter/i.test(raw)
+	              ? "Meters"
+	              : /energy|utility|power|water|pump|tank|hvac/i.test(raw)
+	                ? "Utilities"
+	                : /light|lighting/i.test(raw)
+	                  ? "Lighting"
+	                  : /climate|comfort|automation|scene|thermostat/i.test(raw)
+	                    ? "Comfort & Automation"
+	                    : /edge|hub|gateway|controller/i.test(raw)
+	                      ? "Edge Infrastructure"
+	                      : /sensor|temperature|smoke|air|humidity|noise|occupancy|presence|environment/i.test(raw)
+	                        ? "Environment & Sensors"
+	                        : "Smart Home Devices";
 	      acc[key] = (acc[key] || 0) + 1;
 	      return acc;
 	    }, {});
@@ -3340,6 +3431,13 @@
             return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Synced from Office data</div></div>`;
           }).join("")}
         </div>
+        ${activeFacet !== "dashboard" ? `<article class="command-card module-section-banner">
+          <div class="command-card-head">
+            <h4>${escapeHtml(activeFacet.replace(/_/g, " "))}</h4>
+            <span class="office-system-badge">${totalDevices ? "Live Data" : "Pending Integration"}</span>
+          </div>
+          <div class="subtext">This Hardware Devices section is scoped to the current Office hardware registry. Available records remain permission-aware and estate-linked.</div>
+        </article>` : ""}
         <div class="device-layout">
           <aside class="command-card">
             <div class="command-card-head"><h4>Device Categories</h4></div>
@@ -3733,9 +3831,7 @@
       Array.from(el.officeMapLabels.querySelectorAll("[data-office-target]")).forEach(function (node) {
         node.addEventListener("click", function () {
           state.selectedOfficeEstateId = node.getAttribute("data-estate-id") || state.selectedOfficeEstateId || "";
-          state.workspaceTab = "facility";
-          state.overviewFocus = "facility";
-          renderWorkspaceTabs();
+          setOfficeWorkspace("facility", "facility");
         });
       });
     }
@@ -3930,9 +4026,7 @@
         const target = node.getAttribute("data-overview-domain");
         const focus = node.getAttribute("data-overview-focus");
         if (!target || !canAccessTab(target)) return;
-        state.workspaceTab = target;
-        if (focus) state.overviewFocus = focus;
-        renderWorkspaceTabs();
+        setOfficeWorkspace(target, focus);
       });
     });
   }
@@ -4003,6 +4097,73 @@
       ["Closed Won", derived.statusCounts.closed || 0],
     ];
     const maxStage = Math.max(1, ...stages.map(function (stage) { return stage[1]; }));
+    const activeFacet = state.moduleFacet.crm_agents || "dashboard";
+    const customers = state.leads.filter(function (lead) {
+      return /customer|closed|won|active/i.test(`${lead.status || ""} ${lead.commercial_stage || ""}`);
+    });
+    const organizations = rankEntries(derived.projectTypeCounts || {}, 8);
+    const supportTickets = state.notifications.filter(function (note) {
+      return !note.type || /support|ticket|inbound|complaint|issue|demo|sales/i.test(`${note.type} ${note.title || ""} ${note.summary || ""}`);
+    });
+    const escalations = state.notifications.filter(function (note) {
+      return /founder|escalat|critical|urgent/i.test(`${note.type || ""} ${note.priority || ""} ${note.summary || ""}`);
+    });
+    function crmFacetSummary() {
+      const titleMap = {
+        leads: "Lead Registry",
+        customers: "Customer Accounts",
+        organizations: "Organizations",
+        conversations: "Conversations",
+        support_tickets: "Support Tickets",
+        escalations: "Escalations",
+        account_managers: "Account Managers",
+        sales_pipeline: "Sales Pipeline",
+        deployment_pipeline: "Deployment Pipeline",
+      };
+      if (activeFacet === "dashboard") return "";
+      const rows = {
+        leads: state.leads.slice(0, 8).map(function (lead) {
+          return [leadTitle(lead), displayValue(lead.status, "new"), displayValue(lead.source || lead.channel, "source pending")];
+        }),
+        customers: customers.slice(0, 8).map(function (lead) {
+          return [leadTitle(lead), displayValue(lead.company, "Company pending"), displayValue(lead.commercial_stage, "customer")];
+        }),
+        organizations: organizations.map(function (entry) {
+          return [entry.label, `${entry.value} records`, "CRM category"];
+        }),
+        conversations: state.leads.slice(0, 8).map(function (lead) {
+          return [leadTitle(lead), displayValue(lead.last_message || lead.summary, "Conversation pending"), formatDate(lead.updated_at || lead.created_at)];
+        }),
+        support_tickets: supportTickets.slice(0, 8).map(function (note) {
+          return [displayValue(note.title || note.type, "Support ticket"), displayValue(note.status, "open"), formatDate(note.created_at || note.ts)];
+        }),
+        escalations: escalations.slice(0, 8).map(function (note) {
+          return [displayValue(note.title || note.type, "Escalation"), displayValue(note.status, "open"), formatDate(note.created_at || note.ts)];
+        }),
+        account_managers: accountManagers.map(function (entry) {
+          return [crmOwnerLabel(entry.label), `${entry.value} records`, "Relationship owner"];
+        }),
+        sales_pipeline: stages.map(function (stage) {
+          return [stage[0], `${stage[1]} records`, "Commercial stage"];
+        }),
+        deployment_pipeline: state.allDemos.slice(0, 8).map(function (demo) {
+          return [displayValue(demo.title || demo.company || demo.lead_name, "Deployment checkpoint"), displayValue(demo.status, "pending"), formatDate(demo.scheduled_at || demo.created_at)];
+        }),
+      }[activeFacet] || [];
+      return `
+        <article class="command-card">
+          <div class="command-card-head">
+            <h4>${escapeHtml(titleMap[activeFacet] || "CRM Section")}</h4>
+            <span class="office-system-badge">${rows.length ? "Live Data" : "Pending Integration"}</span>
+          </div>
+          <div class="mission-list">
+            ${rows.length ? rows.map(function (row) {
+              return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(row[0])}</strong><small class="subtext">${escapeHtml(row[2] || "")}</small></span><strong>${escapeHtml(row[1])}</strong></div>`;
+            }).join("") : '<div class="office-detail-empty">No live records have synced for this CRM section yet. This tab is ready and will populate from the Office CRM/support data stream.</div>'}
+          </div>
+        </article>
+      `;
+    }
 
     el.crmAgentsPanel.innerHTML = `
       <div class="command-page">
@@ -4028,8 +4189,9 @@
         </div>
         <div class="command-layout">
           <div class="command-main">
+            ${crmFacetSummary()}
             <article class="command-card">
-	              <div class="command-card-head"><h4>Channel Performance</h4><button class="ghost compact" data-office-target="crm_agents" type="button">View all</button></div>
+	              <div class="command-card-head"><h4>Channel Performance</h4><button class="ghost compact" data-crm-facet="conversations" type="button">View all</button></div>
 	              <div class="channel-grid">
 	                ${channelRows.map(function (row) {
 	                  return `<div class="channel-card"><span class="command-icon ${platformIconClass(row[0])}">${officeIcon(row[2])}</span><strong>${escapeHtml(String(row[1]))}</strong><div class="subtext">${escapeHtml(row[0])}</div></div>`;
@@ -4046,7 +4208,7 @@
               </div>
             </article>
             <article class="command-card">
-	              <div class="command-card-head"><h4>Account Manager Workload</h4><button class="ghost compact" type="button">View accounts</button></div>
+	              <div class="command-card-head"><h4>Account Manager Workload</h4><button class="ghost compact" data-crm-facet="account_managers" type="button">View accounts</button></div>
 	              <div class="agent-strip">
 	                ${accountManagers.length ? accountManagers.map(function (entry) {
                   return `<div class="agent-mini-card">
@@ -4256,7 +4418,7 @@
                 </div>
               </article>
               <article class="command-card ai-voice-panel">
-                <div class="command-card-head"><h4>Voice Command Layer</h4><button class="ghost compact" data-command-action="run_ai_workflow" type="button">Open</button></div>
+                <div class="command-card-head"><h4>Voice Command Layer</h4><button class="ghost compact" data-ai-ops-tab="voice_command" type="button">Open</button></div>
                 <div class="ai-voice-wave" aria-label="Voice command signal">
                   ${Array.from({ length: 28 }).map(function (_, index) {
                     return `<i style="--h:${10 + ((index * 11) % 42)}px;--d:${index * 34}ms"></i>`;
@@ -4291,7 +4453,7 @@
             </div>
             <div class="ai-ops-bottom">
               <article class="command-card">
-                <div class="command-card-head"><h4>Tool Usage</h4><button class="ghost compact" data-command-action="run_ai_workflow" type="button">Today</button></div>
+                <div class="command-card-head"><h4>Tool Usage</h4><button class="ghost compact" data-ai-ops-tab="tool_registry" type="button">Today</button></div>
                 <div class="ai-tool-list">
                   ${toolRows.map(function (row) {
                     const width = Math.max(8, Math.round((row[1] / maxTool) * 100));
@@ -4308,7 +4470,7 @@
                 </div>
               </article>
               <article class="command-card">
-                <div class="command-card-head"><h4>Agent Status</h4><button class="ghost compact" data-command-action="run_ai_workflow" type="button">View all</button></div>
+                <div class="command-card-head"><h4>Agent Status</h4><button class="ghost compact" data-ai-ops-tab="agent_console" type="button">View all</button></div>
                 <div class="ai-agent-list">
                   ${agentRows.map(function (agent) {
                     const idle = agent.state !== "Online";
@@ -4358,8 +4520,9 @@
     `;
     Array.from(el.aiOperationsPanel.querySelectorAll("[data-ai-ops-tab]")).forEach(function (node) {
       node.addEventListener("click", function () {
-        state.aiOpsView = node.getAttribute("data-ai-ops-tab") || "dashboard";
+        setModuleFacet("ai_operations", node.getAttribute("data-ai-ops-tab") || "dashboard");
         renderAiOperationsDashboard(domain);
+        renderSectionNav();
       });
     });
   }
@@ -4408,14 +4571,14 @@
       ],
       crm_agents: [
         { label: "Dashboard", type: "tab", value: "crm_agents", active: true },
-        { label: "Leads", type: "crm_view", value: "crm" },
+        { label: "Leads", type: "facet", value: "leads" },
         { label: "Customers", type: "facet", value: "customers" },
         { label: "Organizations", type: "facet", value: "organizations" },
-        { label: "Conversations", type: "tab", value: "conversation" },
-        { label: "Support Tickets", type: "tab", value: "notifications" },
-        { label: "Escalations", type: "tab", value: "founder" },
+        { label: "Conversations", type: "facet", value: "conversations" },
+        { label: "Support Tickets", type: "facet", value: "support_tickets" },
+        { label: "Escalations", type: "facet", value: "escalations" },
         { label: "Account Managers", type: "facet", value: "account_managers" },
-        { label: "Sales Pipeline", type: "tab", value: "commercial" },
+        { label: "Sales Pipeline", type: "facet", value: "sales_pipeline" },
         { label: "Deployment Pipeline", type: "facet", value: "deployment_pipeline" },
       ],
       ai_operations: [
@@ -4465,8 +4628,8 @@
         { label: "Dashboard", type: "tab", value: "team", active: true },
         { label: "Staff & Roles", type: "facet", value: "staff_roles" },
         { label: "Permissions", type: "facet", value: "permissions" },
-        { label: "System Settings", type: "tab", value: "settings" },
-        { label: "Integrations", type: "tab", value: "settings" },
+        { label: "System Settings", type: "facet", value: "settings" },
+        { label: "Integrations", type: "facet", value: "integrations" },
         { label: "Accounts", type: "facet", value: "accounts" },
         { label: "Super Admin", type: "facet", value: "super_admin" },
       ],
@@ -4545,7 +4708,7 @@
         const type = node.getAttribute("data-section-nav-type");
         const value = node.getAttribute("data-section-nav-value");
         if (type === "tab" && value && canAccessTab(value)) {
-          delete state.moduleFacet[state.workspaceTab];
+          setModuleFacet(state.workspaceTab, "dashboard");
           state.workspaceTab = value;
           renderWorkspaceTabs();
           return;
@@ -4567,7 +4730,7 @@
           return;
         }
         if (type === "facet" && value) {
-          state.moduleFacet[state.workspaceTab] = value;
+          setModuleFacet(state.workspaceTab, value);
           renderWorkspaceTabs();
           return;
         }
@@ -5610,7 +5773,7 @@
           ["Audit", state.audit.length || 0, "Recorded governance events"],
         ],
         actions: [
-          ["Open platform infrastructure", "view_reports", "settings"],
+          ["Open platform status", "admin_settings", "settings"],
           ["Queue security review", "open_permissions", "governance"],
         ],
       },
@@ -5624,7 +5787,7 @@
           ["Map provider", state.mapConfig?.provider || "google", "Infrastructure map layer"],
         ],
         actions: [
-          ["View provider status", "view_reports", "trend"],
+          ["View provider status", "admin_integrations", "trend"],
           ["Add integration task", "add_new_tool", "settings"],
         ],
       },
@@ -5674,7 +5837,7 @@
         </div>
         <div class="shortcut-grid admin-section-actions">
           ${sectionData.actions.map(function (action) {
-            const special = action[1] === "admin_staff" || action[1] === "admin_invite" || action[1] === "admin_audit";
+            const special = ["admin_staff", "admin_invite", "admin_audit", "admin_settings", "admin_integrations"].includes(action[1]);
             return `<button class="shortcut-btn" ${special ? `data-admin-shortcut="${escapeHtml(action[1])}"` : `data-command-action="${escapeHtml(action[1])}"`} type="button"><span>${officeIcon(action[2])}</span>${escapeHtml(action[0])}</button>`;
           }).join("")}
         </div>
@@ -7489,6 +7652,13 @@
   }
   if (el.crmAgentsPanel) {
     el.crmAgentsPanel.addEventListener("click", function (event) {
+      const facetNode = event.target.closest("[data-crm-facet]");
+      if (facetNode) {
+        setModuleFacet("crm_agents", facetNode.getAttribute("data-crm-facet") || "dashboard");
+        renderCrmAgentsPanel(buildOverviewDomains().domains.crm_agents);
+        renderSectionNav();
+        return;
+      }
       const toggle = event.target.closest("[data-crm-integrations-toggle]");
       if (!toggle) return;
       state.crmIntegrationsExpanded = !state.crmIntegrationsExpanded;
@@ -7534,6 +7704,10 @@
       } else if (shortcut === "admin_audit") {
         state.workspaceTab = "audit";
         renderWorkspaceTabs();
+      } else if (shortcut === "admin_settings") {
+        handleAdminSection("settings");
+      } else if (shortcut === "admin_integrations") {
+        handleAdminSection("integrations");
       }
       return;
     }
