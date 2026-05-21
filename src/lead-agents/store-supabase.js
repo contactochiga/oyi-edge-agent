@@ -718,28 +718,40 @@ class SupabaseLeadAgentsStore {
   }
 
   async createOfficeDocument(input) {
-    const response = await this.client.post(
-      "/office_documents",
-      {
-        id: input.id,
-        title: input.title,
-        document_type: input.document_type || input.type || "document",
-        status: input.status || "draft",
-        owner: input.owner || "",
-        related_type: input.related_type || "",
-        related_id: input.related_id || "",
-        amount: input.amount || input.value || 0,
-        currency: input.currency || "NGN",
-        file_url: input.file_url || "",
-        html_url: input.html_url || "",
-        email_to: input.email_to || "",
-        metadata: input.metadata || {},
-      },
-      {
+    const document = {
+      id: input.id,
+      title: input.title,
+      document_type: input.document_type || input.type || "document",
+      status: input.status || "draft",
+      owner: input.owner || "",
+      related_type: input.related_type || "",
+      related_id: input.related_id || "",
+      amount: Number(input.amount || input.value || 0),
+      currency: input.currency || "NGN",
+      file_url: input.file_url || "",
+      html_url: input.html_url || "",
+      email_to: input.email_to || "",
+      metadata: input.metadata || {},
+    };
+    try {
+      const response = await this.client.post("/office_documents", document, {
         headers: this.selectHeaders(),
+      });
+      return response.data[0] || document;
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 400 || status === 404 || status === 406) {
+        return {
+          ...document,
+          sync_status: "schema_pending",
+          sync_warning:
+            error?.response?.data?.message ||
+            error?.response?.data?.hint ||
+            "office_documents schema is not available yet.",
+        };
       }
-    );
-    return response.data[0] || null;
+      throw error;
+    }
   }
 
   async upsertOfficeCollections(input) {

@@ -565,7 +565,8 @@
     });
 
     if (!response.ok) {
-      throw new Error(data.error || "Request failed");
+      const detail = data.details || data.message || data.sync_warning || "";
+      throw new Error([data.error || "Request failed", detail].filter(Boolean).join(": "));
     }
     return data;
   }
@@ -2035,8 +2036,10 @@
           recipient: String(formData.get("recipient") || ""),
           body: String(formData.get("body") || ""),
         }),
+      }).then(function (result) {
+        const warning = result?.document?.sync_warning || result?.html_file?.sync_warning || "";
+        setBulkStatus(warning ? `${type} generated. Supabase sync warning: ${warning}` : `${type} generated and stored in Office documents.`, Boolean(warning));
       });
-      setBulkStatus(`${type} generated and stored in Office documents.`);
       await loadLeads();
       return;
     } else if (action === "geocode_estates") {
@@ -4529,6 +4532,109 @@
     }).join("");
   }
 
+  function renderIntelligenceFacetPanels(activeFacet, context) {
+    const facet = activeFacet || "dashboard";
+    const healthScore = context.healthScore;
+    const incidents = context.incidents;
+    const diagnostics = context.diagnostics;
+    const totals = context.totals || {};
+    const trendEntries = context.trendEntries || [];
+    const categoryEntries = context.categoryEntries || [];
+    const derived = context.derived || {};
+    const devices = asList(officeCollections().devices);
+    const estates = asList(officeCollections().estates);
+    const audits = asList(state.audit);
+    const traces = asList(state.traces);
+    const notifications = asList(state.notifications);
+    const panels = {
+      dashboard: [
+        ["Operational Intelligence Overview", "Live signal distribution", "chart"],
+        ["Infrastructure Trends", "Status pressure", "trends"],
+        ["Category Intelligence", "Operational spread", "categories"],
+        ["Diagnostics Summary", "Audit and trace layer", "diagnostics"],
+      ],
+      analytics: [
+        ["Portfolio Analytics", "Estate and device signal mix", "analytics"],
+        ["Device Intelligence", "Online, warning, and offline pressure", "device_intel"],
+        ["Support Intelligence", "Open case and escalation trend", "support_intel"],
+        ["Estate Comparisons", "Portfolio operating spread", "estate_compare"],
+      ],
+      ai_insights: [
+        ["AI Insight Queue", "Generated from traces, support, and audit signals", "ai_cards"],
+        ["Anomaly Signals", "Permission, incident, and device outliers", "anomaly"],
+        ["Automation Opportunities", "Candidate workflows for Oyi AI execution", "automation"],
+        ["Insight Evidence", "Trace and audit records backing recommendations", "evidence"],
+      ],
+      reports: [
+        ["Executive Report Snapshot", "Current Office reporting totals", "report_totals"],
+        ["Source Breakdown", "CRM and operational source pressure", "source_breakdown"],
+        ["Status Breakdown", "Pipeline and support stage mix", "status_breakdown"],
+        ["Report Actions", "Safe report routes", "report_actions"],
+      ],
+      predictive_operations: [
+        ["Predictive Operations", "Risk indicators from current live data", "predictive"],
+        ["Maintenance Pressure", "Support and incident pressure", "maintenance"],
+        ["Capacity Forecast", "Estate, resident, and device growth readiness", "capacity"],
+        ["Next Best Actions", "Operational recommendations", "next_actions"],
+      ],
+      diagnostics: [
+        ["Diagnostics Console", "Trace, audit, and permission evidence", "diagnostic_console"],
+        ["Permission Denials", "Security and access failures", "permission_denials"],
+        ["System Event Trail", "Recent audit activity", "event_trail"],
+        ["Health Checks", "Data source readiness", "health_checks"],
+      ],
+    };
+    function panelBody(kind) {
+      if (kind === "chart") {
+        return `<div class="intel-line-chart">${[healthScore, Math.max(10, 100 - incidents * 8), Math.max(15, 82 - diagnostics * 3), Math.min(96, 58 + traces.length * 4), Math.min(99, 66 + Number(totals.leads || 0))].map(function (point, index) {
+          return `<span style="--h:${point}%;--i:${index};"><b></b></span>`;
+        }).join("")}</div>`;
+      }
+      if (kind === "trends") return `<div class="intel-bar-list">${barRows(trendEntries, "No trend data synced yet.")}</div>`;
+      if (kind === "categories") return `<div class="intel-bar-list">${barRows(categoryEntries, "No category data synced yet.")}</div>`;
+      if (kind === "diagnostics") {
+        return `<div class="mission-list">${[
+          ["Trace records", traces.length],
+          ["Audit events", audits.length],
+          ["Permission denials", audits.filter(function (event) { return /denied|permission/i.test(String(event.action || "")); }).length],
+          ["Open support signals", incidents],
+        ].map(function (row) {
+          return `<div class="device-category"><span>${escapeHtml(row[0])}</span><strong>${escapeHtml(String(row[1]))}</strong></div>`;
+        }).join("")}</div>`;
+      }
+      if (kind === "analytics") return `<div class="intel-bar-list">${barRows([{ label: "Estates", value: estates.length }, { label: "Devices", value: devices.length }, { label: "Support signals", value: notifications.length }, { label: "Audit records", value: audits.length }], "No analytics data synced yet.")}</div>`;
+      if (kind === "device_intel") return `<div class="intel-bar-list">${barRows(rankEntries(derived.deviceStatusCounts || {}, 8), "No device status data synced yet.")}</div>`;
+      if (kind === "support_intel") return `<div class="intel-bar-list">${barRows(rankEntries(derived.notificationStatusCounts || {}, 8), "No support intelligence synced yet.")}</div>`;
+      if (kind === "estate_compare") return `<div class="intel-bar-list">${barRows(estates.slice(0, 8).map(function (estate) { return { label: estate.name || estate.id || "Estate", value: Number(estate.devices_count || estate.homes_count || estate.buildings_count || 1) }; }), "No estates synced yet.")}</div>`;
+      if (kind === "ai_cards" || kind === "anomaly" || kind === "automation") return `<div class="mission-list ai-insight-list">${context.insightRows.map(function (item) {
+        return `<div class="insight-row"><span class="insight-icon">${officeIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)}</span></div><span class="office-system-badge ${item.tone === "warning" ? "warning" : ""}">${escapeHtml(item.tone)}</span></div>`;
+      }).join("")}</div>`;
+      if (kind === "evidence" || kind === "event_trail") return `<div class="mission-list">${audits.slice(0, 6).map(function (event) { return `<div class="activity-row compact"><span>${officeIcon("trend")}</span><div class="activity-copy"><strong>${escapeHtml(event.action || "audit.recorded")}</strong><span>${escapeHtml(event.actor_email || event.actor || "Office")} · ${escapeHtml(formatDate(event.created_at))}</span></div></div>`; }).join("") || '<div class="office-detail-empty">No audit evidence synced yet.</div>'}</div>`;
+      if (kind === "report_totals") return `<div class="mission-list">${Object.entries(totals).slice(0, 8).map(function (entry) { return `<div class="device-category"><span>${escapeHtml(entry[0].replace(/_/g, " "))}</span><strong>${escapeHtml(String(entry[1] || 0))}</strong></div>`; }).join("") || '<div class="office-detail-empty">No report totals synced yet.</div>'}</div>`;
+      if (kind === "source_breakdown") return `<div class="intel-bar-list">${barRows(rankEntries((state.report && state.report.by_source) || {}, 8), "No source data synced yet.")}</div>`;
+      if (kind === "status_breakdown") return `<div class="intel-bar-list">${barRows(rankEntries((state.report && state.report.by_status) || {}, 8), "No status data synced yet.")}</div>`;
+      if (kind === "report_actions") return `<div class="shortcut-grid ai-quick-actions"><button class="shortcut-btn" data-office-target="facility" type="button"><span>${officeIcon("estate")}</span>Estate Report</button><button class="shortcut-btn" data-office-target="devices" type="button"><span>${officeIcon("camera")}</span>Device Report</button><button class="shortcut-btn" data-office-target="audit" type="button"><span>${officeIcon("trend")}</span>Audit Report</button><button class="shortcut-btn" data-command-action="view_reports" type="button"><span>${officeIcon("settings")}</span>Export Summary</button></div>`;
+      if (kind === "predictive" || kind === "maintenance" || kind === "capacity" || kind === "next_actions") return `<div class="mission-list">${[
+        ["Incident risk", incidents > 5 ? "Elevated" : "Normal"],
+        ["Maintenance pressure", notifications.length ? `${notifications.length} live signals` : "No live pressure"],
+        ["Device capacity", devices.length ? `${devices.length} devices under watch` : "Awaiting device sync"],
+        ["Recommended action", incidents ? "Review open incident queue" : "Keep monitoring"],
+      ].map(function (row) { return `<div class="device-category"><span>${escapeHtml(row[0])}</span><strong>${escapeHtml(String(row[1]))}</strong></div>`; }).join("")}</div>`;
+      if (kind === "diagnostic_console") return `<div class="mission-list">${traces.slice(0, 6).map(function (trace) { return `<div class="activity-row compact"><span>${officeIcon("settings")}</span><div class="activity-copy"><strong>${escapeHtml(trace.name || trace.event || "trace")}</strong><span>${escapeHtml(formatDate(trace.created_at || trace.timestamp))}</span></div></div>`; }).join("") || '<div class="office-detail-empty">No trace diagnostics synced yet.</div>'}</div>`;
+      if (kind === "permission_denials") return `<div class="mission-list">${audits.filter(function (event) { return /denied|permission/i.test(String(event.action || "")); }).slice(0, 6).map(function (event) { return `<div class="activity-row compact"><span>${officeIcon("alert")}</span><div class="activity-copy"><strong>${escapeHtml(event.action || "permission.denied")}</strong><span>${escapeHtml(event.actor_email || "Unknown actor")}</span></div></div>`; }).join("") || '<div class="office-detail-empty">No permission denials recorded.</div>'}</div>`;
+      if (kind === "health_checks") return `<div class="mission-list">${[
+        ["Office report", Boolean(state.report)],
+        ["Audit stream", audits.length > 0],
+        ["Trace stream", traces.length > 0],
+        ["Estate data", estates.length > 0],
+      ].map(function (row) { return `<div class="ai-health-row"><span>${escapeHtml(row[0])}</span><span class="subtext"><i class="ai-status-dot" style="display:inline-block;margin-right:7px;background:${row[1] ? "#39e58f" : "#f6c85f"};"></i>${row[1] ? "Active" : "Pending"}</span></div>`; }).join("")}</div>`;
+      return '<div class="office-detail-empty">This intelligence section is ready for live data.</div>';
+    }
+    return (panels[facet] || panels.dashboard).map(function (panel) {
+      return `<article class="command-card ${panel[2] === "chart" ? "intelligence-chart-card" : ""}"><div class="command-card-head"><h4>${escapeHtml(panel[0])}</h4><span class="subtext">${escapeHtml(panel[1])}</span></div>${panelBody(panel[2])}</article>`;
+    }).join("");
+  }
+
   function renderInfrastructureIntelligenceDashboard() {
     if (!el.infrastructureIntelligencePanel) return;
     if (!hasPermission("view_reports")) {
@@ -4553,6 +4659,14 @@
       { title: "Diagnostics trail", meta: `${diagnostics} traces/audit records available for system diagnostics.`, tone: diagnostics ? "info" : "healthy", icon: "trend" },
       { title: "Predictive operations", meta: state.report ? "Report data is active for trend analysis." : "Connect more live events to strengthen prediction.", tone: state.report ? "healthy" : "warning", icon: "ai_operations" },
     ];
+    const facetTitle = {
+      dashboard: "Operational Intelligence Overview",
+      analytics: "Analytics",
+      ai_insights: "AI Insights",
+      reports: "Reports",
+      predictive_operations: "Predictive Operations",
+      diagnostics: "Diagnostics",
+    }[activeFacet] || "Operational Intelligence Overview";
 
     el.infrastructureIntelligencePanel.innerHTML = `
       <div class="command-page intelligence-workspace">
@@ -4578,35 +4692,11 @@
         <div class="command-layout">
           <div class="command-main">
             <div class="intelligence-grid">
-              <article class="command-card intelligence-chart-card">
-                <div class="command-card-head"><h4>${activeFacet === "dashboard" ? "Operational Intelligence Overview" : activeFacet.replace(/_/g, " ")}</h4><span class="subtext">Live signal distribution</span></div>
-                <div class="intel-line-chart">
-                  ${[healthScore, Math.max(10, 100 - incidents * 8), Math.max(15, 82 - diagnostics * 3), Math.min(96, 58 + state.traces.length * 4), Math.min(99, 66 + Number(totals.leads || 0))].map(function (point, index) {
-                    return `<span style="--h:${point}%;--i:${index};"><b></b></span>`;
-                  }).join("")}
-                </div>
+              <article class="command-card intelligence-section-banner">
+                <div class="command-card-head"><h4>${escapeHtml(facetTitle)}</h4><span class="subtext">Permission-aware live Office intelligence section</span></div>
+                <p class="subtext">This tab is wired to existing Office report, estate, device, audit, trace, and realtime signal collections. Empty states stay honest until production data arrives.</p>
               </article>
-              <article class="command-card">
-                <div class="command-card-head"><h4>Infrastructure Trends</h4><span class="subtext">Status pressure</span></div>
-                <div class="intel-bar-list">${barRows(trendEntries, "No trend data synced yet.")}</div>
-              </article>
-              <article class="command-card">
-                <div class="command-card-head"><h4>Category Intelligence</h4><span class="subtext">Operational spread</span></div>
-                <div class="intel-bar-list">${barRows(categoryEntries, "No category data synced yet.")}</div>
-              </article>
-              <article class="command-card">
-                <div class="command-card-head"><h4>Diagnostics Summary</h4><span class="subtext">Audit and trace layer</span></div>
-                <div class="mission-list">
-                  ${[
-                    ["Trace records", state.traces.length],
-                    ["Audit events", state.audit.length],
-                    ["Permission denials", state.audit.filter(function (event) { return /denied|permission/i.test(String(event.action || "")); }).length],
-                    ["Open support signals", incidents],
-                  ].map(function (row) {
-                    return `<div class="device-category"><span>${escapeHtml(row[0])}</span><strong>${escapeHtml(String(row[1]))}</strong></div>`;
-                  }).join("")}
-                </div>
-              </article>
+              ${renderIntelligenceFacetPanels(activeFacet, { healthScore, incidents, diagnostics, totals, trendEntries, categoryEntries, derived, insightRows })}
             </div>
           </div>
           <aside class="command-side context-rail">

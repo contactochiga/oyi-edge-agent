@@ -1120,6 +1120,24 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
     "assets",
     "ochiga-logo.png"
   );
+  const websiteIndexPath = path.join(
+    process.cwd(),
+    "public",
+    "website",
+    "index.html"
+  );
+  const websiteStylesPath = path.join(
+    process.cwd(),
+    "public",
+    "website",
+    "styles.css"
+  );
+  const websiteScriptPath = path.join(
+    process.cwd(),
+    "public",
+    "website",
+    "app.js"
+  );
   const digitalTwinIndexPath = path.join(
     process.cwd(),
     "public",
@@ -1578,6 +1596,33 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           return;
         }
         await serveFile(res, dashboardLogoPath);
+        return;
+      }
+
+      if (pathname === "/website" || pathname === "/website/") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, websiteIndexPath);
+        return;
+      }
+
+      if (pathname === "/website/styles.css") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, websiteStylesPath);
+        return;
+      }
+
+      if (pathname === "/website/app.js") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        await serveFile(res, websiteScriptPath);
         return;
       }
 
@@ -2803,10 +2848,18 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           resource_type: "office_document",
           resource_id: id,
         });
-        const storedHtml =
-          typeof store.createOfficeFile === "function"
-            ? await store.createOfficeFile(storedHtmlRaw)
-            : storedHtmlRaw;
+        let storedHtml = storedHtmlRaw;
+        if (typeof store.createOfficeFile === "function") {
+          try {
+            storedHtml = await store.createOfficeFile(storedHtmlRaw);
+          } catch (error) {
+            storedHtml = {
+              ...storedHtmlRaw,
+              sync_status: "metadata_pending",
+              sync_warning: error?.response?.data?.message || error.message || "office_files metadata write failed.",
+            };
+          }
+        }
         const documentRecord = await store.createOfficeDocument({
           id,
           title: body.title,
@@ -2824,16 +2877,24 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
             recipient: body.recipient || "",
             generated_format: "printable_html",
             pdf_status: "print_ready",
+            source_file_url: body.file_url || "",
           },
         });
         if (body.email_to) {
-          const emailDelivery = await sendOfficeEmail(config, {
-            to: body.email_to,
-            subject: body.email_subject || body.title,
-            text: `Ochiga Office generated ${body.document_type || "document"}: ${body.title}\n\n${storedHtml.url}`,
-            html: `<p>Ochiga Office generated <strong>${body.document_type || "document"}</strong>: ${body.title}</p><p><a href="${storedHtml.url}">Open document</a></p>`,
-          });
-          documentRecord.email_delivery = emailDelivery;
+          try {
+            const emailDelivery = await sendOfficeEmail(config, {
+              to: body.email_to,
+              subject: body.email_subject || body.title,
+              text: `Ochiga Office generated ${body.document_type || "document"}: ${body.title}\n\n${storedHtml.url}`,
+              html: `<p>Ochiga Office generated <strong>${body.document_type || "document"}</strong>: ${body.title}</p><p><a href="${storedHtml.url}">Open document</a></p>`,
+            });
+            documentRecord.email_delivery = emailDelivery;
+          } catch (error) {
+            documentRecord.email_delivery = {
+              ok: false,
+              error: error.message || "Email delivery failed after the document was generated.",
+            };
+          }
         }
         await appendAudit(store, authContext, "office_document_generated", "office_document", id, {
           title: body.title,
