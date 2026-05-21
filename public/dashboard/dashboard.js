@@ -604,6 +604,10 @@
     return state.officeData && state.officeData.collections ? state.officeData.collections : {};
   }
 
+  function documentUrl(doc) {
+    return doc?.html_url || doc?.file_url || doc?.url || doc?.metadata?.source_file_url || "";
+  }
+
   function numberOrNull(value) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : null;
@@ -1735,6 +1739,45 @@
     document.body.appendChild(modal);
   }
 
+  function openDocumentDetail(doc) {
+    if (!doc) return;
+    const url = documentUrl(doc);
+    const metadata = doc.metadata || {};
+    const details = [
+      ["Document ID", doc.id || "Pending"],
+      ["Type", doc.type || doc.document_type || "Document"],
+      ["Owner", doc.owner || doc.created_by || "Office"],
+      ["Status", doc.status || "draft"],
+      ["Value", formatCompactMoney(doc.value || doc.amount || 0)],
+      ["Updated", displayValue(formatDate(doc.created_at || doc.updated_at), "Pending")],
+      ["Recipient", metadata.recipient || doc.email_to || "Not captured"],
+      ["Format", metadata.generated_format || metadata.mime_type || "Office record"],
+    ];
+    openCommandModal({
+      action: "document_detail",
+      eyebrow: "Document Registry",
+      title: doc.title || "Office document",
+      subtitle: url ? "Generated document metadata and preview link." : "Document metadata is available, but no generated file URL is attached yet.",
+      submitLabel: "Close",
+      fields: `
+        <div class="command-form-field wide document-detail-panel">
+          <div class="office-detail-metrics document-detail-metrics">
+            ${details.map(function (item) {
+              return `<div class="office-system-metric"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong></div>`;
+            }).join("")}
+          </div>
+          <div class="document-preview-card">
+            <div>
+              <strong>${escapeHtml(doc.title || "Office document")}</strong>
+              <p class="subtext">${escapeHtml(metadata.pdf_status || "Printable HTML document")} · ${escapeHtml(metadata.source_file_url ? "Source upload attached" : "Generated from Office document studio")}</p>
+            </div>
+            ${url ? `<a class="primary document-open-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">Open document</a>` : '<span class="office-system-badge warning">No file URL</span>'}
+          </div>
+        </div>
+      `,
+    });
+  }
+
   function openOfficeAction(action) {
     const collections = officeCollections();
     const estates = asList(collections.estates);
@@ -1967,6 +2010,9 @@
   }
 
   async function submitOfficeAction(action, form) {
+    if (action === "document_detail") {
+      return;
+    }
     const formData = new FormData(form);
     const now = new Date().toISOString();
     const source = String(formData.get("source") || "office_manual");
@@ -2143,24 +2189,40 @@
 	    const proposals = asList(state.allProposals);
 	    const audit = asList(state.audit);
 	    const officeDocs = asList(collections.documents)
-	      .map(function (record) {
+	      .map(function (record, index) {
 	        return {
+            id: record.id || `office_doc_${index}`,
 	          title: record.title || record.file_name || "Office document",
 	          type: record.document_type || record.type || "Document",
 	          owner: record.owner || record.created_by || "Office",
 	          status: record.status || "draft",
 	          value: record.amount || record.value || 0,
 	          created_at: record.updated_at || record.created_at,
+            updated_at: record.updated_at || record.created_at,
+            file_url: record.file_url || "",
+            html_url: record.html_url || "",
+            url: record.url || "",
+            email_to: record.email_to || "",
+            metadata: record.metadata || {},
+            source: "office_documents",
 	        };
 	      });
-	    const docs = officeDocs.concat(proposals.map(function (proposal) {
+	    const docs = officeDocs.concat(proposals.map(function (proposal, index) {
 	      return {
+          id: proposal.id || `proposal_${index}`,
 	        title: proposal.title || proposal.lead_name || proposal.company || "Commercial proposal",
 	        type: "Proposal",
 	        owner: proposal.owner || "Commercial",
 	        status: proposal.status || "draft",
 	        value: proposal.value || proposal.amount || 0,
 	        created_at: proposal.created_at,
+          updated_at: proposal.updated_at || proposal.created_at,
+          file_url: proposal.file_url || proposal.url || "",
+          html_url: proposal.html_url || "",
+          url: proposal.url || "",
+          email_to: proposal.email_to || "",
+          metadata: proposal.metadata || {},
+          source: "proposals",
 	      };
 	    }));
 	    const documentQuery = state.documentQuery.trim().toLowerCase();
@@ -2197,13 +2259,26 @@
 	          <section class="command-card">
 	            <div class="command-card-head"><h4>Document Registry</h4><input class="command-search-input" data-document-search type="search" placeholder="Search documents, owners, status..." value="${escapeHtml(state.documentQuery)}" /></div>
 	            <table class="command-table">
-	              <thead><tr><th>Document</th><th>Type</th><th>Owner</th><th>Status</th><th>Value</th><th>Updated</th></tr></thead>
+	              <thead><tr><th>Document</th><th>Type</th><th>Owner</th><th>Status</th><th>Value</th><th>Updated</th><th>Action</th></tr></thead>
 	              <tbody>${visibleDocs.length ? visibleDocs.slice(0, 12).map(function (doc) {
-	                return `<tr><td><strong>${escapeHtml(doc.title)}</strong></td><td>${escapeHtml(doc.type)}</td><td>${escapeHtml(doc.owner)}</td><td><span class="office-system-badge">${escapeHtml(doc.status)}</span></td><td>${escapeHtml(formatCompactMoney(doc.value))}</td><td>${escapeHtml(displayValue(formatDate(doc.created_at), "Pending"))}</td></tr>`;
-	              }).join("") : '<tr><td colspan="6"><div class="office-detail-empty">No office documents have synced yet.</div></td></tr>'}</tbody>
+	                return `<tr class="document-registry-row" data-document-id="${escapeHtml(doc.id)}"><td><button class="document-link-button" data-document-open="${escapeHtml(doc.id)}" type="button"><strong>${escapeHtml(doc.title)}</strong><span>${escapeHtml(documentUrl(doc) ? "Preview ready" : "Metadata only")}</span></button></td><td>${escapeHtml(doc.type)}</td><td>${escapeHtml(doc.owner)}</td><td><span class="office-system-badge">${escapeHtml(doc.status)}</span></td><td>${escapeHtml(formatCompactMoney(doc.value))}</td><td>${escapeHtml(displayValue(formatDate(doc.created_at), "Pending"))}</td><td><button class="ghost compact" data-document-open="${escapeHtml(doc.id)}" type="button">Open</button></td></tr>`;
+	              }).join("") : '<tr><td colspan="7"><div class="office-detail-empty">No office documents have synced yet.</div></td></tr>'}</tbody>
 	            </table>
 	          </section>
 	          <aside class="command-side">
+              <article class="command-card">
+                <div class="command-card-head"><h4>Selected Document</h4><span class="office-system-badge">Registry</span></div>
+                <div class="mission-list">
+                  ${visibleDocs[0] ? [
+                    ["Latest", visibleDocs[0].title],
+                    ["Type", visibleDocs[0].type],
+                    ["Status", visibleDocs[0].status],
+                    ["File", documentUrl(visibleDocs[0]) ? "Preview ready" : "Metadata only"],
+                  ].map(function (item) {
+                    return `<div class="device-category"><span>${escapeHtml(item[0])}</span><strong>${escapeHtml(String(item[1]))}</strong></div>`;
+                  }).join("") : '<div class="office-detail-empty">Select a document to inspect metadata and preview links.</div>'}
+                </div>
+              </article>
 	            <article class="command-card">
 	              <div class="command-card-head"><h4>Document Studio</h4></div>
 	              <div class="document-template-grid">
@@ -7333,6 +7408,50 @@
         renderDocumentsWorkspace(buildOverviewDomains().domains.web_presence);
       }
     }, 120));
+    el.webPresencePanel.addEventListener("click", function (event) {
+      const openNode = event.target.closest("[data-document-open]");
+      if (!openNode) return;
+      event.preventDefault();
+      const documentId = openNode.getAttribute("data-document-open");
+      const collections = officeCollections();
+      const officeDocs = asList(collections.documents).map(function (record, index) {
+        return {
+          id: record.id || `office_doc_${index}`,
+          title: record.title || record.file_name || "Office document",
+          type: record.document_type || record.type || "Document",
+          owner: record.owner || record.created_by || "Office",
+          status: record.status || "draft",
+          value: record.amount || record.value || 0,
+          created_at: record.updated_at || record.created_at,
+          updated_at: record.updated_at || record.created_at,
+          file_url: record.file_url || "",
+          html_url: record.html_url || "",
+          url: record.url || "",
+          email_to: record.email_to || "",
+          metadata: record.metadata || {},
+        };
+      });
+      const proposalDocs = asList(state.allProposals).map(function (proposal, index) {
+        return {
+          id: proposal.id || `proposal_${index}`,
+          title: proposal.title || proposal.lead_name || proposal.company || "Commercial proposal",
+          type: "Proposal",
+          owner: proposal.owner || "Commercial",
+          status: proposal.status || "draft",
+          value: proposal.value || proposal.amount || 0,
+          created_at: proposal.created_at,
+          updated_at: proposal.updated_at || proposal.created_at,
+          file_url: proposal.file_url || proposal.url || "",
+          html_url: proposal.html_url || "",
+          url: proposal.url || "",
+          email_to: proposal.email_to || "",
+          metadata: proposal.metadata || {},
+        };
+      });
+      openDocumentDetail(officeDocs.concat(proposalDocs).find(function (doc) {
+        return String(doc.id) === String(documentId);
+      }));
+    });
   }
   if (el.crmAgentsPanel) {
     el.crmAgentsPanel.addEventListener("click", function (event) {
