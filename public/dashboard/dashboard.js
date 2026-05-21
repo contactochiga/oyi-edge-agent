@@ -1669,7 +1669,7 @@
     return `
       <aside class="command-side context-rail">
         <article class="command-card">
-          <div class="command-card-head"><h4>${escapeHtml(title)}</h4><button class="ghost compact" type="button">View all</button></div>
+          <div class="command-card-head"><h4>${escapeHtml(title)}</h4><button class="ghost compact" data-office-target="audit" type="button">View all</button></div>
           <div class="mission-list">
             ${activity.length ? activity.map(function (item, index) {
               const tone = item.tone || ["healthy", "warning", "info", "critical", "healthy"][index % 5];
@@ -1678,7 +1678,7 @@
           </div>
         </article>
         <article class="command-card">
-          <div class="command-card-head"><h4>AI Insights</h4><button class="ghost compact" type="button">View all</button></div>
+          <div class="command-card-head"><h4>AI Insights</h4><button class="ghost compact" data-office-target="reports" type="button">View all</button></div>
           <div class="mission-list">
             ${insights.length ? insights.map(function (item, index) {
               const icons = ["alert", "support", "trend", "wallet", "estate"];
@@ -1968,6 +1968,30 @@
       renderWorkspaceTabs();
       return;
     }
+    if (action === "run_ai_workflow") {
+      state.workspaceTab = "ai_operations";
+      state.overviewFocus = "ai_operations";
+      state.aiOpsView = "execution";
+      renderWorkspaceTabs();
+      setBulkStatus("AI Execution workspace opened. Select an execution profile or review pending workflow activity.");
+      return;
+    }
+    if (action === "create_new_agent") {
+      state.workspaceTab = "ai_operations";
+      state.overviewFocus = "ai_operations";
+      state.aiOpsView = "agent_console";
+      renderWorkspaceTabs();
+      setBulkStatus("Agent Console opened. Agent creation is governed from the permissioned AI Operations workspace.");
+      return;
+    }
+    if (action === "add_new_tool") {
+      state.workspaceTab = "ai_operations";
+      state.overviewFocus = "ai_operations";
+      state.aiOpsView = "tool_registry";
+      renderWorkspaceTabs();
+      setBulkStatus("Tool Registry opened. Add or review available Oyi tools from the AI Operations workspace.");
+      return;
+    }
     if (action === "open_permissions") {
       openCommandModal({
         action,
@@ -1987,14 +2011,7 @@
       });
       return;
     }
-    openCommandModal({
-      action,
-      eyebrow: "Office Action",
-      title: action.replace(/_/g, " "),
-      subtitle: "This action is ready for backend-specific production wiring.",
-      submitLabel: "Queue action",
-      fields: text("title", "Title", "Action title"),
-    });
+    setBulkStatus(`${action.replace(/_/g, " ")} does not have a visible production handler in this workspace. Use the module tabs or quick actions that are wired to live routes.`, true);
   }
 
   function handleAdminSection(section) {
@@ -4012,7 +4029,7 @@
         <div class="command-layout">
           <div class="command-main">
             <article class="command-card">
-	              <div class="command-card-head"><h4>Channel Performance</h4><button class="ghost compact" type="button">View all</button></div>
+	              <div class="command-card-head"><h4>Channel Performance</h4><button class="ghost compact" data-office-target="crm_agents" type="button">View all</button></div>
 	              <div class="channel-grid">
 	                ${channelRows.map(function (row) {
 	                  return `<div class="channel-card"><span class="command-icon ${platformIconClass(row[0])}">${officeIcon(row[2])}</span><strong>${escapeHtml(String(row[1]))}</strong><div class="subtext">${escapeHtml(row[0])}</div></div>`;
@@ -4555,10 +4572,11 @@
           return;
         }
         if (type === "action" && value === "add_agent") {
-          setComposerStatus(
-            "Agent registry is not wired yet. Next pass should create Office agent profiles and permissions.",
-            false
-          );
+          state.workspaceTab = "ai_operations";
+          state.overviewFocus = "ai_operations";
+          state.aiOpsView = "agent_console";
+          renderWorkspaceTabs();
+          setBulkStatus("Agent Console opened. AI agent profile work now routes through AI Operations.");
         }
         if (type === "staff_action" && value) {
           const panel = document.getElementById(value);
@@ -4783,7 +4801,7 @@
           </div>
           <aside class="command-side context-rail">
             <article class="command-card">
-              <div class="command-card-head"><h4>Real-time Activity</h4><button class="ghost compact" type="button">View all</button></div>
+              <div class="command-card-head"><h4>Real-time Activity</h4><button class="ghost compact" data-office-target="audit" type="button">View all</button></div>
               <div class="mission-list">
                 ${activityRows.length ? activityRows.map(function (item, index) {
                   const tone = item.tone || ["healthy", "warning", "info", "critical", "healthy"][index % 5];
