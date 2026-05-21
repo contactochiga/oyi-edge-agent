@@ -136,53 +136,132 @@ function extensionForAudioMime(mimeType) {
 }
 
 function integrationStatus(config) {
-  return {
+  const missingKeys = (rows) => rows.filter(([, value]) => !value).map(([key]) => key);
+  const hasFacilityAuth = Boolean(config.officeFacilityApiKey || config.officeFacilityBearerToken);
+  const hasConsumerAuth = Boolean(config.officeConsumerApiKey || config.officeConsumerBearerToken);
+  const facilityMetrics = [
+    "estates",
+    "buildings",
+    "homes",
+    "devices",
+    "wallets",
+    "analytics",
+    "documents",
+    "support_mappings",
+    "visitors",
+    "maintenance",
+    "incidents",
+    "edge_heartbeats",
+    "utility_events",
+  ];
+  const consumerMetrics = [
+    "homes",
+    "rooms",
+    "residents",
+    "devices",
+    "wallets",
+    "visitors",
+    "community",
+    "support",
+    "automations",
+    "notifications",
+    "device_telemetry",
+  ];
+  const statuses = {
     facility: {
       key: "facility",
       name: "Oyi Facility API",
       configured: Boolean(config.officeFacilityBaseUrl),
+      production_ready: Boolean(config.officeFacilityBaseUrl && hasFacilityAuth),
+      status: config.officeFacilityBaseUrl && hasFacilityAuth ? "connected" : "pending_integration",
       base_url: config.officeFacilityBaseUrl || "",
       export_path: config.officeFacilityExportPath || "/office/export",
       auth: config.officeFacilityBearerToken ? "bearer" : config.officeFacilityApiKey ? "api_key" : "none",
       sync_target: "facility",
+      required_metrics: facilityMetrics,
+      missing: missingKeys([
+        ["OFFICE_FACILITY_BASE_URL", config.officeFacilityBaseUrl],
+        ["OFFICE_FACILITY_API_KEY or OFFICE_FACILITY_BEARER_TOKEN", hasFacilityAuth],
+      ]),
     },
     consumer: {
       key: "consumer",
       name: "Consumer Smart Building API",
       configured: Boolean(config.officeConsumerBaseUrl),
+      production_ready: Boolean(config.officeConsumerBaseUrl && hasConsumerAuth),
+      status: config.officeConsumerBaseUrl && hasConsumerAuth ? "connected" : "pending_integration",
       base_url: config.officeConsumerBaseUrl || "",
       export_path: config.officeConsumerExportPath || "/office/export",
       auth: config.officeConsumerBearerToken ? "bearer" : config.officeConsumerApiKey ? "api_key" : "none",
       sync_target: "consumer",
+      required_metrics: consumerMetrics,
+      missing: missingKeys([
+        ["OFFICE_CONSUMER_BASE_URL", config.officeConsumerBaseUrl],
+        ["OFFICE_CONSUMER_API_KEY or OFFICE_CONSUMER_BEARER_TOKEN", hasConsumerAuth],
+      ]),
     },
     email: {
       key: "email",
       name: "Office Email",
       configured: Boolean(config.officeEmailProvider && config.resendApiKey),
+      production_ready: Boolean(config.officeEmailProvider && config.resendApiKey && config.officeEmailFrom),
+      status: config.officeEmailProvider && config.resendApiKey ? "connected" : "pending_integration",
       provider: config.officeEmailProvider || "none",
       from: config.officeEmailFrom,
+      missing: missingKeys([
+        ["OFFICE_EMAIL_PROVIDER", config.officeEmailProvider],
+        ["RESEND_API_KEY", config.resendApiKey],
+        ["OFFICE_EMAIL_FROM", config.officeEmailFrom],
+      ]),
     },
     storage: {
       key: "storage",
       name: "Office Storage",
       configured: Boolean(config.officeStorageDir),
+      production_ready: Boolean(config.officeStorageDriver && config.officeStorageDir),
+      status: config.officeStorageDriver && config.officeStorageDir ? "connected" : "pending_integration",
       driver: config.officeStorageDriver || "local",
       path: config.officeStorageDir,
+      missing: missingKeys([
+        ["OFFICE_STORAGE_DRIVER", config.officeStorageDriver],
+        ["OFFICE_STORAGE_DIR", config.officeStorageDir],
+      ]),
     },
     events: {
       key: "events",
       name: "Live Office Events",
       configured: true,
+      production_ready: true,
+      status: "connected",
       driver: "server_sent_events",
       endpoint: "/api/lead-agents/admin/events",
+      events: [
+        "device.status.updated",
+        "visitor.created",
+        "wallet.funded",
+        "support.ticket.created",
+        "support.ticket.assigned",
+        "estate.updated",
+        "home.updated",
+        "edge.heartbeat",
+        "office.notification",
+        "audit.recorded",
+        "twin.state.updated",
+      ],
+      missing: [],
     },
     maps: {
       key: "maps",
       name: "Estate Map Provider",
       configured: Boolean(config.mapboxPublicToken || config.googleMapsApiKey),
+      production_ready: Boolean(config.googleMapsApiKey || config.mapboxPublicToken),
+      status: config.googleMapsApiKey || config.mapboxPublicToken ? "connected" : "pending_integration",
       provider: config.mapProvider || "static",
       mapbox_ready: Boolean(config.mapboxPublicToken),
       google_ready: Boolean(config.googleMapsApiKey),
+      missing: missingKeys([
+        ["GOOGLE_MAPS_API_KEY or MAPBOX_PUBLIC_TOKEN", config.googleMapsApiKey || config.mapboxPublicToken],
+      ]),
     },
     whatsapp: {
       key: "whatsapp",
@@ -193,20 +272,38 @@ function integrationStatus(config) {
           config.whatsappPhoneNumberId &&
           config.whatsappBusinessAccountId
       ),
+      production_ready: Boolean(
+        config.whatsappVerifyToken &&
+          config.whatsappAccessToken &&
+          config.whatsappPhoneNumberId &&
+          config.whatsappBusinessAccountId
+      ),
+      status:
+        config.whatsappVerifyToken &&
+        config.whatsappAccessToken &&
+        config.whatsappPhoneNumberId &&
+        config.whatsappBusinessAccountId
+          ? "connected"
+          : "pending_integration",
       provider: "meta",
       webhook: "/webhooks/whatsapp",
       api_version: config.whatsappApiVersion,
-      missing: [
+      missing: missingKeys([
         ["WHATSAPP_VERIFY_TOKEN", config.whatsappVerifyToken],
         ["WHATSAPP_ACCESS_TOKEN", config.whatsappAccessToken],
         ["WHATSAPP_PHONE_NUMBER_ID", config.whatsappPhoneNumberId],
         ["WHATSAPP_BUSINESS_ACCOUNT_ID", config.whatsappBusinessAccountId],
-      ].filter(([, value]) => !value).map(([key]) => key),
+      ]),
     },
     meta: {
       key: "meta",
       name: "Meta App",
       configured: Boolean(config.metaAppId && config.metaAppSecret),
+      production_ready: Boolean(config.metaAppId && config.metaAppSecret && config.metaAccessToken),
+      status:
+        config.metaAppId && config.metaAppSecret && config.metaAccessToken
+          ? "connected"
+          : "pending_integration",
       provider: "meta",
       app_ready: Boolean(config.metaAppId && config.metaAppSecret),
       api_token_ready: Boolean(config.metaAccessToken),
@@ -215,7 +312,7 @@ function integrationStatus(config) {
           (config.instagramAccessToken || config.facebookPageAccessToken || config.metaAccessToken)
       ),
       facebook_page_ready: Boolean(config.facebookPageId && config.facebookPageAccessToken),
-      missing: [
+      missing: missingKeys([
         ["META_APP_ID", config.metaAppId],
         ["META_APP_SECRET", config.metaAppSecret],
         ["META_ACCESS_TOKEN", config.metaAccessToken],
@@ -223,33 +320,48 @@ function integrationStatus(config) {
         ["INSTAGRAM_ACCESS_TOKEN or FACEBOOK_PAGE_ACCESS_TOKEN", config.instagramAccessToken || config.facebookPageAccessToken],
         ["FACEBOOK_PAGE_ID", config.facebookPageId],
         ["FACEBOOK_PAGE_ACCESS_TOKEN", config.facebookPageAccessToken],
-      ].filter(([, value]) => !value).map(([key]) => key),
+      ]),
     },
     linkedin: {
       key: "linkedin",
       name: "LinkedIn Marketing / Analytics",
       configured: Boolean(config.linkedinClientId && config.linkedinClientSecret),
+      production_ready: Boolean(
+        config.linkedinClientId &&
+          config.linkedinClientSecret &&
+          config.linkedinOrganizationId &&
+          config.linkedinAccessToken
+      ),
+      status:
+        config.linkedinClientId &&
+        config.linkedinClientSecret &&
+        config.linkedinOrganizationId &&
+        config.linkedinAccessToken
+          ? "connected"
+          : "pending_integration",
       provider: "linkedin",
       app_ready: Boolean(config.linkedinClientId && config.linkedinClientSecret),
       organization_ready: Boolean(config.linkedinOrganizationId),
       api_token_ready: Boolean(config.linkedinAccessToken),
       redirect_uri: config.linkedinRedirectUri || "",
-      missing: [
+      missing: missingKeys([
         ["LINKEDIN_CLIENT_ID", config.linkedinClientId],
         ["LINKEDIN_CLIENT_SECRET", config.linkedinClientSecret],
         ["LINKEDIN_ORGANIZATION_ID", config.linkedinOrganizationId],
         ["LINKEDIN_ACCESS_TOKEN", config.linkedinAccessToken],
-      ].filter(([, value]) => !value).map(([key]) => key),
+      ]),
     },
     google_oauth: {
       key: "google_oauth",
       name: "Google OAuth",
       configured: Boolean(config.googleOAuthClientId && config.googleOAuthClientSecret),
+      production_ready: Boolean(config.googleOAuthClientId && config.googleOAuthClientSecret),
+      status: config.googleOAuthClientId && config.googleOAuthClientSecret ? "connected" : "pending_integration",
       provider: "google",
-      missing: [
+      missing: missingKeys([
         ["GOOGLE_OAUTH_CLIENT_ID", config.googleOAuthClientId],
         ["GOOGLE_OAUTH_CLIENT_SECRET", config.googleOAuthClientSecret],
-      ].filter(([, value]) => !value).map(([key]) => key),
+      ]),
     },
     google_marketing: {
       key: "google_marketing",
@@ -260,16 +372,93 @@ function integrationStatus(config) {
           config.googleAnalyticsPropertyId ||
           config.googleAnalyticsMeasurementId
       ),
+      production_ready: Boolean(
+        (config.googleAdsDeveloperToken && config.googleAdsCustomerId) ||
+          config.googleAnalyticsPropertyId ||
+          config.googleAnalyticsMeasurementId
+      ),
+      status:
+        (config.googleAdsDeveloperToken && config.googleAdsCustomerId) ||
+        config.googleAnalyticsPropertyId ||
+        config.googleAnalyticsMeasurementId
+          ? "connected"
+          : "pending_integration",
       provider: "google",
       ads_ready: Boolean(config.googleAdsDeveloperToken && config.googleAdsCustomerId),
       analytics_ready: Boolean(config.googleAnalyticsPropertyId || config.googleAnalyticsMeasurementId),
-      missing: [
+      missing: missingKeys([
         ["GOOGLE_ADS_DEVELOPER_TOKEN", config.googleAdsDeveloperToken],
         ["GOOGLE_ADS_CUSTOMER_ID", config.googleAdsCustomerId],
         ["GOOGLE_ANALYTICS_PROPERTY_ID", config.googleAnalyticsPropertyId],
-      ].filter(([, value]) => !value).map(([key]) => key),
+      ]),
+    },
+    edge: {
+      key: "edge",
+      name: "Oyi Edge / Backend Control Plane",
+      configured: Boolean(config.officeBackendBaseUrl || config.edgeAgentTokens.length),
+      production_ready: Boolean(config.officeBackendBaseUrl && (config.officeBackendApiKey || config.edgeAgentTokens.length)),
+      status:
+        config.officeBackendBaseUrl && (config.officeBackendApiKey || config.edgeAgentTokens.length)
+          ? "connected"
+          : "pending_integration",
+      base_url: config.officeBackendBaseUrl || "",
+      missing: missingKeys([
+        ["OFFICE_BACKEND_BASE_URL", config.officeBackendBaseUrl],
+        ["OFFICE_BACKEND_API_KEY or OYI_EDGE_AGENT_TOKEN(S)", config.officeBackendApiKey || config.edgeAgentTokens.length],
+      ]),
+      required_metrics: ["edge.heartbeat", "device.status.updated", "device.command.executed", "camera.snapshot.created"],
+    },
+    digital_twin: {
+      key: "digital_twin",
+      name: "Oyi Digital Twin Binding",
+      configured: Boolean(config.officeDigitalTwinBaseUrl),
+      production_ready: Boolean(config.officeDigitalTwinBaseUrl && config.officeDigitalTwinApiKey),
+      status:
+        config.officeDigitalTwinBaseUrl && config.officeDigitalTwinApiKey
+          ? "connected"
+          : "pending_integration",
+      base_url: config.officeDigitalTwinBaseUrl || "",
+      state_path: config.officeDigitalTwinStatePath || "/office/twin/state",
+      missing: missingKeys([
+        ["OFFICE_DIGITAL_TWIN_BASE_URL", config.officeDigitalTwinBaseUrl],
+        ["OFFICE_DIGITAL_TWIN_API_KEY", config.officeDigitalTwinApiKey],
+      ]),
+      required_metrics: ["twin.state.updated", "twin.objects", "twin.overlays", "twin.heatmap_events"],
+    },
+    webhooks: {
+      key: "webhooks",
+      name: "Provider Webhook Intake",
+      configured: Boolean(config.whatsappVerifyToken || config.officeEventWebhookSecret),
+      production_ready: Boolean(config.whatsappVerifyToken && config.officeEventWebhookSecret),
+      status:
+        config.whatsappVerifyToken && config.officeEventWebhookSecret
+          ? "connected"
+          : "pending_integration",
+      missing: missingKeys([
+        ["WHATSAPP_VERIFY_TOKEN", config.whatsappVerifyToken],
+        ["OFFICE_EVENT_WEBHOOK_SECRET", config.officeEventWebhookSecret],
+      ]),
+      required_events: ["whatsapp.message.received", "linkedin.lead.received", "meta.message.received", "provider.delivery.recorded"],
     },
   };
+  const productionChecks = Object.values(statuses).filter((item) => item && item.key !== "google_marketing");
+  const readyChecks = productionChecks.filter((item) => item.production_ready).length;
+  statuses.__readiness = {
+    key: "__readiness",
+    name: "Office Production Readiness",
+    total_checks: productionChecks.length,
+    ready_checks: readyChecks,
+    readiness_pct: productionChecks.length ? Math.round((readyChecks / productionChecks.length) * 100) : 0,
+    blockers: productionChecks
+      .filter((item) => !item.production_ready)
+      .map((item) => ({
+        key: item.key,
+        name: item.name,
+        missing: item.missing || [],
+        required_metrics: item.required_metrics || item.required_events || [],
+      })),
+  };
+  return statuses;
 }
 
 function publicMapConfig(config) {

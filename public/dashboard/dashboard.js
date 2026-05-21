@@ -3644,25 +3644,33 @@
   function renderPlatformInfrastructureDashboard() {
     if (!el.platformInfrastructurePanel) return;
     const integrations = state.integrations || {};
+    const readiness = integrations.__readiness || null;
     const rows = [
       integrations.maps || { name: "Estate Map Provider", configured: Boolean(state.mapConfig?.google_maps?.configured), missing: [] },
       integrations.facility || { name: "Oyi Facility API", configured: false, missing: [] },
       integrations.consumer || { name: "Oyi Consumer API", configured: false, missing: [] },
+      integrations.edge || { name: "Oyi Edge / Backend Control Plane", configured: false, missing: [] },
+      integrations.digital_twin || { name: "Oyi Digital Twin Binding", configured: false, missing: [] },
       integrations.whatsapp || { name: "WhatsApp Cloud", configured: false, missing: [] },
       integrations.meta || { name: "Meta App", configured: false, missing: [] },
       integrations.linkedin || { name: "LinkedIn", configured: false, missing: [] },
       integrations.email || { name: "Office Email", configured: false, missing: [] },
       integrations.google_oauth || { name: "Google OAuth", configured: false, missing: [] },
+      integrations.webhooks || { name: "Provider Webhook Intake", configured: false, missing: [] },
     ];
-    const connected = rows.filter(function (row) { return row.configured; }).length;
+    const connected = rows.filter(function (row) { return row.production_ready || row.configured; }).length;
+    const productionReady = rows.filter(function (row) { return row.production_ready; }).length;
     const missing = rows.reduce(function (sum, row) {
       return sum + (Array.isArray(row.missing) ? row.missing.length : row.configured ? 0 : 1);
     }, 0);
     const activeFacet = state.moduleFacet.settings || "dashboard";
     const eventEntries = rankEntries(getDerivedData().auditActionCounts || {}, 6);
     const providerEntries = rows.map(function (row) {
-      return { label: row.name || row.key || "Provider", value: row.configured ? 1 : 0 };
+      return { label: row.name || row.key || "Provider", value: row.production_ready ? 1 : 0 };
     });
+    const blockerRows = readiness && Array.isArray(readiness.blockers)
+      ? readiness.blockers.slice(0, 6)
+      : rows.filter(function (row) { return !row.production_ready; }).slice(0, 6);
 
     el.platformInfrastructurePanel.innerHTML = `
       <div class="command-page platform-workspace">
@@ -3678,8 +3686,8 @@
           ${[
             ["Realtime", state.channelOverview?.channels?.length || 0, "Office event channels", "activity"],
             ["Storage", state.officeStats?.office_files || state.officeStats?.documents || 0, "Office file metadata", "website"],
-            ["API Health", connected ? "Online" : "Pending", "Provider connectivity", "settings"],
-            ["Webhooks", state.officeStats?.webhooks || 0, "Inbound callbacks", "trend"],
+            ["Production checks", `${productionReady}/${rows.length}`, `${readiness?.readiness_pct || 0}% provider readiness`, "settings"],
+            ["Webhooks", integrations.webhooks?.production_ready ? "Ready" : "Pending", "Inbound callback security", "trend"],
           ].map(function (item) {
             return `<div class="command-kpi"><span class="command-icon">${officeIcon(item[3])}</span><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
           }).join("")}
@@ -3691,8 +3699,14 @@
                 <div class="command-card-head"><h4>${activeFacet === "dashboard" ? "Provider Status" : activeFacet.replace(/_/g, " ")}</h4><span class="subtext">${connected}/${rows.length} connected</span></div>
                 <div class="mission-list">
                   ${rows.map(function (row) {
-                    const status = row.configured ? "Connected" : Array.isArray(row.missing) && row.missing.length ? `Missing ${row.missing.length}` : "Needs env";
-                    return `<div class="device-category"><span>${escapeHtml(row.name || row.key || "Provider")}</span><strong style="color:${row.configured ? "var(--green)" : "#ffc247"}">${escapeHtml(status)}</strong></div>`;
+                    const status = row.production_ready
+                      ? "Production Ready"
+                      : row.configured
+                        ? "Configured / Needs validation"
+                        : Array.isArray(row.missing) && row.missing.length
+                          ? `Missing ${row.missing.length}`
+                          : "Pending Integration";
+                    return `<div class="device-category"><span>${escapeHtml(row.name || row.key || "Provider")}</span><strong style="color:${row.production_ready ? "var(--green)" : "#ffc247"}">${escapeHtml(status)}</strong></div>`;
                   }).join("")}
                 </div>
               </article>
@@ -3701,8 +3715,21 @@
                 <div class="intel-bar-list">${barRows(eventEntries, "No event stream data synced yet.")}</div>
               </article>
               <article class="command-card">
-                <div class="command-card-head"><h4>Infrastructure Readiness</h4><span class="subtext">Runtime checks</span></div>
+                <div class="command-card-head"><h4>Infrastructure Readiness</h4><span class="subtext">${readiness?.readiness_pct || 0}% checks ready</span></div>
                 <div class="intel-bar-list">${barRows(providerEntries, "No providers configured yet.")}</div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>100% Readiness Blockers</h4><span class="subtext">Credentials + payloads</span></div>
+                <div class="mission-list">
+                  ${blockerRows.length ? blockerRows.map(function (row) {
+                    const missingList = Array.isArray(row.missing) && row.missing.length
+                      ? row.missing.slice(0, 3).join(", ")
+                      : Array.isArray(row.required_metrics) && row.required_metrics.length
+                        ? row.required_metrics.slice(0, 3).join(", ")
+                        : "Pending live validation";
+                    return `<div class="activity-item"><span class="activity-icon warning">${officeIcon("alert")}</span><div><strong>${escapeHtml(row.name || row.key || "Integration")}</strong><small>${escapeHtml(missingList)}</small></div></div>`;
+                  }).join("") : '<div class="empty-state">No readiness blockers reported.</div>'}
+                </div>
               </article>
             </div>
           </div>
@@ -3711,9 +3738,10 @@
               <div class="command-card-head"><h4>System Sync</h4></div>
               <div class="mission-list">
                 <div class="device-category"><span>Office SSE</span><strong>${state.officeEventSource ? "Active" : "Standby"}</strong></div>
-                <div class="device-category"><span>Facility API</span><strong>${integrations.facility?.configured ? "Connected" : "Pending"}</strong></div>
-                <div class="device-category"><span>Consumer API</span><strong>${integrations.consumer?.configured ? "Connected" : "Pending"}</strong></div>
+                <div class="device-category"><span>Facility API</span><strong>${integrations.facility?.production_ready ? "Ready" : "Pending"}</strong></div>
+                <div class="device-category"><span>Consumer API</span><strong>${integrations.consumer?.production_ready ? "Ready" : "Pending"}</strong></div>
                 <div class="device-category"><span>Map Provider</span><strong>${state.mapConfig?.google_maps?.configured ? "Google" : "Static"}</strong></div>
+                <div class="device-category"><span>Digital Twin Binding</span><strong>${integrations.digital_twin?.production_ready ? "Ready" : "Pending"}</strong></div>
               </div>
             </article>
             <article class="command-card">
