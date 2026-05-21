@@ -160,9 +160,26 @@ function collectionPayload(payload) {
   return payload.collections && typeof payload.collections === "object" ? payload.collections : payload;
 }
 
-function payloadSupport(payload, requiredKeys) {
+function payloadSupport(payload, requiredKeys, domain) {
   const collections = collectionPayload(payload);
-  const missing = requiredKeys.filter((key) => !Object.prototype.hasOwnProperty.call(collections, key));
+  const completeness = payload && typeof payload === "object" && payload.completeness && typeof payload.completeness === "object"
+    ? payload.completeness
+    : {};
+  const domainCompleteness = domain && completeness[domain] && typeof completeness[domain] === "object"
+    ? completeness[domain]
+    : {};
+  const missing = requiredKeys.filter((key) => {
+    if (Object.prototype.hasOwnProperty.call(domainCompleteness, key)) {
+      return !domainCompleteness[key];
+    }
+    if (key === "users" && Object.prototype.hasOwnProperty.call(domainCompleteness, "residents")) {
+      return !domainCompleteness.residents;
+    }
+    if (key === "support_mappings" && Object.prototype.hasOwnProperty.call(domainCompleteness, "support")) {
+      return !domainCompleteness.support;
+    }
+    return !Object.prototype.hasOwnProperty.call(collections, key);
+  });
   return {
     checked: Boolean(payload && typeof payload === "object"),
     complete: missing.length === 0,
@@ -284,8 +301,14 @@ async function integrationStatus(config, options = {}) {
     twinSceneProbePromise,
     twinStateProbePromise,
   ]);
-  const facilityPayload = payloadSupport(facilityProbe.payload, facilityMetrics);
-  const consumerPayload = payloadSupport(consumerProbe.payload, consumerMetrics);
+  const facilityPayload = payloadSupport(facilityProbe.payload, facilityMetrics, "facility");
+  const consumerPayload = payloadSupport(consumerProbe.payload, consumerMetrics, "consumer");
+  const webhookHistoryAvailable = Boolean(
+    facilityProbe.payload?.completeness?.webhooks?.delivery_history ||
+      consumerProbe.payload?.completeness?.webhooks?.delivery_history ||
+      facilityProbe.payload?.meta?.webhook_delivery?.available ||
+      consumerProbe.payload?.meta?.webhook_delivery?.available
+  );
   const twinControlPermissionReady = PERMISSION_KEYS.includes("twin.control");
   const statuses = {
     facility: {
@@ -571,14 +594,18 @@ async function integrationStatus(config, options = {}) {
       key: "webhooks",
       name: "Provider Webhook Intake",
       configured: Boolean(config.whatsappVerifyToken || config.officeEventWebhookSecret),
-      production_ready: Boolean(config.whatsappVerifyToken && config.officeEventWebhookSecret),
+      production_ready: Boolean(config.whatsappVerifyToken && config.officeEventWebhookSecret && webhookHistoryAvailable),
       status:
-        config.whatsappVerifyToken && config.officeEventWebhookSecret
+        config.whatsappVerifyToken && config.officeEventWebhookSecret && webhookHistoryAvailable
           ? "connected"
-          : "pending_integration",
+          : config.officeEventWebhookSecret
+            ? "configured_needs_validation"
+            : "pending_integration",
+      delivery_history_available: webhookHistoryAvailable,
       missing: missingKeys([
         ["WHATSAPP_VERIFY_TOKEN", config.whatsappVerifyToken],
         ["OFFICE_EVENT_WEBHOOK_SECRET", config.officeEventWebhookSecret],
+        ["provider_webhook_events table/export", webhookHistoryAvailable],
       ]),
       required_events: ["whatsapp.message.received", "linkedin.lead.received", "meta.message.received", "provider.delivery.recorded"],
     },
