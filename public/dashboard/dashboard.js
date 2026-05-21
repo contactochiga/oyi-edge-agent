@@ -4306,7 +4306,7 @@
               <div class="command-card-head"><h4>Real-time AI Activity</h4><span class="office-system-badge">Live</span></div>
               <div class="mission-list">
                 ${activityRows.length ? activityRows.map(function (item) {
-                  return `<div class="activity-row compact"><span class="ai-activity-orb">${officeIcon(item.icon)}</span><div class="activity-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)} · ${escapeHtml(item.time)}</span></div></div>`;
+                  return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot"></i></span><div class="activity-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)} · ${escapeHtml(item.time)}</span></div></div>`;
                 }).join("") : '<div class="office-detail-empty">No realtime AI activity has synced yet.</div>'}
               </div>
             </article>
@@ -4688,7 +4688,7 @@
       if (kind === "report_totals") return `<div class="mission-list">${Object.entries(totals).slice(0, 8).map(function (entry) { return `<div class="device-category"><span>${escapeHtml(entry[0].replace(/_/g, " "))}</span><strong>${escapeHtml(String(entry[1] || 0))}</strong></div>`; }).join("") || '<div class="office-detail-empty">No report totals synced yet.</div>'}</div>`;
       if (kind === "source_breakdown") return `<div class="intel-bar-list">${barRows(rankEntries((state.report && state.report.by_source) || {}, 8), "No source data synced yet.")}</div>`;
       if (kind === "status_breakdown") return `<div class="intel-bar-list">${barRows(rankEntries((state.report && state.report.by_status) || {}, 8), "No status data synced yet.")}</div>`;
-      if (kind === "report_actions") return `<div class="shortcut-grid ai-quick-actions"><button class="shortcut-btn" data-office-target="facility" type="button"><span>${officeIcon("estate")}</span>Estate Report</button><button class="shortcut-btn" data-office-target="devices" type="button"><span>${officeIcon("camera")}</span>Device Report</button><button class="shortcut-btn" data-office-target="audit" type="button"><span>${officeIcon("trend")}</span>Audit Report</button><button class="shortcut-btn" data-command-action="view_reports" type="button"><span>${officeIcon("settings")}</span>Export Summary</button></div>`;
+      if (kind === "report_actions") return `<div class="shortcut-grid compact-action-grid"><button class="shortcut-btn" data-office-target="facility" type="button"><span>${officeIcon("estate")}</span>Estate Report</button><button class="shortcut-btn" data-office-target="devices" type="button"><span>${officeIcon("camera")}</span>Device Report</button><button class="shortcut-btn" data-office-target="audit" type="button"><span>${officeIcon("trend")}</span>Audit Report</button><button class="shortcut-btn" data-command-action="view_reports" type="button"><span>${officeIcon("settings")}</span>Export Summary</button></div>`;
       if (kind === "predictive" || kind === "maintenance" || kind === "capacity" || kind === "next_actions") return `<div class="mission-list">${[
         ["Incident risk", incidents > 5 ? "Elevated" : "Normal"],
         ["Maintenance pressure", notifications.length ? `${notifications.length} live signals` : "No live pressure"],
@@ -4734,6 +4734,25 @@
       { title: "Diagnostics trail", meta: `${diagnostics} traces/audit records available for system diagnostics.`, tone: diagnostics ? "info" : "healthy", icon: "trend" },
       { title: "Predictive operations", meta: state.report ? "Report data is active for trend analysis." : "Connect more live events to strengthen prediction.", tone: state.report ? "healthy" : "warning", icon: "ai_operations" },
     ];
+    const activityRows = state.notifications.slice(0, 2).map(function (note) {
+      return {
+        title: displayValue(note.title || note.type, "Operational signal"),
+        meta: `${displayValue(note.status, "open")} · ${displayValue(note.summary || note.reason, "Infrastructure activity")}`,
+        tone: /critical|urgent|forced|fail|offline/i.test(`${note.priority || ""} ${note.type || ""} ${note.summary || ""}`) ? "critical" : "warning",
+      };
+    }).concat(state.audit.slice(0, 2).map(function (event) {
+      return {
+        title: displayValue(event.action, "audit.recorded"),
+        meta: `${displayValue(event.actor_email || event.actor, "Office")} · ${formatDate(event.created_at || event.timestamp)}`,
+        tone: /denied|fail|error/i.test(String(event.action || "")) ? "critical" : "info",
+      };
+    })).concat(state.traces.slice(0, 1).map(function (trace) {
+      return {
+        title: displayValue(trace.name || trace.event || trace.type, "diagnostic trace"),
+        meta: `${displayValue(trace.agent || trace.tool_name, "Trace")} · ${formatDate(trace.created_at || trace.timestamp || trace.ts)}`,
+        tone: "healthy",
+      };
+    })).slice(0, 5);
     const facetTitle = {
       dashboard: "Operational Intelligence Overview",
       analytics: "Analytics",
@@ -4745,14 +4764,6 @@
 
     el.infrastructureIntelligencePanel.innerHTML = `
       <div class="command-page intelligence-workspace">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">Infrastructure Intelligence</p>
-            <h3>Analytics, AI insights, predictive operations, diagnostics, and operational trends.</h3>
-            <p class="subtext" style="margin:8px 0 0;">A command-center layer for estate comparisons, support intelligence, device intelligence, and infrastructure health.</p>
-          </div>
-          <span class="office-system-badge ${state.report ? "" : "warning"}">${state.report ? "Live analytics" : "Awaiting report sync"}</span>
-        </div>
         <div class="command-kpis intelligence-kpis">
           ${[
             ["Infrastructure Health", `${healthScore}%`, "Support-adjusted estate posture", "trend"],
@@ -4767,14 +4778,19 @@
         <div class="command-layout">
           <div class="command-main">
             <div class="intelligence-grid">
-              <article class="command-card intelligence-section-banner">
-                <div class="command-card-head"><h4>${escapeHtml(facetTitle)}</h4><span class="subtext">Permission-aware live Office intelligence section</span></div>
-                <p class="subtext">This tab is wired to existing Office report, estate, device, audit, trace, and realtime signal collections. Empty states stay honest until production data arrives.</p>
-              </article>
               ${renderIntelligenceFacetPanels(activeFacet, { healthScore, incidents, diagnostics, totals, trendEntries, categoryEntries, derived, insightRows })}
             </div>
           </div>
           <aside class="command-side context-rail">
+            <article class="command-card">
+              <div class="command-card-head"><h4>Real-time Activity</h4><button class="ghost compact" type="button">View all</button></div>
+              <div class="mission-list">
+                ${activityRows.length ? activityRows.map(function (item, index) {
+                  const tone = item.tone || ["healthy", "warning", "info", "critical", "healthy"][index % 5];
+                  return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot ${escapeHtml(tone === "healthy" ? "" : tone)}"></i></span><div class="activity-copy"><strong>${escapeHtml(item.title || "Activity")}</strong><span>${escapeHtml(item.meta || "Live update")}</span></div></div>`;
+                }).join("") : '<div class="office-detail-empty">No live infrastructure activity has synced yet.</div>'}
+              </div>
+            </article>
             <article class="command-card">
               <div class="command-card-head"><h4>AI Insights</h4><span class="office-system-badge">Live</span></div>
               <div class="mission-list ai-insight-list">
@@ -4785,7 +4801,7 @@
             </article>
             <article class="command-card">
               <div class="command-card-head"><h4>Quick Actions</h4></div>
-              <div class="shortcut-grid ai-quick-actions">
+              <div class="shortcut-grid compact-action-grid">
                 <button class="shortcut-btn" data-office-target="facility" type="button"><span>${officeIcon("estate")}</span>Compare Estates</button>
                 <button class="shortcut-btn" data-office-target="devices" type="button"><span>${officeIcon("camera")}</span>Device Intelligence</button>
                 <button class="shortcut-btn" data-office-target="support" type="button"><span>${officeIcon("support")}</span>Support Intelligence</button>
