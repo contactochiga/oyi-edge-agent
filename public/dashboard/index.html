@@ -2682,6 +2682,119 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
       }
+      .intelligence-kpis {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+      .intelligence-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .intelligence-chart-card {
+        min-height: 260px;
+      }
+      .intel-line-chart {
+        height: 204px;
+        border-radius: 12px;
+        padding: 18px;
+        display: flex;
+        align-items: end;
+        gap: 14px;
+        background:
+          linear-gradient(180deg, rgba(54,163,255,0.08), rgba(40,230,141,0.035)),
+          repeating-linear-gradient(0deg, rgba(149,166,255,0.07) 0 1px, transparent 1px 38px);
+      }
+      .intel-line-chart span {
+        flex: 1;
+        height: var(--h);
+        min-height: 18px;
+        border-radius: 999px 999px 4px 4px;
+        background: linear-gradient(180deg, rgba(54,163,255,0.85), rgba(124,77,255,0.36));
+        box-shadow: 0 0 22px rgba(54,163,255,0.18);
+        animation: intelBarRise 620ms ease both;
+        animation-delay: calc(var(--i) * 70ms);
+      }
+      @keyframes intelBarRise {
+        from { transform: scaleY(0.2); opacity: 0.25; }
+        to { transform: scaleY(1); opacity: 1; }
+      }
+      .intel-bar-list {
+        display: grid;
+        gap: 10px;
+      }
+      .intel-bar-row {
+        display: grid;
+        grid-template-columns: minmax(90px, 1fr) 1.6fr auto;
+        align-items: center;
+        gap: 10px;
+        font-size: 11px;
+        color: rgba(236,242,255,0.78);
+      }
+      .intel-bar-row i {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(149,166,255,0.12);
+        overflow: hidden;
+      }
+      .intel-bar-row b {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #7c4dff, #36a3ff, #28e68d);
+      }
+      .platform-grid {
+        grid-template-columns: 1.2fr 1fr 1fr;
+      }
+      .admin-dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .admin-dashboard-card {
+        min-height: 96px;
+        border-radius: 12px;
+        border: 1px solid rgba(149,166,255,0.13);
+        background: linear-gradient(145deg, rgba(17,25,50,0.88), rgba(8,13,28,0.86));
+        color: #f6f8ff;
+        display: grid;
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        text-align: left;
+        cursor: pointer;
+      }
+      .admin-dashboard-card strong,
+      .admin-dashboard-card small {
+        display: block;
+      }
+      .admin-dashboard-card small {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .admin-dashboard-card b {
+        font-size: 18px;
+        font-weight: 560;
+      }
+      .staff-compact-card {
+        padding: 0;
+        overflow: hidden;
+      }
+      .staff-compact-card summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 12px;
+      }
+      .staff-compact-card summary::-webkit-details-marker {
+        display: none;
+      }
+      .staff-compact-card > .staff-identity-row,
+      .staff-compact-card > .staff-meta-grid,
+      .staff-compact-card > .staff-access-strip,
+      .staff-compact-card > .staff-control-panel {
+        margin: 0 12px 12px;
+      }
       .settings-kpis {
         grid-template-columns: repeat(4, minmax(0, 1fr));
       }
@@ -5028,31 +5141,8 @@
               </div>
             </div>
             <div class="tab-panel" data-panel="reports">
-              <div class="tab-panel-scroll stack-16">
-                <div class="card detail-card">
-                  <div class="key">Office Report</div>
-                  <div id="reportsPanel" class="value empty">No report loaded yet.</div>
-                </div>
-                <div class="card detail-card">
-                  <div class="key">Source Breakdown</div>
-                  <div id="sourcesPanel" class="value empty">No source breakdown yet.</div>
-                </div>
-                <div class="card detail-card">
-                  <div class="key">Stage Breakdown</div>
-                  <div id="statusesPanel" class="value empty">No stage breakdown yet.</div>
-                </div>
-                <div class="card detail-card">
-                  <div class="key">Owner Breakdown</div>
-                  <div id="ownersPanel" class="value empty">No owner breakdown yet.</div>
-                </div>
-                <div class="card detail-card">
-                  <div class="key">Commercial Stage Breakdown</div>
-                  <div id="commercialStagesPanel" class="value empty">No commercial stage data yet.</div>
-                </div>
-                <div class="card detail-card">
-                  <div class="key">Upcoming Demos</div>
-                  <div id="upcomingDemosPanel" class="value empty">No upcoming demos yet.</div>
-                </div>
+              <div class="tab-panel-scroll">
+                <div id="infrastructureIntelligencePanel"></div>
               </div>
             </div>
             <div class="tab-panel" data-panel="team">
@@ -5080,8 +5170,8 @@
                     <div class="command-main">
                       <div class="command-card">
                         <div class="command-card-head">
-                          <h4>Office staff registry</h4>
-                          <span class="subtext">Passport, QR/NFC credential, access state, and password controls</span>
+                          <h4 id="adminMainTitle">Administration dashboard</h4>
+                          <span class="subtext" id="adminMainSubtitle">Identity, roles, permissions, settings, integrations, accounts, and super-admin posture</span>
                         </div>
                         <div id="teamPanel" class="team-list"></div>
                       </div>
@@ -5194,53 +5284,8 @@
             </div>
             <div class="tab-panel" data-panel="settings">
               <div class="tab-panel-scroll">
-                <div class="command-page settings-workspace">
-                  <div class="command-head">
-                    <div>
-                      <p class="eyebrow">Office Settings</p>
-                      <h3>System configuration</h3>
-                      <p class="subtext" style="margin:8px 0 0;">Control Office defaults, notification behavior, integrations, security posture, and production sync settings.</p>
-                    </div>
-                    <span class="office-system-badge">System</span>
-                  </div>
-                  <div class="command-kpis settings-kpis">
-                    <div class="command-kpi"><div class="key" style="margin:0;">Environment</div><strong>Production grid</strong><span class="subtext">Office runtime</span></div>
-                    <div class="command-kpi"><div class="key" style="margin:0;">API Sync</div><strong>Enabled</strong><span class="subtext">Facility + smart building</span></div>
-                    <div class="command-kpi"><div class="key" style="margin:0;">Security</div><strong>Role based</strong><span class="subtext">Scoped permissions</span></div>
-                    <div class="command-kpi"><div class="key" style="margin:0;">Alerts</div><strong>Live</strong><span class="subtext">Inbox routing</span></div>
-                  </div>
-                  <div class="settings-card-grid">
-                    <article class="command-card">
-                      <p class="eyebrow">Integrations</p>
-                      <h3 style="margin:4px 0 8px;font-size:17px;font-weight:600;">Socket integration hub</h3>
-                      <div class="office-batch-row" id="settingsIntegrationHub">
-                        <span class="office-batch">Facility API <strong>Socket-ready</strong></span>
-                        <span class="office-batch">Smart Building API <strong>Socket-ready</strong></span>
-                        <span class="office-batch">Widget CRM <strong>Live</strong></span>
-                        <span class="office-batch">Meta Channels <strong>Managed here</strong></span>
-                        <span class="office-batch">New Integration <strong>+ Add</strong></span>
-                      </div>
-                    </article>
-                    <article class="command-card">
-                      <p class="eyebrow">Notifications</p>
-                      <h3 style="margin:4px 0 8px;font-size:17px;font-weight:600;">Routing rules</h3>
-                      <div class="office-batch-row">
-                        <span class="office-batch">Support <strong>Inbox</strong></span>
-                        <span class="office-batch">Founder alerts <strong>Escalations</strong></span>
-                        <span class="office-batch">Staff invites <strong>Email</strong></span>
-                      </div>
-                    </article>
-                    <article class="command-card">
-                      <p class="eyebrow">Security</p>
-                      <h3 style="margin:4px 0 8px;font-size:17px;font-weight:600;">Access control</h3>
-                      <div class="office-batch-row">
-                        <span class="office-batch">Permissions <strong>Scoped</strong></span>
-                        <span class="office-batch">Audit trail <strong>On</strong></span>
-                        <span class="office-batch">QR staff access <strong>Ready</strong></span>
-                      </div>
-                    </article>
-                  </div>
-                </div>
+                <div id="platformInfrastructurePanel"></div>
+                <div id="settingsIntegrationHub" hidden></div>
               </div>
             </div>
           </div>

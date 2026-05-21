@@ -385,6 +385,8 @@
     overviewDomainGrid: document.getElementById("overviewDomainGrid"),
     overviewFocusPanel: document.getElementById("overviewFocusPanel"),
     settingsIntegrationHub: document.getElementById("settingsIntegrationHub"),
+    infrastructureIntelligencePanel: document.getElementById("infrastructureIntelligencePanel"),
+    platformInfrastructurePanel: document.getElementById("platformInfrastructurePanel"),
     facilityPanel: document.getElementById("facilityPanel"),
     smartBuildingsPanel: document.getElementById("smartBuildingsPanel"),
     devicePanel: document.getElementById("devicePanel"),
@@ -393,6 +395,8 @@
     crmAgentsPanel: document.getElementById("crmAgentsPanel"),
     aiOperationsPanel: document.getElementById("aiOperationsPanel"),
     adminMetricsPanel: document.getElementById("adminMetricsPanel"),
+    adminMainTitle: document.getElementById("adminMainTitle"),
+    adminMainSubtitle: document.getElementById("adminMainSubtitle"),
     searchInput: document.getElementById("searchInput"),
     selectedCount: document.getElementById("selectedCount"),
     bulkOwnerSelect: document.getElementById("bulkOwnerSelect"),
@@ -3444,6 +3448,91 @@
       .join("");
   }
 
+  function renderPlatformInfrastructureDashboard() {
+    if (!el.platformInfrastructurePanel) return;
+    const integrations = state.integrations || {};
+    const rows = [
+      integrations.maps || { name: "Estate Map Provider", configured: Boolean(state.mapConfig?.google_maps?.configured), missing: [] },
+      integrations.facility || { name: "Oyi Facility API", configured: false, missing: [] },
+      integrations.consumer || { name: "Oyi Consumer API", configured: false, missing: [] },
+      integrations.whatsapp || { name: "WhatsApp Cloud", configured: false, missing: [] },
+      integrations.meta || { name: "Meta App", configured: false, missing: [] },
+      integrations.linkedin || { name: "LinkedIn", configured: false, missing: [] },
+      integrations.email || { name: "Office Email", configured: false, missing: [] },
+      integrations.google_oauth || { name: "Google OAuth", configured: false, missing: [] },
+    ];
+    const connected = rows.filter(function (row) { return row.configured; }).length;
+    const missing = rows.reduce(function (sum, row) {
+      return sum + (Array.isArray(row.missing) ? row.missing.length : row.configured ? 0 : 1);
+    }, 0);
+    const activeFacet = state.moduleFacet.settings || "dashboard";
+    const eventEntries = rankEntries(getDerivedData().auditActionCounts || {}, 6);
+    const providerEntries = rows.map(function (row) {
+      return { label: row.name || row.key || "Provider", value: row.configured ? 1 : 0 };
+    });
+
+    el.platformInfrastructurePanel.innerHTML = `
+      <div class="command-page platform-workspace">
+        <div class="command-head">
+          <div>
+            <p class="eyebrow">Platform Infrastructure</p>
+            <h3>Realtime events, storage, API health, webhooks, sync, provider status, and environment health.</h3>
+            <p class="subtext" style="margin:8px 0 0;">System-level health for the Office operating layer. Identity and permissions now live under Administration.</p>
+          </div>
+          <span class="office-system-badge ${missing ? "warning" : ""}">${missing ? `${missing} checks pending` : "Operational"}</span>
+        </div>
+        <div class="command-kpis settings-kpis">
+          ${[
+            ["Realtime", state.channelOverview?.channels?.length || 0, "Office event channels", "activity"],
+            ["Storage", state.officeStats?.office_files || state.officeStats?.documents || 0, "Office file metadata", "website"],
+            ["API Health", connected ? "Online" : "Pending", "Provider connectivity", "settings"],
+            ["Webhooks", state.officeStats?.webhooks || 0, "Inbound callbacks", "trend"],
+          ].map(function (item) {
+            return `<div class="command-kpi"><span class="command-icon">${officeIcon(item[3])}</span><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
+          }).join("")}
+        </div>
+        <div class="command-layout">
+          <div class="command-main">
+            <div class="settings-card-grid platform-grid">
+              <article class="command-card">
+                <div class="command-card-head"><h4>${activeFacet === "dashboard" ? "Provider Status" : activeFacet.replace(/_/g, " ")}</h4><span class="subtext">${connected}/${rows.length} connected</span></div>
+                <div class="mission-list">
+                  ${rows.map(function (row) {
+                    const status = row.configured ? "Connected" : Array.isArray(row.missing) && row.missing.length ? `Missing ${row.missing.length}` : "Needs env";
+                    return `<div class="device-category"><span>${escapeHtml(row.name || row.key || "Provider")}</span><strong style="color:${row.configured ? "var(--green)" : "#ffc247"}">${escapeHtml(status)}</strong></div>`;
+                  }).join("")}
+                </div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>Event Stream</h4><span class="subtext">Audit-backed events</span></div>
+                <div class="intel-bar-list">${barRows(eventEntries, "No event stream data synced yet.")}</div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>Infrastructure Readiness</h4><span class="subtext">Runtime checks</span></div>
+                <div class="intel-bar-list">${barRows(providerEntries, "No providers configured yet.")}</div>
+              </article>
+            </div>
+          </div>
+          <aside class="command-side context-rail">
+            <article class="command-card">
+              <div class="command-card-head"><h4>System Sync</h4></div>
+              <div class="mission-list">
+                <div class="device-category"><span>Office SSE</span><strong>${state.officeEventSource ? "Active" : "Standby"}</strong></div>
+                <div class="device-category"><span>Facility API</span><strong>${integrations.facility?.configured ? "Connected" : "Pending"}</strong></div>
+                <div class="device-category"><span>Consumer API</span><strong>${integrations.consumer?.configured ? "Connected" : "Pending"}</strong></div>
+                <div class="device-category"><span>Map Provider</span><strong>${state.mapConfig?.google_maps?.configured ? "Google" : "Static"}</strong></div>
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Operational Boundary</h4></div>
+              <div class="subtext">Platform Infrastructure is now restricted to runtime health, provider status, storage, realtime, sync, and webhooks. Staff, identity, permissions, accounts, and super-admin controls live in Administration.</div>
+            </article>
+          </aside>
+        </div>
+      </div>
+    `;
+  }
+
   function renderOverview() {
     const overview = buildOverviewDomains();
     const totals = overview.totals;
@@ -3790,16 +3879,23 @@
       ["Resolved", derived.resolvedNotifications || 0],
       ["Human Owned", derived.humanOwned.length || 0],
     ];
+	    const channelOverviewRows = asList(state.channelOverview?.channels);
+	    const channelLiveCount = function (name, fallback) {
+	      const match = channelOverviewRows.find(function (channel) {
+	        return String(channel.name || channel.key || "").toLowerCase().includes(String(name || "").toLowerCase());
+	      });
+	      return Number(match?.lead_count || match?.message_count || match?.open_notifications || fallback || 0);
+	    };
 	    const channelRows = [
-	      ["Website", derived.channelCounts.website, "website"],
-	      ["WhatsApp", derived.channelCounts.whatsapp, "whatsapp"],
-	      ["Instagram", derived.channelCounts.instagram, "instagram"],
-	      ["Facebook", derived.channelCounts.facebook, "facebook"],
-	      ["LinkedIn", derived.channelCounts.linkedin, "linkedin"],
-	      ["TikTok", derived.channelCounts.tiktok, "tiktok"],
-	      ["Google Ads", derived.channelCounts.google, "google"],
-	      ["App Store", derived.channelCounts.appStore, "website"],
-	      ["Play Store", derived.channelCounts.playStore, "google"],
+	      ["Website", channelLiveCount("web", derived.channelCounts.website), "website"],
+	      ["WhatsApp", channelLiveCount("whatsapp", derived.channelCounts.whatsapp), "whatsapp"],
+	      ["Instagram", channelLiveCount("instagram", derived.channelCounts.instagram), "instagram"],
+	      ["Facebook", channelLiveCount("facebook", derived.channelCounts.facebook), "facebook"],
+	      ["LinkedIn", channelLiveCount("linkedin", derived.channelCounts.linkedin), "linkedin"],
+	      ["TikTok", channelLiveCount("tiktok", derived.channelCounts.tiktok), "tiktok"],
+	      ["Google Ads", channelLiveCount("google", derived.channelCounts.google), "google"],
+	      ["App Store", channelLiveCount("app store", derived.channelCounts.appStore), "website"],
+	      ["Play Store", channelLiveCount("play", derived.channelCounts.playStore), "google"],
 	    ];
 	    const integrationRows = crmIntegrationStatusRows();
 	    const visibleIntegrationRows = state.crmIntegrationsExpanded ? integrationRows : integrationRows.slice(0, 5);
@@ -4421,7 +4517,125 @@
       .join("");
   }
 
+  function barRows(entries, emptyText) {
+    const rows = asList(entries).filter(function (entry) {
+      return entry && entry.label !== undefined;
+    });
+    const max = Math.max(1, ...rows.map(function (entry) { return Number(entry.value || 0); }));
+    if (!rows.length) return `<div class="office-detail-empty">${escapeHtml(emptyText || "No data synced yet.")}</div>`;
+    return rows.map(function (entry) {
+      const width = Math.max(6, Math.round((Number(entry.value || 0) / max) * 100));
+      return `<div class="intel-bar-row"><span>${escapeHtml(displayValue(entry.label, "Unknown"))}</span><i><b style="width:${width}%;"></b></i><strong>${escapeHtml(String(entry.value || 0))}</strong></div>`;
+    }).join("");
+  }
+
+  function renderInfrastructureIntelligenceDashboard() {
+    if (!el.infrastructureIntelligencePanel) return;
+    if (!hasPermission("view_reports")) {
+      el.infrastructureIntelligencePanel.innerHTML = '<div class="office-detail-empty">Your role cannot access Infrastructure Intelligence.</div>';
+      return;
+    }
+    const overview = buildOverviewDomains();
+    const domain = overview.domains.infrastructure_intelligence;
+    const derived = getDerivedData();
+    const totals = state.report?.totals || {};
+    const activeFacet = state.moduleFacet.reports || "dashboard";
+    const healthScore = Math.max(0, 100 - Number(overview.openNotifications || 0));
+    const incidents = Number(overview.openNotifications || 0);
+    const diagnostics = state.traces.length + state.audit.filter(function (event) {
+      return /error|denied|fail|diagnostic|permission/i.test(String(event.action || ""));
+    }).length;
+    const trendEntries = rankEntries((state.report && state.report.by_status) || derived.notificationStatusCounts || {}, 6);
+    const categoryEntries = rankEntries(derived.projectTypeCounts || {}, 6);
+    const insightRows = [
+      { title: "Operational bottleneck detection", meta: incidents ? `${incidents} live support or incident signals need review.` : "No active incident pressure.", tone: incidents > 5 ? "warning" : "healthy", icon: "alert" },
+      { title: "Estate comparison readiness", meta: `${domain.metrics[1].value} estate groups available for portfolio comparison.`, tone: domain.metrics[1].value ? "info" : "warning", icon: "estate" },
+      { title: "Diagnostics trail", meta: `${diagnostics} traces/audit records available for system diagnostics.`, tone: diagnostics ? "info" : "healthy", icon: "trend" },
+      { title: "Predictive operations", meta: state.report ? "Report data is active for trend analysis." : "Connect more live events to strengthen prediction.", tone: state.report ? "healthy" : "warning", icon: "ai_operations" },
+    ];
+
+    el.infrastructureIntelligencePanel.innerHTML = `
+      <div class="command-page intelligence-workspace">
+        <div class="command-head">
+          <div>
+            <p class="eyebrow">Infrastructure Intelligence</p>
+            <h3>Analytics, AI insights, predictive operations, diagnostics, and operational trends.</h3>
+            <p class="subtext" style="margin:8px 0 0;">A command-center layer for estate comparisons, support intelligence, device intelligence, and infrastructure health.</p>
+          </div>
+          <span class="office-system-badge ${state.report ? "" : "warning"}">${state.report ? "Live analytics" : "Awaiting report sync"}</span>
+        </div>
+        <div class="command-kpis intelligence-kpis">
+          ${[
+            ["Infrastructure Health", `${healthScore}%`, "Support-adjusted estate posture", "trend"],
+            ["Estate Comparisons", domain.metrics[1].value, "Portfolio groups", "estate"],
+            ["Incident Signals", incidents, "Open operational pressure", "alert"],
+            ["Diagnostics", diagnostics, "Trace + audit evidence", "settings"],
+            ["Prediction Inputs", Number(totals.leads || 0) + state.traces.length, "CRM, trace, support data", "ai_operations"],
+          ].map(function (item) {
+            return `<div class="command-kpi"><span class="command-icon">${officeIcon(item[3])}</span><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
+          }).join("")}
+        </div>
+        <div class="command-layout">
+          <div class="command-main">
+            <div class="intelligence-grid">
+              <article class="command-card intelligence-chart-card">
+                <div class="command-card-head"><h4>${activeFacet === "dashboard" ? "Operational Intelligence Overview" : activeFacet.replace(/_/g, " ")}</h4><span class="subtext">Live signal distribution</span></div>
+                <div class="intel-line-chart">
+                  ${[healthScore, Math.max(10, 100 - incidents * 8), Math.max(15, 82 - diagnostics * 3), Math.min(96, 58 + state.traces.length * 4), Math.min(99, 66 + Number(totals.leads || 0))].map(function (point, index) {
+                    return `<span style="--h:${point}%;--i:${index};"><b></b></span>`;
+                  }).join("")}
+                </div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>Infrastructure Trends</h4><span class="subtext">Status pressure</span></div>
+                <div class="intel-bar-list">${barRows(trendEntries, "No trend data synced yet.")}</div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>Category Intelligence</h4><span class="subtext">Operational spread</span></div>
+                <div class="intel-bar-list">${barRows(categoryEntries, "No category data synced yet.")}</div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>Diagnostics Summary</h4><span class="subtext">Audit and trace layer</span></div>
+                <div class="mission-list">
+                  ${[
+                    ["Trace records", state.traces.length],
+                    ["Audit events", state.audit.length],
+                    ["Permission denials", state.audit.filter(function (event) { return /denied|permission/i.test(String(event.action || "")); }).length],
+                    ["Open support signals", incidents],
+                  ].map(function (row) {
+                    return `<div class="device-category"><span>${escapeHtml(row[0])}</span><strong>${escapeHtml(String(row[1]))}</strong></div>`;
+                  }).join("")}
+                </div>
+              </article>
+            </div>
+          </div>
+          <aside class="command-side context-rail">
+            <article class="command-card">
+              <div class="command-card-head"><h4>AI Insights</h4><span class="office-system-badge">Live</span></div>
+              <div class="mission-list ai-insight-list">
+                ${insightRows.map(function (item) {
+                  return `<div class="insight-row"><span class="insight-icon">${officeIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)}</span></div><span class="office-system-badge ${item.tone === "warning" ? "warning" : ""}">${escapeHtml(item.tone)}</span></div>`;
+                }).join("")}
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Quick Actions</h4></div>
+              <div class="shortcut-grid ai-quick-actions">
+                <button class="shortcut-btn" data-office-target="facility" type="button"><span>${officeIcon("estate")}</span>Compare Estates</button>
+                <button class="shortcut-btn" data-office-target="devices" type="button"><span>${officeIcon("camera")}</span>Device Intelligence</button>
+                <button class="shortcut-btn" data-office-target="support" type="button"><span>${officeIcon("support")}</span>Support Intelligence</button>
+                <button class="shortcut-btn" data-office-target="audit" type="button"><span>${officeIcon("trend")}</span>Trace Diagnostics</button>
+              </div>
+            </article>
+          </aside>
+        </div>
+      </div>
+    `;
+  }
+
   function renderReports() {
+    renderInfrastructureIntelligenceDashboard();
+    if (!el.reportsPanel) return;
     if (!hasPermission("view_reports")) {
       renderReportStrip();
       el.reportsPanel.innerHTML = '<div class="value empty">Your role cannot access reporting.</div>';
@@ -5275,6 +5489,34 @@
     }
   }
 
+  function renderAdministrationDashboard(roleCounts, activeUsers, adminUsers, pendingLogins) {
+    const integrationRows = crmIntegrationStatusRows();
+    if (el.adminMainTitle) el.adminMainTitle.textContent = "Administration dashboard";
+    if (el.adminMainSubtitle) {
+      el.adminMainSubtitle.textContent = "Holistic identity, roles, permissions, settings, integrations, accounts, and super-admin posture";
+    }
+    el.teamPanel.innerHTML = `
+      <div class="admin-dashboard-grid">
+        ${[
+          ["Staff & Roles", state.adminUsers.length, `${activeUsers} active accounts`, "lead", "staff"],
+          ["Permissions", (roleCounts.admin || 0) + (roleCounts.founder || 0), "High authority roles", "governance", "permissions"],
+          ["System Settings", hasPermission("manage_security") ? "Ready" : "Restricted", "Security-scoped controls", "settings", "settings"],
+          ["Integrations", integrationRows.filter(function (row) { return row.connected; }).length, `${integrationRows.length} provider checks`, "trend", "integrations"],
+          ["Accounts", pendingLogins, "Pending first login", "messenger", "accounts"],
+          ["Super Admin", isSuperAdmin() ? "Full" : "Scoped", "Authority boundary", "alert", "super_admin"],
+        ].map(function (card) {
+          return `<button class="admin-dashboard-card" data-admin-section="${escapeHtml(card[4])}" type="button"><span class="command-icon">${officeIcon(card[3])}</span><div><strong>${escapeHtml(card[0])}</strong><small>${escapeHtml(card[2])}</small></div><b>${escapeHtml(String(card[1]))}</b></button>`;
+        }).join("")}
+      </div>
+    `;
+    if (el.staffActivityPanel) {
+      const activity = state.audit.slice(0, 6).map(function (event) {
+        return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot"></i></span><div class="activity-copy"><strong>${escapeHtml(event.action || "administration event")}</strong><span>${escapeHtml(event.actor_email || "system")} · ${escapeHtml(formatDate(event.created_at || event.timestamp))}</span></div></div>`;
+      }).join("");
+      el.staffActivityPanel.innerHTML = activity || '<div class="office-detail-empty">Administrative activity appears when audit events sync.</div>';
+    }
+  }
+
   function renderTeamPanel() {
     if (!hasPermission("view_users")) {
       if (el.adminMetricsPanel) {
@@ -5326,9 +5568,18 @@
     Array.from(document.querySelectorAll("[data-admin-section]")).forEach(function (node) {
       node.classList.toggle("active", node.getAttribute("data-admin-section") === activeAdminSection);
     });
-    if (!["dashboard", "staff"].includes(activeAdminSection)) {
+    if (activeAdminSection === "dashboard") {
+      renderAdministrationDashboard(roleCounts, activeUsers, adminUsers, pendingLogins);
+      return;
+    }
+    if (!["staff"].includes(activeAdminSection)) {
       renderAdminModuleSection(activeAdminSection);
       return;
+    }
+
+    if (el.adminMainTitle) el.adminMainTitle.textContent = "Office staff registry";
+    if (el.adminMainSubtitle) {
+      el.adminMainSubtitle.textContent = "Name, email, phone, QR credential, access state, permissions, and last login";
     }
 
     if (!state.adminUsers.length) {
@@ -5361,9 +5612,22 @@
             email: user.email || "",
             role,
           });
-          return `
-            <article class="team-card staff-profile-card">
-              <div class="staff-identity-row">
+	          return `
+	            <details class="team-card staff-profile-card staff-compact-card">
+	              <summary class="staff-identity-row">
+	                <div class="staff-photo" aria-label="Staff passport placeholder">${escapeHtml(initialsFromEmail(user.email || displayName))}</div>
+	                <div>
+	                  <div class="team-head" style="margin-bottom:4px;">
+	                    <strong>${escapeHtml(displayName)}</strong>
+	                    <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(roleLabel(role))}</span>
+	                  </div>
+	                  <div class="subtext">${escapeHtml(user.email || "Email pending")}</div>
+	                  <div class="subtext" style="margin-top:5px;">${escapeHtml(displayValue(user.phone || user.mobile, "Phone pending"))}</div>
+	                </div>
+	                <img class="staff-qr" src="${escapeHtml(qrImageUrl(credentialPayload))}" alt="QR credential for ${escapeHtml(displayName)}" loading="lazy" />
+	                <span class="office-system-badge ${status === "active" ? "" : "warning"}">${escapeHtml(status)}</span>
+	              </summary>
+	              <div class="staff-identity-row">
                 <div class="staff-photo" aria-label="Staff passport placeholder">${escapeHtml(initialsFromEmail(user.email || displayName))}</div>
                 <div>
                   <div class="team-head" style="margin-bottom:4px;">
@@ -5429,8 +5693,8 @@
                   }>Issue reset link</button>
                 </div>
               </div>
-            </article>
-          `;
+	            </details>
+	          `;
         })
         .join("");
       if (el.staffActivityPanel) {
@@ -5787,6 +6051,7 @@
     renderAudit();
     renderTraceExplorer();
     renderTimeline();
+    renderPlatformInfrastructureDashboard();
     renderIntegrationHub();
     renderOfficeCommandPanels();
     renderSectionNav();
