@@ -114,12 +114,26 @@ function createConfig() {
     officeConsumerApiKey: process.env.OFFICE_CONSUMER_API_KEY || "",
     officeConsumerBearerToken: process.env.OFFICE_CONSUMER_BEARER_TOKEN || "",
     officeConsumerExportPath: process.env.OFFICE_CONSUMER_EXPORT_PATH || "",
-    officeBackendBaseUrl: process.env.OFFICE_BACKEND_BASE_URL || "",
-    officeBackendApiKey: process.env.OFFICE_BACKEND_API_KEY || "",
+    officeBackendBaseUrl:
+      process.env.OFFICE_BACKEND_BASE_URL ||
+      process.env.OYI_BACKEND_BASE_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "",
+    officeBackendApiKey:
+      process.env.OFFICE_BACKEND_API_KEY ||
+      process.env.OFFICE_SYNC_API_KEY ||
+      process.env.OFFICE_EXPORT_API_KEY ||
+      "",
     officeDigitalTwinBaseUrl: process.env.OFFICE_DIGITAL_TWIN_BASE_URL || "",
     officeDigitalTwinApiKey: process.env.OFFICE_DIGITAL_TWIN_API_KEY || "",
     officeDigitalTwinStatePath: process.env.OFFICE_DIGITAL_TWIN_STATE_PATH || "",
     officeEventWebhookSecret: process.env.OFFICE_EVENT_WEBHOOK_SECRET || "",
+    appStoreConnectIssuerId: process.env.APP_STORE_CONNECT_ISSUER_ID || "",
+    appStoreConnectKeyId: process.env.APP_STORE_CONNECT_KEY_ID || "",
+    appStoreConnectPrivateKey: process.env.APP_STORE_CONNECT_PRIVATE_KEY || "",
+    appStoreAppId: process.env.APP_STORE_APP_ID || "",
+    oyiHomeAppStoreUrl: process.env.OYI_HOME_APP_STORE_URL || "",
+    oyiHomeBundleId: process.env.OYI_HOME_BUNDLE_ID || process.env.APNS_BUNDLE_ID || "",
     officeEmailProvider: process.env.OFFICE_EMAIL_PROVIDER || "",
     officeEmailFrom: process.env.OFFICE_EMAIL_FROM || "Ochiga Office <office@getoyi.com>",
     resendApiKey: process.env.RESEND_API_KEY || "",

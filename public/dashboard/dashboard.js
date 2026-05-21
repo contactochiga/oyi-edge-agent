@@ -3557,7 +3557,39 @@
   }
 
   function crmIntegrationStatusRows() {
+    const integrations = state.integrations || {};
+    const callbackSecured = Boolean(integrations.crm_support?.provider_callbacks === "secured" || integrations.webhooks?.production_ready);
     return [
+      {
+        name: "Website Lead Intake",
+        icon: "website",
+        connected: true,
+        detail: "Public widget intake live",
+      },
+      {
+        name: "App Onboarding Leads",
+        icon: "website",
+        connected: Boolean(integrations.consumer?.production_ready || integrations.consumer?.configured),
+        detail: integrations.consumer?.production_ready ? "Consumer sync production ready" : "Needs Consumer sync validation",
+      },
+      {
+        name: "Support Tickets",
+        icon: "messenger",
+        connected: Boolean(integrations.facility?.production_ready || integrations.consumer?.production_ready),
+        detail: integrations.facility?.production_ready || integrations.consumer?.production_ready ? "Office support sync active" : "Needs Facility/Consumer ticket payloads",
+      },
+      {
+        name: "Deployment Inquiries",
+        icon: "linkedin",
+        connected: true,
+        detail: "CRM pipeline intake live",
+      },
+      {
+        name: "Provider Callbacks",
+        icon: "settings",
+        connected: callbackSecured,
+        detail: callbackSecured ? "Webhook secret configured" : "Needs OFFICE_EVENT_WEBHOOK_SECRET",
+      },
       {
         name: "WhatsApp Business",
         icon: "whatsapp",
@@ -3603,8 +3635,8 @@
       {
         name: "App Store",
         icon: "website",
-        connected: false,
-        detail: "App analytics pending",
+        connected: Boolean(integrations.app_store?.app_listed),
+        detail: integrations.app_store?.app_listed ? "Oyi Home app URL configured" : "App analytics pending",
       },
       {
         name: "Play Store",
@@ -3645,19 +3677,23 @@
     if (!el.platformInfrastructurePanel) return;
     const integrations = state.integrations || {};
     const readiness = integrations.__readiness || null;
-    const rows = [
-      integrations.maps || { name: "Estate Map Provider", configured: Boolean(state.mapConfig?.google_maps?.configured), missing: [] },
-      integrations.facility || { name: "Oyi Facility API", configured: false, missing: [] },
-      integrations.consumer || { name: "Oyi Consumer API", configured: false, missing: [] },
-      integrations.edge || { name: "Oyi Edge / Backend Control Plane", configured: false, missing: [] },
-      integrations.digital_twin || { name: "Oyi Digital Twin Binding", configured: false, missing: [] },
-      integrations.whatsapp || { name: "WhatsApp Cloud", configured: false, missing: [] },
-      integrations.meta || { name: "Meta App", configured: false, missing: [] },
-      integrations.linkedin || { name: "LinkedIn", configured: false, missing: [] },
-      integrations.email || { name: "Office Email", configured: false, missing: [] },
-      integrations.google_oauth || { name: "Google OAuth", configured: false, missing: [] },
-      integrations.webhooks || { name: "Provider Webhook Intake", configured: false, missing: [] },
+    const fallbackIntegration = function (name) {
+      return { name, configured: false, production_ready: false, missing: [] };
+    };
+    const readinessGroups = [
+      { title: "Core Control Plane", rows: [integrations.edge || fallbackIntegration("Backend Control Plane"), integrations.events || fallbackIntegration("Office SSE Events")] },
+      { title: "Facility Sync", rows: [integrations.facility || fallbackIntegration("Oyi Facility API")] },
+      { title: "Consumer Sync", rows: [integrations.consumer || fallbackIntegration("Oyi Consumer API")] },
+      { title: "Digital Twin Binding", rows: [integrations.digital_twin || fallbackIntegration("Oyi Digital Twin Binding")] },
+      { title: "Webhook Security", rows: [integrations.webhooks || fallbackIntegration("Provider Webhook Intake")] },
+      { title: "Mobile App Metrics", rows: [integrations.app_store || fallbackIntegration("Oyi Home App Store")] },
+      { title: "Meta / WhatsApp", rows: [integrations.whatsapp || fallbackIntegration("WhatsApp Cloud"), integrations.meta || fallbackIntegration("Meta App")] },
+      { title: "LinkedIn", rows: [integrations.linkedin || fallbackIntegration("LinkedIn Marketing / Analytics")] },
+      { title: "Google", rows: [integrations.maps || { name: "Estate Map Provider", configured: Boolean(state.mapConfig?.google_maps?.configured), production_ready: Boolean(state.mapConfig?.google_maps?.configured), missing: [] }, integrations.google_oauth || fallbackIntegration("Google OAuth"), integrations.google_marketing || fallbackIntegration("Google Analytics / Ads")] },
+      { title: "Email", rows: [integrations.email || fallbackIntegration("Office Email")] },
+      { title: "CRM & Support", rows: [integrations.crm_support || fallbackIntegration("CRM & Support Integration Visibility")] },
     ];
+    const rows = readinessGroups.flatMap(function (group) { return group.rows; });
     const connected = rows.filter(function (row) { return row.production_ready || row.configured; }).length;
     const productionReady = rows.filter(function (row) { return row.production_ready; }).length;
     const missing = rows.reduce(function (sum, row) {
@@ -3671,6 +3707,23 @@
     const blockerRows = readiness && Array.isArray(readiness.blockers)
       ? readiness.blockers.slice(0, 6)
       : rows.filter(function (row) { return !row.production_ready; }).slice(0, 6);
+    const integrationStatusText = function (row) {
+      const status = String(row.status || "");
+      if (row.production_ready || status === "production_ready" || status === "connected") return "Production Ready";
+      if (status === "configured_payload_incomplete") return "Configured / Payload incomplete";
+      if (status === "error") return "Error";
+      if (status === "listed_pending_metrics_credentials") return "Listed / Pending metrics";
+      if (status === "credentials_ready_missing_app_url") return "Credentials ready / Missing app URL";
+      if (row.configured) return "Configured / Needs validation";
+      if (Array.isArray(row.missing) && row.missing.length) return `Missing ${row.missing.length}`;
+      return "Pending Integration";
+    };
+    const integrationStatusColor = function (row) {
+      const status = String(row.status || "");
+      if (row.production_ready || status === "production_ready" || status === "connected") return "var(--green)";
+      if (status === "error") return "#ff5f7a";
+      return "#ffc247";
+    };
 
     el.platformInfrastructurePanel.innerHTML = `
       <div class="command-page platform-workspace">
@@ -3698,15 +3751,10 @@
               <article class="command-card">
                 <div class="command-card-head"><h4>${activeFacet === "dashboard" ? "Provider Status" : activeFacet.replace(/_/g, " ")}</h4><span class="subtext">${connected}/${rows.length} connected</span></div>
                 <div class="mission-list">
-                  ${rows.map(function (row) {
-                    const status = row.production_ready
-                      ? "Production Ready"
-                      : row.configured
-                        ? "Configured / Needs validation"
-                        : Array.isArray(row.missing) && row.missing.length
-                          ? `Missing ${row.missing.length}`
-                          : "Pending Integration";
-                    return `<div class="device-category"><span>${escapeHtml(row.name || row.key || "Provider")}</span><strong style="color:${row.production_ready ? "var(--green)" : "#ffc247"}">${escapeHtml(status)}</strong></div>`;
+                  ${readinessGroups.map(function (group) {
+                    return `<div class="platform-readiness-group"><div class="subtext" style="margin:8px 0 6px;text-transform:uppercase;letter-spacing:.08em;">${escapeHtml(group.title)}</div>${group.rows.map(function (row) {
+                      return `<div class="device-category"><span>${escapeHtml(row.name || row.key || "Provider")}</span><strong style="color:${integrationStatusColor(row)}">${escapeHtml(integrationStatusText(row))}</strong></div>`;
+                    }).join("")}</div>`;
                   }).join("")}
                 </div>
               </article>

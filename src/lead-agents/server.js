@@ -3,6 +3,7 @@ require("dotenv").config({ path: ".env.lead-agents.local", override: true });
 const http = require("http");
 const path = require("path");
 const crypto = require("crypto");
+const axios = require("axios");
 const { createConfig } = require("./config");
 const { log } = require("./logger");
 const { createStore } = require("./store-factory");
@@ -135,10 +136,82 @@ function extensionForAudioMime(mimeType) {
   return ".webm";
 }
 
-function integrationStatus(config) {
+function statusLabel(configured, productionReady, hasError = false, payloadIncomplete = false) {
+  if (hasError) return "error";
+  if (productionReady) return "production_ready";
+  if (payloadIncomplete) return "configured_payload_incomplete";
+  if (configured) return "configured_needs_validation";
+  return "missing_credentials";
+}
+
+function authHeadersFromConfig(config, keyName) {
+  const headers = {};
+  if (config[`${keyName}ApiKey`]) {
+    headers["x-api-key"] = config[`${keyName}ApiKey`];
+  }
+  if (config[`${keyName}BearerToken`]) {
+    headers.authorization = `Bearer ${config[`${keyName}BearerToken`]}`;
+  }
+  return headers;
+}
+
+function collectionPayload(payload) {
+  if (!payload || typeof payload !== "object") return {};
+  return payload.collections && typeof payload.collections === "object" ? payload.collections : payload;
+}
+
+function payloadSupport(payload, requiredKeys) {
+  const collections = collectionPayload(payload);
+  const missing = requiredKeys.filter((key) => !Object.prototype.hasOwnProperty.call(collections, key));
+  return {
+    checked: Boolean(payload && typeof payload === "object"),
+    complete: missing.length === 0,
+    supported: requiredKeys.filter((key) => !missing.includes(key)),
+    missing,
+  };
+}
+
+async function probeEndpoint(baseUrl, pathName, options = {}) {
+  if (!baseUrl) {
+    return { checked: false, ok: false, status: "missing_base_url" };
+  }
+  try {
+    const client = axios.create({
+      baseURL: String(baseUrl).replace(/\/$/, ""),
+      timeout: Math.min(Number(options.timeoutMs || 3500), 5000),
+      headers: options.headers || {},
+      validateStatus: () => true,
+    });
+    const response = await client.get(pathName || "/health");
+    const ok = response.status >= 200 && response.status < 300;
+    return {
+      checked: true,
+      ok,
+      status: ok ? "active" : "failed",
+      http_status: response.status,
+      payload: ok ? response.data : null,
+    };
+  } catch (error) {
+    return {
+      checked: true,
+      ok: false,
+      status: "failed",
+      error: error.code || error.name || "request_failed",
+    };
+  }
+}
+
+async function integrationStatus(config, options = {}) {
   const missingKeys = (rows) => rows.filter(([, value]) => !value).map(([key]) => key);
   const hasFacilityAuth = Boolean(config.officeFacilityApiKey || config.officeFacilityBearerToken);
   const hasConsumerAuth = Boolean(config.officeConsumerApiKey || config.officeConsumerBearerToken);
+  const hasBackendAuth = Boolean(config.officeBackendApiKey || config.edgeAgentTokens.length);
+  const appStoreCredentialReady = Boolean(
+    config.appStoreConnectIssuerId &&
+      config.appStoreConnectKeyId &&
+      config.appStoreConnectPrivateKey &&
+      config.appStoreAppId
+  );
   const facilityMetrics = [
     "estates",
     "buildings",
@@ -149,6 +222,9 @@ function integrationStatus(config) {
     "documents",
     "support_mappings",
     "visitors",
+    "rooms",
+    "users",
+    "meta",
     "maintenance",
     "incidents",
     "edge_heartbeats",
@@ -157,28 +233,79 @@ function integrationStatus(config) {
   const consumerMetrics = [
     "homes",
     "rooms",
-    "residents",
+    "users",
     "devices",
     "wallets",
     "visitors",
+    "analytics",
+    "support_mappings",
+    "meta",
     "community",
     "support",
     "automations",
     "notifications",
     "device_telemetry",
   ];
+  const backendHealthPromise = probeEndpoint(config.officeBackendBaseUrl, "/health", {
+    headers: config.officeBackendApiKey ? { "x-api-key": config.officeBackendApiKey } : {},
+  });
+  const facilityProbePromise = config.officeFacilityBaseUrl && hasFacilityAuth
+    ? probeEndpoint(config.officeFacilityBaseUrl, config.officeFacilityExportPath || "/office/export", {
+        headers: authHeadersFromConfig(config, "officeFacility"),
+      })
+    : { checked: false, ok: false, status: "not_configured", payload: null };
+  const consumerProbePromise = config.officeConsumerBaseUrl && hasConsumerAuth
+    ? probeEndpoint(config.officeConsumerBaseUrl, config.officeConsumerExportPath || "/office/export", {
+        headers: authHeadersFromConfig(config, "officeConsumer"),
+      })
+    : { checked: false, ok: false, status: "not_configured", payload: null };
+  const externalTwin = Boolean(config.officeDigitalTwinBaseUrl);
+  const twinSceneProbePromise = externalTwin
+    ? probeEndpoint(config.officeDigitalTwinBaseUrl, "/api/digital-twin/scene", {
+        headers: config.officeDigitalTwinApiKey ? { "x-api-key": config.officeDigitalTwinApiKey } : {},
+      })
+    : {
+        checked: true,
+        ok: Boolean(options.digitalTwinRuntime),
+        status: options.digitalTwinRuntime ? "active" : "pending",
+        same_origin: true,
+      };
+  const twinStateProbePromise = config.officeDigitalTwinStatePath
+    ? externalTwin
+      ? probeEndpoint(config.officeDigitalTwinBaseUrl, config.officeDigitalTwinStatePath, {
+          headers: config.officeDigitalTwinApiKey ? { "x-api-key": config.officeDigitalTwinApiKey } : {},
+        })
+      : { checked: true, ok: true, status: "same_origin", same_origin: true }
+    : { checked: false, ok: false, status: externalTwin ? "pending" : "same_origin_scene_only" };
+  const [backendHealth, facilityProbe, consumerProbe, twinSceneProbe, twinStateProbe] = await Promise.all([
+    backendHealthPromise,
+    facilityProbePromise,
+    consumerProbePromise,
+    twinSceneProbePromise,
+    twinStateProbePromise,
+  ]);
+  const facilityPayload = payloadSupport(facilityProbe.payload, facilityMetrics);
+  const consumerPayload = payloadSupport(consumerProbe.payload, consumerMetrics);
+  const twinControlPermissionReady = PERMISSION_KEYS.includes("twin.control");
   const statuses = {
     facility: {
       key: "facility",
       name: "Oyi Facility API",
       configured: Boolean(config.officeFacilityBaseUrl),
-      production_ready: Boolean(config.officeFacilityBaseUrl && hasFacilityAuth),
-      status: config.officeFacilityBaseUrl && hasFacilityAuth ? "connected" : "pending_integration",
+      production_ready: Boolean(config.officeFacilityBaseUrl && hasFacilityAuth && facilityProbe.ok && facilityPayload.complete),
+      status: statusLabel(
+        Boolean(config.officeFacilityBaseUrl && hasFacilityAuth),
+        Boolean(config.officeFacilityBaseUrl && hasFacilityAuth && facilityProbe.ok && facilityPayload.complete),
+        facilityProbe.checked && !facilityProbe.ok,
+        facilityProbe.ok && !facilityPayload.complete
+      ),
       base_url: config.officeFacilityBaseUrl || "",
       export_path: config.officeFacilityExportPath || "/office/export",
       auth: config.officeFacilityBearerToken ? "bearer" : config.officeFacilityApiKey ? "api_key" : "none",
       sync_target: "facility",
       required_metrics: facilityMetrics,
+      endpoint_health: { checked: facilityProbe.checked, ok: facilityProbe.ok, status: facilityProbe.status, http_status: facilityProbe.http_status || null },
+      payload: facilityPayload,
       missing: missingKeys([
         ["OFFICE_FACILITY_BASE_URL", config.officeFacilityBaseUrl],
         ["OFFICE_FACILITY_API_KEY or OFFICE_FACILITY_BEARER_TOKEN", hasFacilityAuth],
@@ -188,13 +315,20 @@ function integrationStatus(config) {
       key: "consumer",
       name: "Consumer Smart Building API",
       configured: Boolean(config.officeConsumerBaseUrl),
-      production_ready: Boolean(config.officeConsumerBaseUrl && hasConsumerAuth),
-      status: config.officeConsumerBaseUrl && hasConsumerAuth ? "connected" : "pending_integration",
+      production_ready: Boolean(config.officeConsumerBaseUrl && hasConsumerAuth && consumerProbe.ok && consumerPayload.complete),
+      status: statusLabel(
+        Boolean(config.officeConsumerBaseUrl && hasConsumerAuth),
+        Boolean(config.officeConsumerBaseUrl && hasConsumerAuth && consumerProbe.ok && consumerPayload.complete),
+        consumerProbe.checked && !consumerProbe.ok,
+        consumerProbe.ok && !consumerPayload.complete
+      ),
       base_url: config.officeConsumerBaseUrl || "",
       export_path: config.officeConsumerExportPath || "/office/export",
       auth: config.officeConsumerBearerToken ? "bearer" : config.officeConsumerApiKey ? "api_key" : "none",
       sync_target: "consumer",
       required_metrics: consumerMetrics,
+      endpoint_health: { checked: consumerProbe.checked, ok: consumerProbe.ok, status: consumerProbe.status, http_status: consumerProbe.http_status || null },
+      payload: consumerPayload,
       missing: missingKeys([
         ["OFFICE_CONSUMER_BASE_URL", config.officeConsumerBaseUrl],
         ["OFFICE_CONSUMER_API_KEY or OFFICE_CONSUMER_BEARER_TOKEN", hasConsumerAuth],
@@ -396,32 +530,40 @@ function integrationStatus(config) {
       key: "edge",
       name: "Oyi Edge / Backend Control Plane",
       configured: Boolean(config.officeBackendBaseUrl || config.edgeAgentTokens.length),
-      production_ready: Boolean(config.officeBackendBaseUrl && (config.officeBackendApiKey || config.edgeAgentTokens.length)),
-      status:
-        config.officeBackendBaseUrl && (config.officeBackendApiKey || config.edgeAgentTokens.length)
-          ? "connected"
-          : "pending_integration",
+      production_ready: Boolean(config.officeBackendBaseUrl && hasBackendAuth && backendHealth.ok),
+      status: statusLabel(
+        Boolean(config.officeBackendBaseUrl && hasBackendAuth),
+        Boolean(config.officeBackendBaseUrl && hasBackendAuth && backendHealth.ok),
+        backendHealth.checked && !backendHealth.ok
+      ),
       base_url: config.officeBackendBaseUrl || "",
+      health_endpoint: "/health",
+      backend_health: { checked: backendHealth.checked, ok: backendHealth.ok, status: backendHealth.status, http_status: backendHealth.http_status || null },
+      edge_token_present: Boolean(config.edgeAgentTokens.length),
       missing: missingKeys([
         ["OFFICE_BACKEND_BASE_URL", config.officeBackendBaseUrl],
-        ["OFFICE_BACKEND_API_KEY or OYI_EDGE_AGENT_TOKEN(S)", config.officeBackendApiKey || config.edgeAgentTokens.length],
+        ["OFFICE_BACKEND_API_KEY or OYI_EDGE_AGENT_TOKEN(S)", hasBackendAuth],
       ]),
       required_metrics: ["edge.heartbeat", "device.status.updated", "device.command.executed", "camera.snapshot.created"],
     },
     digital_twin: {
       key: "digital_twin",
       name: "Oyi Digital Twin Binding",
-      configured: Boolean(config.officeDigitalTwinBaseUrl),
-      production_ready: Boolean(config.officeDigitalTwinBaseUrl && config.officeDigitalTwinApiKey),
-      status:
-        config.officeDigitalTwinBaseUrl && config.officeDigitalTwinApiKey
-          ? "connected"
-          : "pending_integration",
-      base_url: config.officeDigitalTwinBaseUrl || "",
+      configured: Boolean(config.officeDigitalTwinBaseUrl || options.digitalTwinRuntime),
+      production_ready: Boolean(twinSceneProbe.ok && twinControlPermissionReady && (!externalTwin || config.officeDigitalTwinApiKey)),
+      status: statusLabel(
+        Boolean(config.officeDigitalTwinBaseUrl || options.digitalTwinRuntime),
+        Boolean(twinSceneProbe.ok && twinControlPermissionReady && (!externalTwin || config.officeDigitalTwinApiKey)),
+        twinSceneProbe.checked && !twinSceneProbe.ok
+      ),
+      base_url: config.officeDigitalTwinBaseUrl || "same-origin",
       state_path: config.officeDigitalTwinStatePath || "/office/twin/state",
+      scene_endpoint: { checked: twinSceneProbe.checked, ok: twinSceneProbe.ok, status: twinSceneProbe.status, same_origin: Boolean(twinSceneProbe.same_origin), http_status: twinSceneProbe.http_status || null },
+      twin_state: { checked: twinStateProbe.checked, ok: twinStateProbe.ok, status: twinStateProbe.status, same_origin: Boolean(twinStateProbe.same_origin), http_status: twinStateProbe.http_status || null },
+      twin_control_permission: twinControlPermissionReady ? "active" : "missing",
+      event_supported: true,
       missing: missingKeys([
-        ["OFFICE_DIGITAL_TWIN_BASE_URL", config.officeDigitalTwinBaseUrl],
-        ["OFFICE_DIGITAL_TWIN_API_KEY", config.officeDigitalTwinApiKey],
+        ["OFFICE_DIGITAL_TWIN_API_KEY", externalTwin ? config.officeDigitalTwinApiKey : true],
       ]),
       required_metrics: ["twin.state.updated", "twin.objects", "twin.overlays", "twin.heatmap_events"],
     },
@@ -440,8 +582,52 @@ function integrationStatus(config) {
       ]),
       required_events: ["whatsapp.message.received", "linkedin.lead.received", "meta.message.received", "provider.delivery.recorded"],
     },
+    app_store: {
+      key: "app_store",
+      name: "Oyi Home App Store",
+      configured: Boolean(config.oyiHomeAppStoreUrl || config.oyiHomeBundleId || appStoreCredentialReady),
+      production_ready: Boolean(config.oyiHomeAppStoreUrl && appStoreCredentialReady),
+      status: config.oyiHomeAppStoreUrl && appStoreCredentialReady
+        ? "production_ready"
+        : config.oyiHomeAppStoreUrl
+          ? "listed_pending_metrics_credentials"
+          : appStoreCredentialReady
+            ? "credentials_ready_missing_app_url"
+            : "pending_integration",
+      app_listed: Boolean(config.oyiHomeAppStoreUrl),
+      metrics_adapter: appStoreCredentialReady ? "configured" : "pending_credentials",
+      bundle_id_present: Boolean(config.oyiHomeBundleId),
+      missing: missingKeys([
+        ["OYI_HOME_APP_STORE_URL", config.oyiHomeAppStoreUrl],
+        ["OYI_HOME_BUNDLE_ID", config.oyiHomeBundleId],
+        ["APP_STORE_CONNECT_ISSUER_ID", config.appStoreConnectIssuerId],
+        ["APP_STORE_CONNECT_KEY_ID", config.appStoreConnectKeyId],
+        ["APP_STORE_CONNECT_PRIVATE_KEY", config.appStoreConnectPrivateKey],
+        ["APP_STORE_APP_ID", config.appStoreAppId],
+      ]),
+      supported_future_metrics: ["app_availability", "version", "build_status", "downloads", "ratings_reviews"],
+    },
+    crm_support: {
+      key: "crm_support",
+      name: "CRM & Support Integration Visibility",
+      configured: true,
+      production_ready: Boolean(config.officeEventWebhookSecret && (config.whatsappVerifyToken || config.linkedinAccessToken || config.metaAccessToken)),
+      status: config.officeEventWebhookSecret
+        ? "configured_needs_validation"
+        : "missing_credentials",
+      website_lead_intake: "active",
+      app_onboarding_leads: config.officeConsumerBaseUrl ? "configured" : "pending_consumer_sync",
+      support_tickets: config.officeFacilityBaseUrl || config.officeConsumerBaseUrl ? "configured" : "pending_sync",
+      deployment_inquiries: "active",
+      provider_callbacks: config.officeEventWebhookSecret ? "secured" : "missing_secret",
+      webhook_events: config.officeEventWebhookSecret ? "ready" : "pending",
+      missing: missingKeys([["OFFICE_EVENT_WEBHOOK_SECRET", config.officeEventWebhookSecret]]),
+    },
   };
-  const productionChecks = Object.values(statuses).filter((item) => item && item.key !== "google_marketing");
+  statuses.whatsapp.webhook_configured = Boolean(config.whatsappVerifyToken);
+  statuses.webhooks.whatsapp_webhook = config.whatsappVerifyToken ? "configured" : "missing_verify_token";
+  statuses.webhooks.event_intake = config.officeEventWebhookSecret ? "ready" : "pending";
+  const productionChecks = Object.values(statuses).filter((item) => item && item.key !== "google_marketing" && !String(item.key).startsWith("__"));
   const readyChecks = productionChecks.filter((item) => item.production_ready).length;
   statuses.__readiness = {
     key: "__readiness",
@@ -2894,7 +3080,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           res,
           200,
           {
-            integrations: integrationStatus(config),
+            integrations: await integrationStatus(config, { digitalTwinRuntime }),
           },
           { "x-request-id": ctx.requestId }
         );
