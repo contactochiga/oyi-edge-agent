@@ -77,6 +77,18 @@ function createConfig() {
       process.env.LEAD_AGENTS_RATE_LIMIT_MAX_REQUESTS,
       60
     ),
+    publicWidgetRateLimitWindowMs: numberFromEnv(
+      process.env.PUBLIC_WIDGET_RATE_LIMIT_WINDOW_MS,
+      numberFromEnv(process.env.LEAD_AGENTS_RATE_LIMIT_WINDOW_MS, 60_000)
+    ),
+    publicWidgetRateLimitMaxRequests: numberFromEnv(
+      process.env.PUBLIC_WIDGET_RATE_LIMIT_MAX_REQUESTS,
+      18
+    ),
+    publicWidgetMaxMessageChars: numberFromEnv(
+      process.env.PUBLIC_WIDGET_MAX_MESSAGE_CHARS,
+      1800
+    ),
     salesWebhookUrl: process.env.SALES_ALERT_WEBHOOK_URL || "",
     salesWebhookSecret: process.env.SALES_ALERT_WEBHOOK_SECRET || "",
     whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || "",
@@ -123,6 +135,10 @@ function createConfig() {
       process.env.OFFICE_BACKEND_API_KEY ||
       process.env.OFFICE_SYNC_API_KEY ||
       process.env.OFFICE_EXPORT_API_KEY ||
+      "",
+    officeBackendBearerToken:
+      process.env.OFFICE_BACKEND_BEARER_TOKEN ||
+      process.env.OYI_BACKEND_BEARER_TOKEN ||
       "",
     officeDigitalTwinBaseUrl: process.env.OFFICE_DIGITAL_TWIN_BASE_URL || "",
     officeDigitalTwinApiKey: process.env.OFFICE_DIGITAL_TWIN_API_KEY || "",

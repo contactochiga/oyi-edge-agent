@@ -1222,6 +1222,69 @@ async function appendAudit(store, authContext, action, targetType, targetId, met
   });
 }
 
+function backendAiHeaders(config) {
+  const headers = { accept: "application/json" };
+  if (config.officeBackendBearerToken) {
+    headers.authorization = `Bearer ${config.officeBackendBearerToken}`;
+  }
+  if (config.officeBackendApiKey) {
+    headers["x-api-key"] = config.officeBackendApiKey;
+  }
+  return headers;
+}
+
+async function fetchBackendAiOperations(config) {
+  const baseUrl = String(config.officeBackendBaseUrl || "").replace(/\/+$/, "");
+  if (!baseUrl) {
+    return {
+      available: false,
+      status: "pending_integration",
+      reason: "OFFICE_BACKEND_BASE_URL is missing",
+      tools: [],
+      executions: [],
+      confirmations: [],
+    };
+  }
+  if (!config.officeBackendBearerToken && !config.officeBackendApiKey) {
+    return {
+      available: false,
+      status: "missing_credentials",
+      reason: "OFFICE_BACKEND_BEARER_TOKEN or OFFICE_BACKEND_API_KEY is required for server-side AI Operations sync",
+      tools: [],
+      executions: [],
+      confirmations: [],
+    };
+  }
+  const headers = backendAiHeaders(config);
+  const get = async (path) => {
+    const response = await axios.get(`${baseUrl}${path}`, { headers, timeout: 8000 });
+    return response.data || {};
+  };
+  try {
+    const [toolsData, executionsData, confirmationsData] = await Promise.all([
+      get("/ai/tools"),
+      get("/ai/executions?limit=100"),
+      get("/ai/confirmations?limit=50"),
+    ]);
+    return {
+      available: true,
+      status: "active",
+      tools: toolsData.tools || [],
+      executions: executionsData.executions || [],
+      confirmations: confirmationsData.confirmations || [],
+    };
+  } catch (error) {
+    return {
+      available: false,
+      status: "error",
+      reason: error?.response?.data?.error || error?.message || "backend_ai_sync_failed",
+      tools: [],
+      executions: [],
+      confirmations: [],
+    };
+  }
+}
+
 function extractPublicLeadPatch(message) {
   const text = String(message || "").trim();
   const lower = text.toLowerCase();
@@ -1488,8 +1551,9 @@ async function enrichAuthContext(authContext, store) {
   };
 }
 
-function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, openaiClient }) {
+function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, whatsappAdapter, openaiClient }) {
   const startedAt = Date.now();
+  const widgetRateLimiter = publicRateLimiter || rateLimiter;
   const eventBus = createRealtimeHub();
   const storageService = createStorageService(config);
   const digitalTwinRuntime = createDigitalTwinRuntime();
@@ -1618,7 +1682,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
       ) {
         authContext = tryEdgeAuth(req, config) || enforceAuth(req, config);
         authContext = await enrichAuthContext(authContext, store);
-        const rateLimitState = rateLimiter.check(req);
+        const rateLimitState = widgetRateLimiter.check(req);
         res.setHeader("x-ratelimit-remaining", String(rateLimitState.remaining));
         res.setHeader(
           "x-ratelimit-reset",
@@ -2289,10 +2353,20 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         }
 
         const body = await readJsonBody(req);
+        if (body.website || body.company_url === "http://") {
+          json(res, 400, { error: "request_rejected" });
+          return;
+        }
         if (!body.message || typeof body.message !== "string") {
           json(res, 400, { error: "message is required" });
           return;
         }
+        if (body.message.length > config.publicWidgetMaxMessageChars) {
+          json(res, 413, { error: "message_too_large", max_chars: config.publicWidgetMaxMessageChars });
+          return;
+        }
+
+        await appendAudit(store, { userId: null, email: "", role: "guest" }, "ai.command.received", "public_widget", body.lead_id || "", { source: body.source || config.defaultLeadSource, prompt_excerpt: body.message.slice(0, 240) }, req);
 
         let result;
         try {
@@ -2341,6 +2415,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           };
         }
 
+        await appendAudit(store, { userId: null, email: "", role: "guest" }, "ai.response.generated", "public_widget", result.lead?.id || body.lead_id || "", { source: body.source || config.defaultLeadSource, trace_id: result.trace_id || "", degraded: Boolean(result.degraded) }, req);
         json(res, 200, result, {
           "x-request-id": ctx.requestId,
         });
@@ -2348,7 +2423,7 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
       }
 
       if (pathname === "/api/lead-agents/public/transcribe") {
-        const rateLimitState = rateLimiter.check(req);
+        const rateLimitState = widgetRateLimiter.check(req);
         res.setHeader("x-ratelimit-remaining", String(rateLimitState.remaining));
         res.setHeader(
           "x-ratelimit-reset",
@@ -2361,6 +2436,10 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         }
 
         const body = await readJsonBody(req, 40 * 1024 * 1024);
+        if (body.website || body.company_url === "http://") {
+          json(res, 400, { error: "request_rejected" });
+          return;
+        }
         const audio = parseDataUrl(body.audio_data_url || body.audioDataUrl || "");
         if (!audio || !audio.buffer.length) {
           json(res, 400, { error: "audio_data_url is required" });
@@ -2376,6 +2455,11 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
           body.file_name ||
           body.fileName ||
           `oyi-voice-note${extensionForAudioMime(mimeType)}`;
+        const durationMs = Number(body.duration_ms || body.durationMs || 0);
+        if (durationMs && durationMs > 120000) {
+          json(res, 413, { error: "audio_too_long", max_duration_ms: 120000 });
+          return;
+        }
 
         try {
           const transcription = await openaiClient.createTranscription({
@@ -2387,11 +2471,13 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
               body.prompt ||
               "Ochiga and Oyi smart estates, smart buildings, facility support, sales, and community conversations.",
           });
+          const transcriptText = String(transcription.text || "").trim();
+          await appendAudit(store, { userId: null, email: "", role: "guest" }, "ai.voice.transcribed", "public_widget_voice", body.lead_id || "", { model: config.openaiTranscriptionModel, bytes: audio.buffer.length, mime_type: mimeType, text_length: transcriptText.length }, req);
           json(
             res,
             200,
             {
-              text: String(transcription.text || "").trim(),
+              text: transcriptText,
               transcription,
               model: config.openaiTranscriptionModel,
             },
@@ -3385,6 +3471,17 @@ function buildServer({ config, store, runtime, rateLimiter, whatsappAdapter, ope
         return;
       }
 
+      if (pathname === "/api/lead-agents/admin/ai/operations") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_traces");
+        const operations = await fetchBackendAiOperations(config);
+        json(res, 200, { ai_operations: operations }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
       if (pathname === "/api/lead-agents/admin/users") {
         if (req.method === "GET") {
           authorizePermission(authContext, "view_users");
@@ -3736,12 +3833,17 @@ async function start() {
     windowMs: config.rateLimitWindowMs,
     maxRequests: config.rateLimitMaxRequests,
   });
+  const publicRateLimiter = new MemoryRateLimiter({
+    windowMs: config.publicWidgetRateLimitWindowMs,
+    maxRequests: config.publicWidgetRateLimitMaxRequests,
+  });
 
   const server = buildServer({
     config,
     store,
     runtime,
     rateLimiter,
+    publicRateLimiter,
     whatsappAdapter,
     openaiClient,
   });

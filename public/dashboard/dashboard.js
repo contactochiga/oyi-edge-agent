@@ -27,6 +27,7 @@
     officeStats: null,
     officeData: null,
     integrations: null,
+    aiOperations: null,
     mapConfig: null,
     googleMapsPromise: null,
     allDemos: [],
@@ -4337,6 +4338,10 @@
     const derived = getDerivedData();
     const officeStats = state.officeStats || {};
     const totals = state.report && state.report.totals ? state.report.totals : {};
+    const aiOps = state.aiOperations || { available: false, status: "pending_integration", tools: [], executions: [], confirmations: [] };
+    const aiExecutions = Array.isArray(aiOps.executions) ? aiOps.executions : [];
+    const aiConfirmations = Array.isArray(aiOps.confirmations) ? aiOps.confirmations : [];
+    const aiTools = Array.isArray(aiOps.tools) ? aiOps.tools : [];
     const activeAiOpsView = state.aiOpsView || "dashboard";
     const aiOpsTabs = [
       ["dashboard", "Dashboard", "summary"],
@@ -4348,24 +4353,33 @@
     ];
     const traceCount = state.traces.length || Number(officeStats.traces || 0);
     const conversationCount = Number(officeStats.conversations || totals.conversations || state.leads.length || 0);
-    const toolCalls = Math.max(traceCount, Object.values(derived.traceAgentCounts || {}).reduce(function (sum, value) {
+    const ledgerToolCalls = aiExecutions.length;
+    const toolCalls = Math.max(ledgerToolCalls, traceCount, Object.values(derived.traceAgentCounts || {}).reduce(function (sum, value) {
       return sum + Number(value || 0);
     }, 0));
-    const pendingExecutions = Math.max(0, state.traces.filter(function (trace) {
+    const pendingExecutions = Math.max(aiConfirmations.length, state.traces.filter(function (trace) {
       return /pending|running|queued|processing/i.test(String(trace.status || trace.type || ""));
     }).length + state.notifications.filter(function (note) {
       return /ai|agent|automation|voice|tool/i.test(`${note.title || ""} ${note.type || ""} ${note.summary || ""}`);
     }).length);
-    const failedExecutions = state.traces.filter(function (trace) {
+    const failedExecutions = Math.max(aiExecutions.filter(function (item) {
+      return /failed|denied|cancelled|expired/i.test(String(item.execution_status || ""));
+    }).length, state.traces.filter(function (trace) {
       return /fail|error|denied|cancel/i.test(String(trace.status || trace.type || trace.error || ""));
-    }).length;
-    const runningExecutions = state.traces.filter(function (trace) {
+    }).length);
+    const runningExecutions = Math.max(aiExecutions.filter(function (item) {
+      return /pending_confirmation|confirmed/i.test(String(item.execution_status || ""));
+    }).length, state.traces.filter(function (trace) {
       return /running|processing|queued/i.test(String(trace.status || trace.type || ""));
-    }).length;
-    const cancelledExecutions = state.traces.filter(function (trace) {
+    }).length);
+    const cancelledExecutions = Math.max(aiExecutions.filter(function (item) {
+      return /denied|expired/i.test(String(item.execution_status || ""));
+    }).length, state.traces.filter(function (trace) {
       return /cancel/i.test(String(trace.status || trace.type || ""));
-    }).length;
-    const completedExecutions = Math.max(0, toolCalls - failedExecutions - runningExecutions - cancelledExecutions);
+    }).length);
+    const completedExecutions = aiExecutions.length
+      ? aiExecutions.filter(function (item) { return String(item.execution_status || "") === "executed"; }).length
+      : Math.max(0, toolCalls - failedExecutions - runningExecutions - cancelledExecutions);
     const successRate = toolCalls ? Math.round((completedExecutions / Math.max(1, toolCalls)) * 1000) / 10 : 0;
     const agentRows = [
       { name: "Oyi AI", role: "Core intelligence", icon: "ai_operations", count: traceCount, state: traceCount ? "Online" : "Idle" },
@@ -4374,13 +4388,25 @@
       { name: "Orin", role: "Analytics agent", icon: "trend", count: state.report ? 1 : 0, state: state.report ? "Online" : "Idle" },
       { name: "Ezi", role: "Automation agent", icon: "settings", count: pendingExecutions, state: pendingExecutions ? "Online" : "Idle" },
     ];
-    const toolRows = [
-      ["get_estate_analytics", Math.max(0, Number(totals.leads || 0))],
-      ["create_support_ticket", state.notifications.length],
-      ["search_knowledge_base", state.audit.length],
-      ["get_device_status", Number(domain.metrics?.[2]?.value || 0) || traceCount],
-      ["update_automation_rule", pendingExecutions],
-    ].sort(function (a, b) { return b[1] - a[1]; });
+    const aiAuditEvents = state.audit.filter(function (event) { return String(event.action || "").indexOf("ai.") === 0; });
+    const confirmationQueue = Math.max(aiConfirmations.length, aiAuditEvents.filter(function (event) { return String(event.action || "") === "ai.command.confirmation.required"; }).length);
+    const deniedCommands = aiAuditEvents.filter(function (event) { return /denied|cancelled|failed/i.test(String(event.action || "") + " " + String(event.status || "")); }).length;
+    const toolRegistryRows = aiTools.length ? aiTools.map(function (tool) {
+      return {
+        id: tool.tool_id || tool.id || "unknown_tool",
+        risk: tool.risk_level || "authenticated_read",
+        enabled: tool.enabled !== false,
+        count: aiExecutions.filter(function (execution) { return String(execution.tool_id || "") === String(tool.tool_id || tool.id || ""); }).length,
+      };
+    }) : [
+      { id: "summarize_estate", risk: "authenticated_read", enabled: true, count: Number(totals.estates || domain.metrics?.[0]?.value || 0) || 0 },
+      { id: "summarize_devices", risk: "authenticated_read", enabled: true, count: Number(domain.metrics?.[2]?.value || 0) || traceCount },
+      { id: "summarize_support", risk: "authenticated_read", enabled: true, count: derived.openNotifications || 0 },
+      { id: "open_module", risk: "authenticated_read", enabled: true, count: conversationCount },
+      { id: "device_command", risk: "infrastructure_control", enabled: false, count: confirmationQueue },
+      { id: "visitor_create", risk: "sensitive_write", enabled: false, count: deniedCommands },
+    ];
+    const toolRows = toolRegistryRows.map(function (tool) { return [tool.id, tool.count, tool.risk, tool.enabled]; }).sort(function (a, b) { return b[1] - a[1]; });
     const maxTool = Math.max(1, ...toolRows.map(function (row) { return row[1]; }));
     const chartSeries = Array.from({ length: 7 }).map(function (_, index) {
       const factor = (index + 1) / 7;
@@ -4410,19 +4436,28 @@
       };
     });
     const insightRows = [
+      confirmationQueue ? { title: "Confirmation queue active", meta: ` AI command request(s) require human confirmation before execution`, tone: "warning", icon: "alert" } : null,
+      deniedCommands ? { title: "Denied command trail active", meta: ` AI command event(s) were blocked or cancelled by policy`, tone: "critical", icon: "settings" } : null,
       derived.openNotifications ? { title: "Support pressure trending", meta: `${derived.openNotifications} open support signals requiring AI-assisted routing review`, tone: "warning", icon: "support" } : null,
       failedExecutions ? { title: "Execution failures need review", meta: `${failedExecutions} failed tool traces need inspection before automation escalation`, tone: "critical", icon: "alert" } : null,
       traceCount ? { title: "Tool trace volume active", meta: `${traceCount} trace records are available for operational audit and diagnostics`, tone: "info", icon: "trend" } : null,
       state.audit.length ? { title: "Governance trail available", meta: `${state.audit.length} audit events are connected to the AI operations trail`, tone: "healthy", icon: "estate" } : null,
     ].filter(Boolean);
-    const activityRows = state.traces.slice(0, 5).map(function (trace) {
+    const activityRows = aiExecutions.slice(0, 5).map(function (execution) {
+      return {
+        title: displayValue(execution.tool_id, "AI command"),
+        meta: displayValue(execution.result_summary || execution.execution_status, "Execution ledger event"),
+        time: formatDate(execution.requested_at || execution.executed_at),
+        icon: "trend",
+      };
+    }).concat(state.traces.slice(0, 5).map(function (trace) {
       return {
         title: displayValue(trace.agent || trace.type, "AI request processed"),
         meta: displayValue(trace.tool_name || trace.status || trace.summary, "Tool execution event"),
         time: formatDate(trace.created_at || trace.ts),
         icon: "trend",
       };
-    }).concat(state.notifications.slice(0, 2).map(function (note) {
+    })).concat(state.notifications.slice(0, 2).map(function (note) {
       return {
         title: displayValue(note.title || note.type, "AI operational notice"),
         meta: displayValue(note.summary || note.message, "Office event"),
@@ -4431,10 +4466,10 @@
       };
     })).slice(0, 5);
     const healthRows = [
-      ["AI Services", true],
+      ["AI Services", aiOps.available !== false],
       ["Model Inference", true],
       ["Vector Database", Boolean(state.audit.length || state.traces.length)],
-      ["Tool Services", true],
+      ["Tool Services", aiTools.length > 0 || aiOps.available !== false],
       ["Voice Services", Boolean(window.MediaRecorder || navigator.mediaDevices)],
     ];
 
@@ -4444,7 +4479,7 @@
           <div>
             <p class="eyebrow">AI Operations</p>
             <h3>Monitor, manage, and optimize Oyi AI agents, tools, executions, and infrastructure intelligence.</h3>
-            <p class="subtext" style="margin:8px 0 0;">Live AI orchestration command center for the Ochiga Office OS.</p>
+            <p class="subtext" style="margin:8px 0 0;">Live AI orchestration command center for the Ochiga Office OS. ${escapeHtml(aiOps.available === false ? `Backend ledger: ${aiOps.status || "pending"}${aiOps.reason ? " · " + aiOps.reason : ""}` : "Backend ledger connected.")}</p>
           </div>
           <div class="ai-command-selectors">
             <button class="ai-command-pill" data-command-action="run_ai_workflow" type="button"><span>${officeIcon("trend")}</span>AI Command</button>
@@ -4461,8 +4496,9 @@
           ${[
             ["Active AI Agents", agentRows.filter(function (agent) { return agent.state === "Online"; }).length, "Live agent states", "lead"],
             ["AI Conversations", conversationCount, "Office conversation signal", "messenger"],
-            ["Pending Executions", pendingExecutions, "Queued and running actions", "alert"],
+            ["Pending Confirmations", confirmationQueue, "Risky commands waiting for approval", "alert"],
             ["Tool Calls Today", toolCalls, "Trace-backed tool activity", "trend"],
+            ["Denied Commands", deniedCommands, "Blocked by policy or permission", "settings"],
             ["Success Rate", `${successRate}%`, "Completed vs failed traces", "support"],
           ].map(function (item) {
             return `<div class="command-kpi ai-ops-kpi"><span class="command-icon">${officeIcon(item[3])}</span><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
@@ -4533,7 +4569,7 @@
                 <div class="ai-tool-list">
                   ${toolRows.map(function (row) {
                     const width = Math.max(8, Math.round((row[1] / maxTool) * 100));
-                    return `<div class="ai-tool-row"><span>${escapeHtml(row[0])}</span><span class="ai-tool-bar"><span class="ai-tool-fill" style="width:${width}%;"></span></span><strong>${escapeHtml(String(row[1]))}</strong></div>`;
+                    return `<div class="ai-tool-row"><span>${escapeHtml(row[0])}<small class="subtext">${escapeHtml(row[2] || "authenticated_read")} · ${row[3] === false ? "Disabled" : "Enabled"}</small></span><span class="ai-tool-bar"><span class="ai-tool-fill" style="width:${width}%;"></span></span><strong>${escapeHtml(String(row[1]))}</strong></div>`;
                   }).join("")}
                 </div>
               </article>
@@ -6782,6 +6818,7 @@
       healthData,
       mapData,
       integrationData,
+      aiOpsData,
     ] = await Promise.all([
       api("/api/lead-agents/leads", { method: "GET" }),
       hasPermission("view_traces")
@@ -6826,6 +6863,11 @@
             return { integrations: null };
           })
         : Promise.resolve({ integrations: null }),
+      hasPermission("view_traces")
+        ? api("/api/lead-agents/admin/ai/operations", { method: "GET" }).catch(function (error) {
+            return { ai_operations: { available: false, status: "error", reason: error.message, tools: [], executions: [], confirmations: [] } };
+          })
+        : Promise.resolve({ ai_operations: null }),
     ]);
     state.leads = leadData.leads || [];
     state.traces = traceData.traces || [];
@@ -6840,6 +6882,7 @@
     state.officeStats = healthData.stats || null;
     state.mapConfig = mapData.maps || null;
     state.integrations = integrationData.integrations || null;
+    state.aiOperations = aiOpsData.ai_operations || null;
     invalidateDerivedData();
 
     if (

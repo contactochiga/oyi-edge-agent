@@ -795,6 +795,26 @@
     );
   }
 
+  function preferredAudioMime() {
+    const types = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4",
+      "audio/ogg;codecs=opus",
+    ];
+    if (!window.MediaRecorder || !window.MediaRecorder.isTypeSupported) return "";
+    return types.find(function (type) {
+      return window.MediaRecorder.isTypeSupported(type);
+    }) || "";
+  }
+
+  function audioExtension(mimeType) {
+    if (/mp4|mpeg|m4a/i.test(mimeType)) return ".m4a";
+    if (/ogg/i.test(mimeType)) return ".ogg";
+    if (/wav/i.test(mimeType)) return ".wav";
+    return ".webm";
+  }
+
   async function startAudioMeter() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return;
@@ -1095,7 +1115,8 @@
       }
       mediaChunks = [];
       mediaStartedAt = Date.now();
-      mediaRecorder = new MediaRecorder(audioMeterStream);
+      const mimeType = preferredAudioMime();
+      mediaRecorder = new MediaRecorder(audioMeterStream, mimeType ? { mimeType } : undefined);
       mediaRecorder.ondataavailable = function (event) {
         if (event.data && event.data.size > 0) {
           mediaChunks.push(event.data);
@@ -1108,7 +1129,7 @@
         setActivity("Voice capture paused. Try again or type your message.", {});
         resetRecordingUi();
       };
-      mediaRecorder.start();
+      mediaRecorder.start(500);
     } catch (_) {
       setActivity("Microphone permission is blocked or unavailable.", {});
       voice.classList.remove("listening");
@@ -1139,8 +1160,9 @@
       body: JSON.stringify({
         audio_data_url: audioDataUrl,
         mime_type: blob.type || "audio/webm",
-        file_name: "oyi-voice-note.webm",
+        file_name: `oyi-voice-note${audioExtension(blob.type || "audio/webm")}`,
         language: "en",
+        duration_ms: Math.max(0, Date.now() - mediaStartedAt),
       }),
     });
     const data = await response.json().catch(function () {
@@ -1296,10 +1318,17 @@
         setActivity("Recording transcribed. Review it, then send.", {});
       }
     };
-    speech.onerror = function () {
+    speech.onerror = function (event) {
+      const errorType = String((event && event.error) || "");
+      const endedMode = activeCaptureMode || mode;
       setActivity("Voice capture paused. Try again or type your message.", {});
       voice.classList.remove("listening");
       resetRecordingUi();
+      if (["no-speech", "audio-capture", "network", "aborted"].includes(errorType) && supportsMediaRecorder()) {
+        window.setTimeout(function () {
+          startMediaFallback(endedMode);
+        }, 120);
+      }
     };
     try {
       speech.start();
