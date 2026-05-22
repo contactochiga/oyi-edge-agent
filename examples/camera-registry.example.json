@@ -1,0 +1,58 @@
+{
+  "site_id": "00000000-0000-0000-0000-000000000000",
+  "agent_id": "edge-lab-01",
+  "supported_providers": [
+    "generic_rtsp",
+    "onvif",
+    "hikvision",
+    "dahua",
+    "uniview",
+    "tuya_camera",
+    "other"
+  ],
+  "supported_protocols": [
+    "rtsp",
+    "onvif",
+    "hls",
+    "mjpeg",
+    "http_snapshot"
+  ],
+  "cameras": [
+    {
+      "camera_id": "generic-rtsp-gate-01",
+      "name": "Generic RTSP Gate Camera",
+      "provider": "generic_rtsp",
+      "protocol": "rtsp",
+      "host": "192.168.1.64",
+      "channel": "1",
+      "stream": "main",
+      "credential_ref": "local:generic-rtsp-main",
+      "rtsp_path_template": "/Streaming/Channels/{channel}01",
+      "enabled": true
+    },
+    {
+      "camera_id": "onvif-lobby-01",
+      "name": "ONVIF Lobby Camera",
+      "provider": "onvif",
+      "protocol": "onvif",
+      "host": "192.168.1.65",
+      "onvif_port": 80,
+      "channel": "1",
+      "credential_ref": "local:onvif-main",
+      "rtsp_path_template": "/Streaming/Channels/{channel}01",
+      "enabled": true
+    },
+    {
+      "camera_id": "hikvision-nvr-channel-01",
+      "name": "Hikvision NVR Channel 01",
+      "provider": "hikvision",
+      "protocol": "rtsp",
+      "host": "192.168.1.10",
+      "nvr_id": "nvr-main-01",
+      "channel": "1",
+      "credential_ref": "local:hikvision-main",
+      "rtsp_path_template": "/Streaming/Channels/{channel}01",
+      "enabled": true
+    }
+  ]
+}

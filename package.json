@@ -10,9 +10,11 @@
     "digital-twin:export": "node scripts/export-digital-twin-assets.js",
     "check": "node --check agent.js",
     "test": "npm run check",
+    "edge:go2rtc:dry-run": "node scripts/generate-go2rtc-config.js --dry-run",
     "tier1:smoke": "node scripts/smoke-tier1-foundations.js",
     "lead-agents:test": "node scripts/test-lead-agents.js",
-    "lead-agents:eval": "node scripts/run-lead-agents-evals.js"
+    "lead-agents:eval": "node scripts/run-lead-agents-evals.js",
+    "edge:bench:camera:dry-run": "node scripts/bench-camera-protocol-phase1.js --dry-run"
   },
   "keywords": [],
   "author": "",

@@ -11,6 +11,7 @@ const BASE_CONFIG = {
   AGENT_ID: env.AGENT_ID,
   SITE_ID: env.SITE_ID,
   CLOUD_URL: env.CLOUD_URL,
+  EDGE_AGENT_TOKEN: env.OYI_EDGE_AGENT_TOKEN || env.EDGE_AGENT_TOKEN,
   CAMERA_IP: env.CAMERA_IP,
   ONVIF_PORT: Number(env.ONVIF_PORT || 8080),
   ONVIF_USER: env.ONVIF_USER,
@@ -59,6 +60,19 @@ const client = axios.create({
   timeout: BASE_CONFIG.REQUEST_TIMEOUT_MS,
 });
 
+client.interceptors.request.use((config) => {
+  const cfg = getEffectiveConfig();
+  if (cfg.EDGE_AGENT_TOKEN) {
+    config.headers = {
+      ...(config.headers || {}),
+      "x-edge-token": cfg.EDGE_AGENT_TOKEN,
+      Authorization: `Bearer ${cfg.EDGE_AGENT_TOKEN}`,
+      "x-edge-agent-id": cfg.AGENT_ID,
+    };
+  }
+  return config;
+});
+
 function log(level, event, fields = {}) {
   const payload = {
     ts: new Date().toISOString(),
@@ -102,8 +116,8 @@ function buildDevices() {
       ip: cfg.CAMERA_IP,
       onvif_port: onvifPort,
       xaddr: `http://${cfg.CAMERA_IP}:${onvifPort}/onvif/device_service`,
-      username: cfg.ONVIF_USER,
-      password: cfg.ONVIF_PASS,
+      credential_ref: cfg.ONVIF_USER || cfg.ONVIF_PASS ? "local:onvif-default" : null,
+      credentials_present: Boolean(cfg.ONVIF_USER || cfg.ONVIF_PASS),
       source: "edge-static-config",
     },
   ];
@@ -258,6 +272,14 @@ async function registerAgent() {
     status: "online",
     started_at: nowIso(),
     capabilities: CAPABILITIES,
+    local_host: `http://127.0.0.1:${cfg.HEALTH_PORT}`,
+    runtime_version: require("./package.json").version,
+    runtime: {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      pid: process.pid,
+    },
   };
   await postOrEnqueue("register", cfg.EDGE_REGISTER_PATH, payload);
 }
@@ -271,6 +293,13 @@ async function sendHeartbeat() {
     status: "online",
     ts: nowIso(),
     outbox_depth: outbox.depth(),
+    queue_depth: outbox.depth(),
+    camera_count: buildDevices().length,
+    device_count: buildDevices().length,
+    sync_status: outbox.depth() ? "degraded" : "synced",
+    error_count: Object.keys(state.lastError).length,
+    runtime_version: require("./package.json").version,
+    local_runtime_host: `http://127.0.0.1:${cfg.HEALTH_PORT}`,
   };
   await postOrEnqueue("heartbeat", cfg.EDGE_HEARTBEAT_PATH, payload);
 }
