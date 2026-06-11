@@ -77,6 +77,98 @@ const MEMORY_DIRECTORY = Object.freeze([
   },
 ]);
 
+const INTELLIGENCE_ROLES = Object.freeze([
+  "resident",
+  "facility_manager",
+  "security_operator",
+  "estate_admin",
+  "ochiga_admin",
+  "super_admin",
+  "oma",
+  "osa",
+]);
+
+const SUMMARY_TYPES = Object.freeze(["consumer", "facility", "office", "watch", "camera", "edge"]);
+
+const COLLABORATION_RULES = Object.freeze([
+  {
+    id: "camera_facility_oyi",
+    from: "camera",
+    to: "facility",
+    trigger: "camera security/attention event",
+    purpose: "Facility reviews camera events and escalates resident-visible impacts to Oyi when appropriate.",
+    enabled: true,
+  },
+  {
+    id: "oma_osa",
+    from: "oma",
+    to: "osa",
+    trigger: "qualified marketing lead",
+    purpose: "OMA qualifies inbound interest; OSA handles sales follow-up and demo/proposal workflow.",
+    enabled: true,
+  },
+  {
+    id: "facility_edge",
+    from: "facility",
+    to: "edge",
+    trigger: "stream/device runtime issue",
+    purpose: "Facility requests Edge runtime diagnostics for local camera/device problems.",
+    enabled: true,
+  },
+  {
+    id: "watch_oyi",
+    from: "watch",
+    to: "oyi",
+    trigger: "compact wrist awareness or action",
+    purpose: "Watch surfaces compact status while Oyi owns resident-facing home context.",
+    enabled: true,
+  },
+]);
+
+function normalizeRole(role) {
+  const raw = String(role || "resident").trim().toLowerCase();
+  if (INTELLIGENCE_ROLES.includes(raw)) return raw;
+  if (raw === "manager") return "facility_manager";
+  if (raw === "security") return "security_operator";
+  if (raw === "admin" || raw === "system_admin") return "super_admin";
+  if (raw === "owner") return "estate_admin";
+  return "resident";
+}
+
+function getRolePolicy(roleInput) {
+  const role = normalizeRole(roleInput);
+  if (role === "super_admin" || role === "ochiga_admin") {
+    return { role, categories: EVENT_CATEGORIES, agents: AGENTS.map((agent) => agent.id), scope: role === "super_admin" ? "system" : "office" };
+  }
+  if (role === "oma") return { role, categories: ["marketing", "sales", "system"], agents: ["oma", "osa"], scope: "office" };
+  if (role === "osa") return { role, categories: ["sales", "marketing", "system"], agents: ["osa", "oma"], scope: "office" };
+  if (role === "security_operator") return { role, categories: ["security", "visitor", "camera", "edge", "system"], agents: ["facility", "edge", "camera"], scope: "estate" };
+  if (role === "facility_manager" || role === "estate_admin") {
+    return { role, categories: ["operational", "security", "maintenance", "visitor", "community", "camera", "edge", "system"], agents: ["oyi", "facility", "edge", "camera", "watch"], scope: "estate" };
+  }
+  return { role: "resident", categories: ["operational", "security", "maintenance", "visitor", "community", "system"], agents: ["oyi", "watch"], scope: "home" };
+}
+
+function createHealthSnapshot() {
+  const checks = [
+    AGENTS.length >= 7,
+    TOOL_REGISTRY.length > 0,
+    MEMORY_DIRECTORY.length >= 7,
+    EVENT_CATEGORIES.length >= 10,
+    COLLABORATION_RULES.every((rule) => rule.enabled),
+  ];
+  const readiness = Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  return {
+    ok: readiness >= 80,
+    core_id: CORE_ID,
+    readiness_score: readiness,
+    agents: AGENTS.length,
+    tools: TOOL_REGISTRY.length,
+    memory_directory: MEMORY_DIRECTORY.length,
+    collaboration_rules: COLLABORATION_RULES.length,
+  };
+}
+
 const AGENTS = Object.freeze([
   {
     id: "oyi",
@@ -349,6 +441,9 @@ module.exports = {
   MEMORY_SCOPES,
   EVENT_CATEGORIES,
   MEMORY_DIRECTORY,
+  INTELLIGENCE_ROLES,
+  SUMMARY_TYPES,
+  COLLABORATION_RULES,
   AGENTS,
   OFFICE_TOOLS,
   EDGE_TOOLS,
@@ -356,5 +451,8 @@ module.exports = {
   createAdapter,
   getAgent,
   getToolsForAgent,
+  normalizeRole,
+  getRolePolicy,
+  createHealthSnapshot,
   normalizeEvent,
 };
