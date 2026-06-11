@@ -12,6 +12,71 @@ const MEMORY_SCOPES = Object.freeze([
   "system",
 ]);
 
+const EVENT_CATEGORIES = Object.freeze([
+  "operational",
+  "security",
+  "maintenance",
+  "visitor",
+  "community",
+  "marketing",
+  "sales",
+  "camera",
+  "edge",
+  "system",
+]);
+
+const MEMORY_DIRECTORY = Object.freeze([
+  {
+    scope: "resident",
+    agents: ["oyi", "watch"],
+    storage: ["resident_memory", "home_timeline", "ochiga_intelligence_events"],
+    boundary: "Resident memory remains scoped to the resident and active home and is never merged into office memory.",
+    visibility: "private",
+  },
+  {
+    scope: "lead",
+    agents: ["oma", "osa"],
+    storage: ["lead memory", "office CRM memory", "ochiga_intelligence_events"],
+    boundary: "Lead and office memory must not include resident-private home data unless explicitly permissioned.",
+    visibility: "scoped",
+  },
+  {
+    scope: "office",
+    agents: ["oma", "osa"],
+    storage: ["office operations memory", "conversation memory", "ochiga_intelligence_events"],
+    boundary: "Office memory is commercial/workflow context and stays separate from Oyi resident memory.",
+    visibility: "scoped",
+  },
+  {
+    scope: "estate",
+    agents: ["oyi", "facility", "camera", "edge"],
+    storage: ["home_timeline", "device_events", "camera_events", "ochiga_intelligence_events"],
+    boundary: "Estate memory is operational and permission-scoped; private home details require explicit access.",
+    visibility: "scoped",
+  },
+  {
+    scope: "facility",
+    agents: ["facility"],
+    storage: ["facility operations", "maintenance", "visitors", "ochiga_intelligence_events"],
+    boundary: "Facility memory supports estate operations by role permission only.",
+    visibility: "scoped",
+  },
+  {
+    scope: "camera",
+    agents: ["camera", "edge"],
+    storage: ["camera registry", "camera AI detections", "camera_events", "ochiga_intelligence_events"],
+    boundary: "Camera events must respect camera access policy and must never expose credentials or private streams.",
+    visibility: "scoped",
+  },
+  {
+    scope: "edge",
+    agents: ["edge", "camera"],
+    storage: ["edge runtime health", "go2rtc health", "stream health", "ochiga_intelligence_events"],
+    boundary: "Edge memory is runtime-only and must not print or store DVR credentials in shared events.",
+    visibility: "system",
+  },
+]);
+
 const AGENTS = Object.freeze([
   {
     id: "oyi",
@@ -210,6 +275,7 @@ function getToolsForAgent(agentId) {
 }
 
 function normalizeEvent(input = {}) {
+  const category = String(input.category || "operational").toLowerCase();
   return {
     id: input.id || undefined,
     actor_id: input.actor_id || input.actorId || null,
@@ -220,7 +286,7 @@ function normalizeEvent(input = {}) {
     office_id: input.office_id || input.officeId || null,
     camera_id: input.camera_id || input.cameraId || null,
     event_type: input.event_type || input.eventType || "intelligence.event",
-    category: input.category || "Intelligence",
+    category: EVENT_CATEGORIES.includes(category) ? category : "operational",
     title: String(input.title || "Intelligence update").slice(0, 180),
     summary: String(input.summary || input.title || "Intelligence update").slice(0, 500),
     confidence: input.confidence || "confirmed",
@@ -281,6 +347,8 @@ function createAdapter(agentId) {
 module.exports = {
   CORE_ID,
   MEMORY_SCOPES,
+  EVENT_CATEGORIES,
+  MEMORY_DIRECTORY,
   AGENTS,
   OFFICE_TOOLS,
   EDGE_TOOLS,
