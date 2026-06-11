@@ -13,6 +13,7 @@
     "edge:go2rtc:dry-run": "node scripts/generate-go2rtc-config.js --dry-run",
     "edge:go2rtc:config": "node scripts/generate-go2rtc-config.js",
     "edge:camera": "node agent.js",
+    "edge:camera:dry-run": "node scripts/check-camera-runtime-readiness.js",
     "edge:health": "node scripts/check-camera-runtime-readiness.js",
     "tier1:smoke": "node scripts/smoke-tier1-foundations.js",
     "lead-agents:test": "node scripts/test-lead-agents.js",

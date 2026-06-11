@@ -27,7 +27,8 @@ function readJson(file) {
 
 function main() {
   const root = path.resolve(__dirname, "..");
-  const registryPath = path.resolve(root, process.argv[2] || "examples/camera-registry.example.json");
+  const localRegistry = path.join(root, "edge/camera/registry/local.camera-registry.json");
+  const registryPath = path.resolve(root, process.argv[2] || process.env.CAMERA_REGISTRY_PATH || (exists(localRegistry) ? localRegistry : "examples/camera-registry.example.json"));
   const localGo2rtc = process.env.GO2RTC_BIN || "/Users/ochigaidoko/go2rtc/go2rtc";
   const legacyGo2rtcConfig = "/Users/ochigaidoko/go2rtc/go2rtc.yaml";
   const repoGo2rtcConfig = path.join(root, "go2rtc.yaml");

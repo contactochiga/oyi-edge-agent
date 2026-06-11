@@ -30,6 +30,7 @@ const BASE_CONFIG = {
   RETRY_MAX_MS: Number(env.RETRY_MAX_MS || 60_000),
   LOCAL_QUEUE_PATH: env.LOCAL_QUEUE_PATH || "./data/outbox.json",
   HEALTH_PORT: Number(env.HEALTH_PORT || 9090),
+  GO2RTC_API_URL: env.GO2RTC_API_URL || "http://127.0.0.1:1984",
   LEGACY_MODE: String(env.LEGACY_MODE || "false") === "true",
 };
 
@@ -54,6 +55,13 @@ const state = {
   },
   server: null,
   remoteConfig: {},
+  go2rtc: {
+    reachable: false,
+    configured_streams: 0,
+    healthy_streams: 0,
+    last_checked_at: null,
+    error: null,
+  },
 };
 
 const client = axios.create({
@@ -135,6 +143,32 @@ function nowIso() {
 
 function errMessage(err) {
   return err?.response?.data || err?.message || "unknown error";
+}
+
+async function checkGo2rtc() {
+  const cfg = getEffectiveConfig();
+  const base = String(cfg.GO2RTC_API_URL || "").replace(/\/$/, "");
+  if (!base) return state.go2rtc;
+  try {
+    const res = await axios.get(`${base}/api/streams`, { timeout: 2000 });
+    const streams = res.data && typeof res.data === "object" ? Object.keys(res.data) : [];
+    state.go2rtc = {
+      reachable: true,
+      configured_streams: streams.length,
+      healthy_streams: streams.length,
+      last_checked_at: nowIso(),
+      error: null,
+    };
+  } catch (err) {
+    state.go2rtc = {
+      reachable: false,
+      configured_streams: 0,
+      healthy_streams: 0,
+      last_checked_at: nowIso(),
+      error: String(errMessage(err)),
+    };
+  }
+  return state.go2rtc;
 }
 
 class Outbox {
@@ -394,7 +428,7 @@ function resetIntervalTimersIfChanged() {
 
 function startHealthServer() {
   const cfg = getEffectiveConfig();
-  const server = http.createServer((req, res) => {
+  const server = http.createServer(async (req, res) => {
     if (req.url !== "/healthz") {
       res.statusCode = 404;
       res.end("not found");
@@ -402,6 +436,7 @@ function startHealthServer() {
     }
 
     res.setHeader("content-type", "application/json");
+    const go2rtc = await checkGo2rtc();
     res.end(
       JSON.stringify({
         ok: !state.stopped,
@@ -410,6 +445,12 @@ function startHealthServer() {
         agent_id: cfg.AGENT_ID,
         site_id: cfg.SITE_ID,
         outbox_depth: outbox.depth(),
+        backend_reachable: Boolean(state.lastSuccess.heartbeat || state.lastSuccess.register),
+        edge_registered: Boolean(state.lastSuccess.register),
+        go2rtc_reachable: go2rtc.reachable,
+        configured_streams: go2rtc.configured_streams,
+        healthy_streams: go2rtc.healthy_streams,
+        go2rtc,
         intervals_ms: activeIntervals,
         last_success: state.lastSuccess,
         last_error: state.lastError,

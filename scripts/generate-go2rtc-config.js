@@ -4,7 +4,9 @@ const fs = require("fs");
 const path = require("path");
 
 function parseArgs(argv) {
-  const out = { registry: "examples/camera-registry.example.json", output: "go2rtc.generated.yaml", dryRun: false };
+  const localRegistry = "edge/camera/registry/local.camera-registry.json";
+  const defaultRegistry = fs.existsSync(localRegistry) ? localRegistry : "examples/camera-registry.example.json";
+  const out = { registry: process.env.CAMERA_REGISTRY_PATH || defaultRegistry, output: "go2rtc.generated.yaml", dryRun: false };
   for (let i = 2; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--dry-run") out.dryRun = true;
@@ -47,9 +49,9 @@ function buildStreamUrl(camera, dryRun) {
     return camera.snapshot_url;
   }
 
-  const host = camera.host || camera.ip;
-  const channel = String(camera.channel || "1");
-  const template = camera.rtsp_path_template || "/Streaming/Channels/{channel}01";
+  const host = camera.host || camera.ip || camera.dvr_ip;
+  const channel = String(camera.channel || camera.channel_number || "1");
+  const template = camera.rtsp_path_template || templateForProvider(camera.provider);
   const rtspPath = template.replace(/\{channel\}/g, channel);
   const ref = camera.credential_ref;
   if (!host) throw new Error(`${camera.camera_id || camera.name}: missing host/ip`);
@@ -60,6 +62,13 @@ function buildStreamUrl(camera, dryRun) {
   if (!dryRun && (!user || !pass)) throw new Error(`${camera.camera_id || camera.name}: missing EDGE_CREDENTIAL_${key}_USER/PASS`);
   const userPart = dryRun ? "${USER}:${PASS}@" : `${encodeURIComponent(user)}:${encodeURIComponent(pass)}@`;
   return `rtsp://${userPart}${host}:554${rtspPath}`;
+}
+
+function templateForProvider(provider) {
+  const normalized = normalizeProvider(provider);
+  if (normalized === "dahua") return "/cam/realmonitor?channel={channel}&subtype=0";
+  if (normalized === "uniview") return "/media/video{channel}";
+  return "/Streaming/Channels/{channel}01";
 }
 
 function yamlString(value) {
