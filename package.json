@@ -8,7 +8,7 @@
     "lead-agents:start": "node lead-agents-server.js",
     "lead-agents:apply-schema": "node scripts/apply-supabase-schema.js",
     "digital-twin:export": "node scripts/export-digital-twin-assets.js",
-    "check": "node --check agent.js && node --check scripts/edge-camera-common.js && node --check scripts/generate-go2rtc-config.js && node --check scripts/check-camera-runtime-readiness.js && node --check scripts/setup-camera-edge.js",
+    "check": "node --check agent.js && node --check src/intelligence-core/index.js && node --check scripts/edge-camera-common.js && node --check scripts/generate-go2rtc-config.js && node --check scripts/check-camera-runtime-readiness.js && node --check scripts/setup-camera-edge.js",
     "test": "npm run check",
     "edge:go2rtc:dry-run": "node scripts/generate-go2rtc-config.js --dry-run",
     "edge:go2rtc:config": "node scripts/generate-go2rtc-config.js",
