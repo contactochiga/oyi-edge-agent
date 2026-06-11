@@ -8,7 +8,7 @@
     "lead-agents:start": "node lead-agents-server.js",
     "lead-agents:apply-schema": "node scripts/apply-supabase-schema.js",
     "digital-twin:export": "node scripts/export-digital-twin-assets.js",
-    "check": "node --check agent.js",
+    "check": "node --check agent.js && node --check scripts/edge-camera-common.js && node --check scripts/generate-go2rtc-config.js && node --check scripts/check-camera-runtime-readiness.js && node --check scripts/setup-camera-edge.js",
     "test": "npm run check",
     "edge:go2rtc:dry-run": "node scripts/generate-go2rtc-config.js --dry-run",
     "edge:go2rtc:config": "node scripts/generate-go2rtc-config.js",
@@ -18,7 +18,8 @@
     "tier1:smoke": "node scripts/smoke-tier1-foundations.js",
     "lead-agents:test": "node scripts/test-lead-agents.js",
     "lead-agents:eval": "node scripts/run-lead-agents-evals.js",
-    "edge:bench:camera:dry-run": "node scripts/bench-camera-protocol-phase1.js --dry-run"
+    "edge:bench:camera:dry-run": "node scripts/bench-camera-protocol-phase1.js --dry-run",
+    "edge:setup": "node scripts/setup-camera-edge.js"
   },
   "keywords": [],
   "author": "",
