@@ -90,6 +90,17 @@ const INTELLIGENCE_ROLES = Object.freeze([
 
 const SUMMARY_TYPES = Object.freeze(["consumer", "facility", "office", "watch", "camera", "edge"]);
 
+const PREDICTION_TYPES = Object.freeze([
+  "device_anomaly",
+  "camera_anomaly",
+  "maintenance_risk",
+  "security_risk",
+  "visitor_pattern",
+  "power_or_network_instability",
+  "edge_runtime_risk",
+  "operational_recommendation",
+]);
+
 const COLLABORATION_RULES = Object.freeze([
   {
     id: "camera_facility_oyi",
@@ -166,6 +177,7 @@ function createHealthSnapshot() {
     tools: TOOL_REGISTRY.length,
     memory_directory: MEMORY_DIRECTORY.length,
     collaboration_rules: COLLABORATION_RULES.length,
+    prediction_contracts: PREDICTION_TYPES.length,
   };
 }
 
@@ -443,6 +455,7 @@ module.exports = {
   MEMORY_DIRECTORY,
   INTELLIGENCE_ROLES,
   SUMMARY_TYPES,
+  PREDICTION_TYPES,
   COLLABORATION_RULES,
   AGENTS,
   OFFICE_TOOLS,
