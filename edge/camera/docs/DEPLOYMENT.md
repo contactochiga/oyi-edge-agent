@@ -77,3 +77,27 @@ npm run edge:camera
 Facility cameras are estate scoped.
 Home cameras must use `privacy_scope: home`.
 Office/project camera visibility must be explicitly permissioned.
+
+## Backend Registry Pull
+
+After a Facility Manager imports a DVR/NVR, the backend exposes the Edge-ready registry through:
+
+```bash
+GET /cameras/edge-registry/estate/:estateId
+```
+
+The Edge runtime can generate go2rtc config directly from that contract:
+
+```bash
+CAMERA_REGISTRY_URL="https://api.example.com/cameras/edge-registry/estate/<estate-id>" \
+CAMERA_REGISTRY_TOKEN="<edge-or-service-token>" \
+npm run edge:go2rtc:dry-run
+```
+
+For production config generation, add local credential environment variables matching each `credential_ref`, then run:
+
+```bash
+npm run edge:go2rtc:config
+```
+
+Do not store DVR or camera passwords in the backend, Facility UI, git, or generated documentation. Passwords remain on the Edge machine as local environment variables or a local secrets manager.
