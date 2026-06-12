@@ -136,6 +136,65 @@ const PREDICTION_TYPES = Object.freeze([
   "operational_recommendation",
 ]);
 
+const WORKFLOW_STATUSES = Object.freeze([
+  "created",
+  "reviewed",
+  "assigned",
+  "in_progress",
+  "blocked",
+  "completed",
+  "cancelled",
+  "escalated",
+]);
+
+const WORKFLOW_PRIORITIES = Object.freeze(["low", "medium", "high", "critical"]);
+
+const WORKFLOW_TYPES = Object.freeze([
+  "customer_converted",
+  "proposal_accepted",
+  "meeting_requested",
+  "deployment_required",
+  "customer_onboarding",
+  "edge_required",
+  "camera_runtime_required",
+  "camera_validation_required",
+  "security_event_detected",
+  "camera_offline",
+  "camera_tamper",
+  "prediction_requires_attention",
+  "resident_status_changed",
+]);
+
+const WORKFLOW_CONTRACTS = Object.freeze([
+  { workflow_type: "customer_converted", origin_agent: "oma", responsible_agent: "osa" },
+  { workflow_type: "proposal_accepted", origin_agent: "oma", responsible_agent: "osa" },
+  { workflow_type: "meeting_requested", origin_agent: "oma", responsible_agent: "osa" },
+  { workflow_type: "deployment_required", origin_agent: "osa", responsible_agent: "facility" },
+  { workflow_type: "customer_onboarding", origin_agent: "osa", responsible_agent: "facility" },
+  { workflow_type: "edge_required", origin_agent: "facility", responsible_agent: "edge" },
+  { workflow_type: "camera_runtime_required", origin_agent: "facility", responsible_agent: "edge" },
+  { workflow_type: "camera_validation_required", origin_agent: "facility", responsible_agent: "camera" },
+  { workflow_type: "security_event_detected", origin_agent: "camera", responsible_agent: "facility" },
+  { workflow_type: "camera_offline", origin_agent: "camera", responsible_agent: "facility" },
+  { workflow_type: "camera_tamper", origin_agent: "camera", responsible_agent: "facility" },
+  { workflow_type: "prediction_requires_attention", origin_agent: "ochiga_executive", responsible_agent: "ochiga_executive" },
+  { workflow_type: "resident_status_changed", origin_agent: "watch", responsible_agent: "oyi" },
+]);
+
+const AGENT_RESPONSIBILITIES = Object.freeze([
+  { agent_id: "oyi", responsibility: "Resident-facing home intelligence and approved resident guidance" },
+  { agent_id: "facility", responsibility: "Estate operations, deployments, residents, maintenance, visitors, and facility review" },
+  { agent_id: "oma", responsibility: "Marketing qualification, lead capture, and handoff recommendations" },
+  { agent_id: "osa", responsibility: "Sales follow-up, proposal/demo workflow tracking, and deployment handoff" },
+  { agent_id: "camera", responsibility: "Camera event interpretation, validation needs, and security signal handoff" },
+  { agent_id: "edge", responsibility: "Local runtime, Edge health, stream health, and camera/DVR runtime support" },
+  { agent_id: "watch", responsibility: "Compact resident awareness and Watch-to-Oyi status handoff" },
+  { agent_id: "ochiga_executive", responsibility: "Executive summaries, workflow oversight, escalations, and recommended focus areas" },
+]);
+
+const WORKFLOW_ALLOWED_ACTIONS = Object.freeze(["create_workflows", "assign_workflows", "track_workflows", "escalate_workflows", "recommend_actions"]);
+const WORKFLOW_FORBIDDEN_ACTIONS = Object.freeze(["control_devices", "approve_payments", "create_visitors", "modify_wallets", "modify_permissions", "modify_access_control"]);
+
 const COLLABORATION_RULES = Object.freeze([
   {
     id: "oma_osa_customer_converted",
@@ -258,6 +317,7 @@ function createHealthSnapshot() {
     MEMORY_DIRECTORY.length >= 7,
     EVENT_CATEGORIES.length >= 10,
     COLLABORATION_RULES.every((rule) => rule.enabled),
+    WORKFLOW_CONTRACTS.length >= 10,
   ];
   const readiness = Math.round((checks.filter(Boolean).length / checks.length) * 100);
   return {
@@ -269,6 +329,7 @@ function createHealthSnapshot() {
     memory_directory: MEMORY_DIRECTORY.length,
     collaboration_rules: COLLABORATION_RULES.length,
     prediction_contracts: PREDICTION_TYPES.length,
+    workflow_contracts: WORKFLOW_CONTRACTS.length,
   };
 }
 
@@ -558,6 +619,13 @@ module.exports = {
   INTELLIGENCE_ROLES,
   SUMMARY_TYPES,
   PREDICTION_TYPES,
+  WORKFLOW_STATUSES,
+  WORKFLOW_PRIORITIES,
+  WORKFLOW_TYPES,
+  WORKFLOW_CONTRACTS,
+  AGENT_RESPONSIBILITIES,
+  WORKFLOW_ALLOWED_ACTIONS,
+  WORKFLOW_FORBIDDEN_ACTIONS,
   COLLABORATION_RULES,
   AGENTS,
   OFFICE_TOOLS,
