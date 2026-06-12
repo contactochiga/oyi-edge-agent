@@ -9,6 +9,10 @@ const MEMORY_SCOPES = Object.freeze([
   "lead",
   "camera",
   "edge",
+  "employee",
+  "team",
+  "department",
+  "company",
   "system",
 ]);
 
@@ -75,6 +79,34 @@ const MEMORY_DIRECTORY = Object.freeze([
     boundary: "Edge memory is runtime-only and must not print or store DVR credentials in shared events.",
     visibility: "system",
   },
+  {
+    scope: "employee",
+    agents: ["ochiga_executive"],
+    storage: ["ochiga_organization_employees", "ochiga_agent_observability"],
+    boundary: "Employee memory is organizational only and never includes resident-private memory or raw CRM notes.",
+    visibility: "scoped",
+  },
+  {
+    scope: "team",
+    agents: ["ochiga_executive"],
+    storage: ["ochiga_organization_teams", "ochiga_agent_collaborations"],
+    boundary: "Team memory is responsibility and workflow context only.",
+    visibility: "scoped",
+  },
+  {
+    scope: "department",
+    agents: ["ochiga_executive"],
+    storage: ["ochiga_organization_departments", "ochiga_organization_responsibilities"],
+    boundary: "Department memory coordinates work without merging home, estate, resident, or lead memory.",
+    visibility: "scoped",
+  },
+  {
+    scope: "company",
+    agents: ["ochiga_executive"],
+    storage: ["ochiga_intelligence_events", "ochiga_intelligence_predictions", "ochiga_agent_collaborations"],
+    boundary: "Company memory is summarized cross-system intelligence only.",
+    visibility: "scoped",
+  },
 ]);
 
 const INTELLIGENCE_ROLES = Object.freeze([
@@ -86,7 +118,10 @@ const INTELLIGENCE_ROLES = Object.freeze([
   "super_admin",
   "oma",
   "osa",
+  "ochiga_executive",
 ]);
+
+const ORGANIZATION_SCOPES = Object.freeze(["employee", "team", "department", "company"]);
 
 const SUMMARY_TYPES = Object.freeze(["consumer", "facility", "office", "watch", "camera", "edge"]);
 
@@ -102,6 +137,62 @@ const PREDICTION_TYPES = Object.freeze([
 ]);
 
 const COLLABORATION_RULES = Object.freeze([
+  {
+    id: "oma_osa_customer_converted",
+    from: "oma",
+    to: "osa",
+    trigger: "customer_converted",
+    purpose: "OMA qualifies or converts a lead; OSA owns sales follow-up and commercial handoff.",
+    enabled: true,
+  },
+  {
+    id: "osa_facility_deployment_required",
+    from: "osa",
+    to: "facility",
+    trigger: "deployment_required",
+    purpose: "OSA identifies a customer/deployment need; Facility prepares operational onboarding context.",
+    enabled: true,
+  },
+  {
+    id: "facility_edge_camera_runtime_required",
+    from: "facility",
+    to: "edge",
+    trigger: "camera_runtime_required",
+    purpose: "Facility needs local Edge runtime support for camera/DVR streaming or health checks.",
+    enabled: true,
+  },
+  {
+    id: "camera_facility_security_event_detected",
+    from: "camera",
+    to: "facility",
+    trigger: "security_event_detected",
+    purpose: "Camera agent reports a security-relevant event; Facility reviews and decides operational response.",
+    enabled: true,
+  },
+  {
+    id: "watch_oyi_resident_status_changed",
+    from: "watch",
+    to: "oyi",
+    trigger: "resident_status_changed",
+    purpose: "Watch sends compact resident/home status change; Oyi owns resident-facing explanation.",
+    enabled: true,
+  },
+  {
+    id: "edge_camera_stream_restored",
+    from: "edge",
+    to: "camera",
+    trigger: "stream_restored",
+    purpose: "Edge reports restored stream health; Camera agent updates camera readiness context.",
+    enabled: true,
+  },
+  {
+    id: "prediction_executive_high_priority_prediction",
+    from: "facility",
+    to: "ochiga_executive",
+    trigger: "high_priority_prediction",
+    purpose: "Prediction engine exposes high-priority risk summaries to Executive Intelligence without raw private memory.",
+    enabled: true,
+  },
   {
     id: "camera_facility_oyi",
     from: "camera",
@@ -155,7 +246,7 @@ function getRolePolicy(roleInput) {
   if (role === "osa") return { role, categories: ["sales", "marketing", "system"], agents: ["osa", "oma"], scope: "office" };
   if (role === "security_operator") return { role, categories: ["security", "visitor", "camera", "edge", "system"], agents: ["facility", "edge", "camera"], scope: "estate" };
   if (role === "facility_manager" || role === "estate_admin") {
-    return { role, categories: ["operational", "security", "maintenance", "visitor", "community", "camera", "edge", "system"], agents: ["oyi", "facility", "edge", "camera", "watch"], scope: "estate" };
+    return { role, categories: ["operational", "security", "maintenance", "visitor", "community", "camera", "edge", "system"], agents: ["oyi", "facility", "edge", "camera", "watch", "ochiga_executive"], scope: "estate" };
   }
   return { role: "resident", categories: ["operational", "security", "maintenance", "visitor", "community", "system"], agents: ["oyi", "watch"], scope: "home" };
 }
@@ -251,6 +342,16 @@ const AGENTS = Object.freeze([
     memory_scope: ["user", "home"],
     risk_level: "medium",
     default_response_tone: "glanceable, compact, resident-safe",
+  },
+  {
+    id: "ochiga_executive",
+    name: "Ochiga Executive Intelligence",
+    domain: "cross-system executive awareness and agent orchestration",
+    allowed_surfaces: ["office", "api"],
+    tools: ["intelligence:summary", "intelligence:predictions", "intelligence:collaboration", "intelligence:observability"],
+    memory_scope: ["company", "department", "team", "system"],
+    risk_level: "high",
+    default_response_tone: "executive, concise, cross-functional, boundary-aware",
   },
   {
     id: "twin",
@@ -451,6 +552,7 @@ function createAdapter(agentId) {
 module.exports = {
   CORE_ID,
   MEMORY_SCOPES,
+  ORGANIZATION_SCOPES,
   EVENT_CATEGORIES,
   MEMORY_DIRECTORY,
   INTELLIGENCE_ROLES,
