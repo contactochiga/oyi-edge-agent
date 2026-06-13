@@ -28,6 +28,7 @@ const { normalizeEmail, normalizeLeadInput, normalizeLeadPatch } = require("./no
 const { WhatsAppCloudAdapter } = require("./whatsapp");
 const { buildCalendarLinks, parsePreferredSchedule } = require("./scheduling");
 const { buildProposal, inferCommercialFacts } = require("./commercial");
+const { PIPELINE_STAGES, qualifyLead } = require("./commercial-ops");
 const { createDigitalTwinRuntime } = require("./digital-twin");
 const { createPlanStudioRuntime } = require("./plan-studio");
 const { createOfficeSyncService } = require("./office-sync");
@@ -2675,9 +2676,23 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
               email: body.email,
               phone: body.phone,
               source: body.source,
+              source_channel: body.source_channel,
               location: body.location,
+              city: body.city,
+              country: body.country,
               unit_count: body.unit_count,
               project_type: body.project_type,
+              property_type: body.property_type,
+              property_size: body.property_size,
+              number_of_units: body.number_of_units,
+              pain_points: body.pain_points,
+              budget_range: body.budget_range,
+              timeline: body.timeline,
+              decision_maker_status: body.decision_maker_status,
+              interest_package: body.interest_package,
+              lead_score: body.lead_score,
+              qualification_status: body.qualification_status,
+              stage: body.stage,
               status: body.status,
               owner: body.owner,
               commercial_stage: body.commercial_stage,
@@ -2685,6 +2700,9 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
               score: body.score,
               summary: body.summary,
               next_action: body.next_action,
+              next_action_at: body.next_action_at,
+              last_contact_at: body.last_contact_at,
+              notes: body.notes,
           })
         );
           if (!updated) {
@@ -2695,6 +2713,153 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
           return;
         }
         methodNotAllowed(res, "GET,PATCH");
+        return;
+      }
+
+      const qualifyMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)\/qualify$/);
+      if (qualifyMatch) {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_leads");
+        const lead = await store.getLead(qualifyMatch[1]);
+        if (!lead) {
+          notFound(res);
+          return;
+        }
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        const qualification = qualifyLead(lead, body);
+        const updated = store.qualifyLead
+          ? await store.qualifyLead(lead.id, qualification)
+          : await store.updateLead(lead.id, {
+              ...qualification.patch,
+              summary: qualification.summary,
+              next_action: qualification.recommended_next_action,
+            });
+        await appendAudit(store, authContext, "lead_qualified", "lead", lead.id, qualification);
+        json(res, 200, { lead: updated, qualification }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      const buildingReviewMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)\/building-review$/);
+      if (buildingReviewMatch) {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_demos");
+        const lead = await store.getLead(buildingReviewMatch[1]);
+        if (!lead) {
+          notFound(res);
+          return;
+        }
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        const schedule = parsePreferredSchedule({
+          text: body.scheduled_for || "",
+          timezoneHint: body.timezone || "",
+        });
+        const reviewType = body.review_type || "building_review";
+        const demo = await store.createDemo({
+          lead_id: lead.id,
+          scheduled_for: schedule.scheduled_for,
+          status: body.status || (schedule.scheduled_for ? "confirmed" : "pending"),
+          notes: JSON.stringify({
+            review_type: reviewType,
+            label: reviewType === "site_visit" ? "Site Visit" : "Building Review",
+            notes: body.notes || "",
+            timezone: schedule.timezone || body.timezone || "",
+            preferred_time_text: body.scheduled_for || "",
+            display_time: schedule.display_text || "",
+          }),
+        });
+        const stage = reviewType === "site_visit" || reviewType === "technical_inspection"
+          ? "site_visit_scheduled"
+          : "discovery_scheduled";
+        const updatedLead = await store.updateLead(lead.id, {
+          stage,
+          commercial_stage: stage,
+          status: "booked",
+          owner: "sales_agent",
+          next_action: schedule.scheduled_for
+            ? `${reviewType === "site_visit" ? "Site Visit" : "Building Review"} scheduled for ${schedule.display_text}`
+            : `Confirm ${reviewType === "site_visit" ? "site visit" : "building review"} time`,
+          next_action_at: schedule.scheduled_for,
+        });
+        await appendAudit(store, authContext, "building_review_scheduled", "lead", lead.id, {
+          demo_id: demo.id,
+          review_type: reviewType,
+        });
+        json(res, 201, { review: demo, lead: updatedLead }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      const approvalMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)\/commercial-approval$/);
+      if (approvalMatch) {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_commercial");
+        const lead = await store.getLead(approvalMatch[1]);
+        if (!lead) {
+          notFound(res);
+          return;
+        }
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        const updatedLead = await store.updateLead(lead.id, {
+          stage: body.approved === false ? "negotiation" : "commercial_approved",
+          commercial_stage: body.approved === false ? "negotiation" : "commercial_approved",
+          status: body.approved === false ? "sales" : "approved",
+          owner: "sales_agent",
+          next_action: body.approved === false ? "Resolve commercial blockers" : "Create deployment project and Facility workspace",
+          notes: body.notes,
+        });
+        await appendAudit(store, authContext, "commercial_approval_updated", "lead", lead.id, {
+          approved: body.approved !== false,
+          notes: body.notes || "",
+        });
+        json(res, 200, { lead: updatedLead }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      const provisionMatch = pathname.match(/^\/api\/lead-agents\/leads\/([^/]+)\/provision-facility-workspace$/);
+      if (provisionMatch) {
+        if (req.method !== "POST") {
+          methodNotAllowed(res, "POST");
+          return;
+        }
+        authorizePermission(authContext, "manage_commercial");
+        const lead = await store.getLead(provisionMatch[1]);
+        if (!lead) {
+          notFound(res);
+          return;
+        }
+        const body = await readJsonBody(req);
+        requireObject(body, "body");
+        const [deployment, workspace] = await Promise.all([
+          store.createDeploymentProject({
+            lead_id: lead.id,
+            package_name: body.package_name || lead.interest_package,
+            property_name: body.property_name || lead.company,
+            actor: authContext?.email || "office",
+          }),
+          store.createFacilityWorkspace({
+            lead_id: lead.id,
+            facility_admin_email: body.facility_admin_email || lead.email,
+            customer_organization: body.customer_organization || lead.company,
+            estate_name: body.estate_name || body.property_name || lead.company,
+            actor: authContext?.email || "office",
+          }),
+        ]);
+        await appendAudit(store, authContext, "facility_workspace_requested", "lead", lead.id, {
+          deployment_id: deployment.id,
+          workspace_id: workspace.id,
+        });
+        json(res, 201, { deployment, workspace }, { "x-request-id": ctx.requestId });
         return;
       }
 
@@ -2743,15 +2908,14 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
           const inferred = inferCommercialFacts([lead.summary, lead.next_action, body.context || ""].join(" "));
           const unitCount = body.unit_count || lead.unit_count || inferred.unit_count;
           const projectType = body.project_type || lead.project_type || inferred.project_type;
-          if (!unitCount) {
-            json(res, 400, { error: "unit_count_required" });
-            return;
-          }
           const proposalPayload = buildProposal({
             unitCount,
             projectType,
             leadName: lead.name,
             company: lead.company,
+            packageName: body.package_name || lead.interest_package,
+            painPoints: body.pain_points || lead.pain_points || lead.summary,
+            timeline: body.timeline || lead.timeline,
           });
           const proposal = await store.createProposal({
             lead_id: leadId,
@@ -2772,6 +2936,8 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
                 ? "proposal"
                 : lead.commercial_stage || "proposal",
             status: proposalStatus === "accepted" ? "closed" : proposalStatus === "declined" ? "lost" : undefined,
+            stage: proposalStatus === "sent" ? "proposal_sent" : proposalStatus === "accepted" ? "won" : undefined,
+            interest_package: proposalPayload.tier_name,
             lost_reason: proposalStatus === "declined" ? "proposal_declined" : undefined,
             next_action:
               proposalStatus === "accepted"
@@ -2881,6 +3047,74 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
           { proposals: await store.listProposals() },
           { "x-request-id": ctx.requestId }
         );
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/commercial/pipeline") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_dashboard");
+        const leads = await store.listLeads();
+        const byStage = Object.fromEntries(PIPELINE_STAGES.map((stage) => [stage, []]));
+        leads.forEach((lead) => {
+          const stage = PIPELINE_STAGES.includes(lead.stage) ? lead.stage : lead.commercial_stage || lead.status || "new";
+          const key = PIPELINE_STAGES.includes(stage) ? stage : "new";
+          byStage[key].push(lead);
+        });
+        json(res, 200, { stages: PIPELINE_STAGES, by_stage: byStage }, { "x-request-id": ctx.requestId });
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/partners") {
+        if (req.method === "GET") {
+          authorizePermission(authContext, "view_dashboard");
+          json(res, 200, { partners: store.listPartners ? await store.listPartners() : [] }, { "x-request-id": ctx.requestId });
+          return;
+        }
+        if (req.method === "POST") {
+          authorizePermission(authContext, "manage_commercial");
+          const body = await readJsonBody(req);
+          requireObject(body, "body");
+          const partner = await store.createPartner(body);
+          await appendAudit(store, authContext, "partner_created", "partner", partner.id, partner);
+          json(res, 201, { partner }, { "x-request-id": ctx.requestId });
+          return;
+        }
+        methodNotAllowed(res, "GET,POST");
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/deployments") {
+        if (req.method === "GET") {
+          authorizePermission(authContext, "view_dashboard");
+          json(res, 200, { deployments: store.listDeploymentProjects ? await store.listDeploymentProjects() : [] }, { "x-request-id": ctx.requestId });
+          return;
+        }
+        if (req.method === "POST") {
+          authorizePermission(authContext, "manage_commercial");
+          const body = await readJsonBody(req);
+          requireObject(body, "body");
+          const deployment = await store.createDeploymentProject({
+            ...body,
+            actor: authContext?.email || "office",
+          });
+          await appendAudit(store, authContext, "deployment_project_created", "deployment", deployment.id, deployment);
+          json(res, 201, { deployment }, { "x-request-id": ctx.requestId });
+          return;
+        }
+        methodNotAllowed(res, "GET,POST");
+        return;
+      }
+
+      if (pathname === "/api/lead-agents/admin/facility-workspaces") {
+        if (req.method !== "GET") {
+          methodNotAllowed(res, "GET");
+          return;
+        }
+        authorizePermission(authContext, "view_dashboard");
+        json(res, 200, { workspaces: store.listFacilityWorkspaces ? await store.listFacilityWorkspaces() : [] }, { "x-request-id": ctx.requestId });
         return;
       }
 

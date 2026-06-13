@@ -4732,7 +4732,7 @@
                   </button>
                   <button class="office-nav-btn" data-office-target="crm_agents" data-office-focus="crm_agents" type="button">
                     <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-6"></path></svg></span>
-                    <span class="office-nav-copy"><strong>CRM & Support</strong></span>
+                    <span class="office-nav-copy"><strong>Commercial Command</strong></span>
                   </button>
                   <button class="office-nav-btn" data-office-target="web_presence" data-office-focus="web_presence" type="button">
                     <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg></span>
@@ -5479,7 +5479,7 @@
                   <span class="accordion-badge" id="updateBadge">1</span>
                   <div>
                     <div class="key" style="margin:0;">Record Update</div>
-                    <div class="accordion-meta">Ownership, status, stage, and summary</div>
+                    <div class="accordion-meta">Ownership, qualification, stage, and next action</div>
                   </div>
                 </div>
                 <span>▾</span>
@@ -5487,23 +5487,25 @@
               <div class="detail-accordion-content">
                 <div class="stack-12">
                   <div>
-                    <label class="key" for="projectTypeInput">Project Type</label>
-                    <input id="projectTypeInput" class="text-input" type="text" placeholder="estate, mixed-use estate, building..." />
+                    <label class="key" for="projectTypeInput">Property Type</label>
+                    <input id="projectTypeInput" class="text-input" type="text" placeholder="residential, commercial building, hotel, campus..." />
                   </div>
                   <div>
-                    <label class="key" for="unitCountInput">Unit Count</label>
-                    <input id="unitCountInput" class="text-input" type="number" min="0" placeholder="e.g. 240" />
+                    <label class="key" for="unitCountInput">Property Size / Units</label>
+                    <input id="unitCountInput" class="text-input" type="number" min="0" placeholder="e.g. 240 units, rooms, tenants" />
                   </div>
                   <div>
                     <label class="key" for="commercialStageInput">Commercial Stage</label>
                     <select id="commercialStageInput" class="select-input">
                       <option value="">Keep current</option>
-                      <option value="lead">lead</option>
-                      <option value="discovery">discovery</option>
-                      <option value="proposal">proposal</option>
-                      <option value="quote">quote</option>
+                      <option value="new">new</option>
+                      <option value="contacted">contacted</option>
+                      <option value="qualified">qualified</option>
+                      <option value="discovery_scheduled">discovery_scheduled</option>
+                      <option value="site_visit_scheduled">site_visit_scheduled</option>
+                      <option value="proposal_sent">proposal_sent</option>
                       <option value="negotiation">negotiation</option>
-                      <option value="procurement">procurement</option>
+                      <option value="commercial_approved">commercial_approved</option>
                       <option value="won">won</option>
                       <option value="lost">lost</option>
                     </select>
@@ -5546,6 +5548,10 @@
                     <label class="key" for="nextActionInput">Next Action</label>
                     <input id="nextActionInput" class="text-input" type="text" placeholder="What happens next?" />
                   </div>
+                  <div class="toolbar">
+                    <button class="ghost" id="qualifyLeadBtn" type="button">OMA qualify</button>
+                    <button class="sand" id="approveCommercialBtn" type="button">Mark approved</button>
+                  </div>
                   <div>
                     <label class="key" for="summaryInput">Summary</label>
                     <textarea id="summaryInput" class="textarea-input" placeholder="Short structured summary"></textarea>
@@ -5568,8 +5574,8 @@
               <div class="detail-accordion-content">
                 <div class="stack-12">
                   <div>
-                    <label class="key" for="proposalUnitsInput">Generate Proposal</label>
-                    <input id="proposalUnitsInput" class="text-input" type="number" min="0" placeholder="Use selected record unit count or override here" />
+                    <label class="key" for="proposalUnitsInput">Proposal Scale</label>
+                    <input id="proposalUnitsInput" class="text-input" type="number" min="0" placeholder="Optional units, rooms, tenants, or spaces" />
                   </div>
                   <div>
                     <label class="key" for="proposalStatusInput">Proposal Status</label>
@@ -5594,7 +5600,7 @@
                   <span class="accordion-badge" id="demoBadge">0</span>
                   <div>
                     <div class="key" style="margin:0;">Schedule Demo</div>
-                    <div class="accordion-meta">Book the next sales or discovery step</div>
+                    <div class="accordion-meta">Book discovery, building review, site visit, or technical inspection</div>
                   </div>
                 </div>
                 <span>▾</span>
@@ -5602,14 +5608,24 @@
               <div class="detail-accordion-content">
                 <div class="stack-12">
                   <div>
-                    <label class="key" for="demoAtInput">Schedule Demo</label>
+                    <label class="key" for="demoAtInput">Schedule Building Review</label>
                     <input id="demoAtInput" class="text-input" type="datetime-local" />
+                  </div>
+                  <div>
+                    <label class="key" for="reviewTypeInput">Review Type</label>
+                    <select id="reviewTypeInput" class="select-input">
+                      <option value="discovery_call">Discovery Call</option>
+                      <option value="building_review">Building Review</option>
+                      <option value="site_visit">Site Visit</option>
+                      <option value="technical_inspection">Technical Inspection</option>
+                    </select>
                   </div>
                   <div>
                     <label class="key" for="demoNotesInput">Demo Notes</label>
                     <textarea id="demoNotesInput" class="textarea-input" placeholder="Optional notes for the demo record"></textarea>
                   </div>
-                  <button class="sand" id="createDemoBtn" type="button">Create demo</button>
+                  <button class="sand" id="createDemoBtn" type="button">Schedule review</button>
+                  <button class="ghost" id="provisionFacilityBtn" type="button">Create Facility Workspace</button>
                 </div>
               </div>
             </details>

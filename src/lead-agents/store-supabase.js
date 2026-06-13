@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { normalizeEmail, normalizeLeadInput, normalizeLeadPatch, normalizeText } = require("./normalize-lead");
+const { buildDeploymentFromLead, normalizePartner } = require("./commercial-ops");
 const { buildOfficeSnapshot, createOfficeSeedData } = require("./office-data");
 
 class SupabaseLeadAgentsStore {
@@ -67,6 +68,24 @@ class SupabaseLeadAgentsStore {
       unit_count:
         row.unit_count === undefined || row.unit_count === null ? null : Number(row.unit_count),
       project_type: row.project_type || "",
+      property_type: row.property_type || row.project_type || "",
+      source_channel: row.source_channel || row.primary_channel || row.source || "",
+      city: row.city || "",
+      country: row.country || "",
+      property_size: row.property_size || "",
+      number_of_units:
+        row.number_of_units === undefined || row.number_of_units === null ? null : Number(row.number_of_units),
+      pain_points: row.pain_points || "",
+      budget_range: row.budget_range || "",
+      timeline: row.timeline || "",
+      decision_maker_status: row.decision_maker_status || "",
+      interest_package: row.interest_package || "",
+      lead_score: row.lead_score === undefined || row.lead_score === null ? Number(row.score || 0) : Number(row.lead_score),
+      qualification_status: row.qualification_status || "",
+      stage: row.stage || row.commercial_stage || row.status || "new",
+      next_action_at: row.next_action_at || null,
+      last_contact_at: row.last_contact_at || null,
+      notes: row.notes || "",
       summary: row.summary || "",
       next_action: row.next_action || "",
       commercial_stage: row.commercial_stage || "",
@@ -305,6 +324,105 @@ class SupabaseLeadAgentsStore {
       headers: this.selectHeaders(),
     });
     return response.data[0] || null;
+  }
+
+  async qualifyLead(leadId, qualification) {
+    const updated = await this.updateLead(leadId, {
+      ...qualification.patch,
+      summary: qualification.summary,
+      next_action: qualification.recommended_next_action,
+      owner: qualification.qualification_status === "qualified" ? "sales_agent" : undefined,
+    });
+    if (!updated) return null;
+    await this.appendTimelineEvent({
+      lead_id: leadId,
+      event_type: "lead_qualified",
+      actor: "oma",
+      title: "Lead qualified",
+      body: qualification.summary,
+      metadata: qualification,
+    });
+    return updated;
+  }
+
+  async listPartners() {
+    return this.safeGet("/partners?order=updated_at.desc");
+  }
+
+  async createPartner(input) {
+    const response = await this.client.post("/partners", normalizePartner(input), {
+      headers: this.selectHeaders(),
+    });
+    return response.data[0];
+  }
+
+  async listDeploymentProjects() {
+    return this.safeGet("/deployment_projects?order=updated_at.desc");
+  }
+
+  async createDeploymentProject(input) {
+    const lead = input.lead_id ? await this.getLead(input.lead_id) : null;
+    const response = await this.client.post(
+      "/deployment_projects",
+      buildDeploymentFromLead(lead || {}, input),
+      { headers: this.selectHeaders() }
+    );
+    const project = response.data[0];
+    if (project?.lead_id) {
+      await this.appendTimelineEvent({
+        lead_id: project.lead_id,
+        event_type: "deployment_project_created",
+        actor: input.actor || "office",
+        title: "Deployment project created",
+        body: project.property_name || project.customer_name || "Deployment project created.",
+        metadata: project,
+      });
+    }
+    return project;
+  }
+
+  async createFacilityWorkspace(input) {
+    const lead = input.lead_id ? await this.getLead(input.lead_id) : null;
+    const payload = {
+      lead_id: input.lead_id || null,
+      customer_organization: input.customer_organization || lead?.company || lead?.name || "",
+      estate_name: input.estate_name || input.property_name || lead?.company || "",
+      facility_admin_email: input.facility_admin_email || lead?.email || "",
+      status: "pending_manual_provisioning",
+      activation_link: input.activation_link || "",
+      checklist: {
+        customer_organization: "ready_to_create",
+        estate_or_building_record: "ready_to_create",
+        facility_admin_invite: input.facility_admin_email || lead?.email ? "ready_to_send" : "needs_email",
+        deployment_project: "ready_to_link",
+        onboarding_email: "ready_to_send",
+      },
+      notes: input.notes || "Manual approval required before provisioning live Facility workspace.",
+    };
+    const response = await this.client.post("/facility_workspaces", payload, {
+      headers: this.selectHeaders(),
+    });
+    const workspace = response.data[0];
+    if (workspace?.lead_id) {
+      await this.updateLead(workspace.lead_id, {
+        stage: "commercial_approved",
+        commercial_stage: "commercial_approved",
+        next_action: "Create or approve Facility workspace",
+      });
+      await this.appendTimelineEvent({
+        lead_id: workspace.lead_id,
+        event_type: "facility_workspace_prepared",
+        actor: input.actor || "office",
+        title: "Facility workspace prepared",
+        body: "Manual provisioning checklist created.",
+        metadata: workspace,
+      });
+    }
+    return workspace;
+  }
+
+  async listFacilityWorkspaces() {
+    return this.safeGet("/facility_workspaces?order=created_at.desc");
   }
 
   async getLeadChannelState(leadId, channel) {

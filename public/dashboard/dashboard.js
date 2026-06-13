@@ -495,13 +495,17 @@
     nextActionInput: document.getElementById("nextActionInput"),
     summaryInput: document.getElementById("summaryInput"),
     updateLeadBtn: document.getElementById("updateLeadBtn"),
+    qualifyLeadBtn: document.getElementById("qualifyLeadBtn"),
+    approveCommercialBtn: document.getElementById("approveCommercialBtn"),
     proposalUnitsInput: document.getElementById("proposalUnitsInput"),
     proposalStatusInput: document.getElementById("proposalStatusInput"),
     createProposalBtn: document.getElementById("createProposalBtn"),
     proposalListPanel: document.getElementById("proposalListPanel"),
     demoAtInput: document.getElementById("demoAtInput"),
+    reviewTypeInput: document.getElementById("reviewTypeInput"),
     demoNotesInput: document.getElementById("demoNotesInput"),
     createDemoBtn: document.getElementById("createDemoBtn"),
+    provisionFacilityBtn: document.getElementById("provisionFacilityBtn"),
     escalationReasonInput: document.getElementById("escalationReasonInput"),
     escalationSummaryInput: document.getElementById("escalationSummaryInput"),
     escalationUrgencyInput: document.getElementById("escalationUrgencyInput"),
@@ -6685,9 +6689,13 @@
     el.nextActionInput.disabled = !canManageLeads;
     el.summaryInput.disabled = !canManageLeads;
     el.updateLeadBtn.disabled = !canManageLeads;
+    if (el.qualifyLeadBtn) el.qualifyLeadBtn.disabled = !canManageLeads;
+    if (el.approveCommercialBtn) el.approveCommercialBtn.disabled = !hasPermission("manage_commercial");
     el.demoAtInput.disabled = !canManageDemos;
+    if (el.reviewTypeInput) el.reviewTypeInput.disabled = !canManageDemos;
     el.demoNotesInput.disabled = !canManageDemos;
     el.createDemoBtn.disabled = !canManageDemos;
+    if (el.provisionFacilityBtn) el.provisionFacilityBtn.disabled = !hasPermission("manage_commercial");
     el.escalationReasonInput.disabled = !canEscalateFounder;
     el.escalationSummaryInput.disabled = !canEscalateFounder;
     el.escalationUrgencyInput.disabled = !canEscalateFounder;
@@ -7335,6 +7343,52 @@
     setDetailStatus("Lead updated.");
   }
 
+  async function qualifySelectedLead() {
+    if (!state.selectedLead) {
+      setDetailStatus("Select a record first.", true);
+      return;
+    }
+    if (!hasPermission("manage_leads")) {
+      setDetailStatus("Your role cannot qualify leads.", true);
+      return;
+    }
+    setDetailStatus("OMA is qualifying this opportunity...");
+    const data = await api(`/api/lead-agents/leads/${state.selectedLead.id}/qualify`, {
+      method: "POST",
+      body: JSON.stringify({
+        property_type: el.projectTypeInput.value || state.selectedLead.property_type || state.selectedLead.project_type,
+        number_of_units: el.unitCountInput.value ? Number(el.unitCountInput.value) : state.selectedLead.number_of_units || state.selectedLead.unit_count,
+        pain_points: el.summaryInput.value || state.selectedLead.pain_points || state.selectedLead.summary,
+        decision_maker_status: state.selectedLead.decision_maker_status || state.selectedLead.role,
+        timeline: state.selectedLead.timeline || "",
+        budget_range: state.selectedLead.budget_range || "",
+      }),
+    });
+    state.selectedLead = data.lead;
+    await loadLeads();
+    if (state.selectedLeadId) await selectLead(state.selectedLeadId, true);
+    setDetailStatus(`Qualified: ${data.qualification.qualification_status} · ${data.qualification.recommended_package}`);
+  }
+
+  async function markCommercialApproved() {
+    if (!state.selectedLead) {
+      setDetailStatus("Select a record first.", true);
+      return;
+    }
+    if (!hasPermission("manage_commercial")) {
+      setDetailStatus("Your role cannot approve commercial records.", true);
+      return;
+    }
+    setDetailStatus("Marking commercial approval...");
+    await api(`/api/lead-agents/leads/${state.selectedLead.id}/commercial-approval`, {
+      method: "POST",
+      body: JSON.stringify({ approved: true, notes: el.summaryInput.value || "" }),
+    });
+    await loadLeads();
+    if (state.selectedLeadId) await selectLead(state.selectedLeadId, true);
+    setDetailStatus("Commercial approval recorded.");
+  }
+
   async function createProposal() {
     if (!state.selectedLead) {
       setDetailStatus("Select a record first.", true);
@@ -7387,15 +7441,15 @@
     }
 
     setDetailStatus("Creating demo...");
-    await api(`/api/lead-agents/leads/${state.selectedLead.id}/demos`, {
+    await api(`/api/lead-agents/leads/${state.selectedLead.id}/building-review`, {
       method: "POST",
       body: JSON.stringify({
         scheduled_for: el.demoAtInput.value
           ? new Date(el.demoAtInput.value).toISOString()
           : null,
         notes: el.demoNotesInput.value || "",
+        review_type: el.reviewTypeInput ? el.reviewTypeInput.value : "building_review",
         status: "confirmed",
-        update_lead_status: true,
         timezone: "Africa/Lagos",
       }),
     });
@@ -7405,7 +7459,31 @@
     }
     el.demoAtInput.value = "";
     el.demoNotesInput.value = "";
-    setDetailStatus("Demo created.");
+    setDetailStatus("Building review scheduled.");
+  }
+
+  async function provisionFacilityWorkspace() {
+    if (!state.selectedLead) {
+      setDetailStatus("Select a record first.", true);
+      return;
+    }
+    if (!hasPermission("manage_commercial")) {
+      setDetailStatus("Your role cannot prepare Facility workspaces.", true);
+      return;
+    }
+    setDetailStatus("Preparing Facility workspace checklist...");
+    await api(`/api/lead-agents/leads/${state.selectedLead.id}/provision-facility-workspace`, {
+      method: "POST",
+      body: JSON.stringify({
+        customer_organization: state.selectedLead.company || state.selectedLead.name,
+        property_name: state.selectedLead.company || state.selectedLead.project_type,
+        facility_admin_email: state.selectedLead.email || "",
+        package_name: state.selectedLead.interest_package || "",
+      }),
+    });
+    await loadLeads();
+    if (state.selectedLeadId) await selectLead(state.selectedLeadId, true);
+    setDetailStatus("Facility workspace checklist prepared for manual approval.");
   }
 
   async function escalate() {
@@ -8006,11 +8084,32 @@
       setDetailStatus(error.message || "Lead update failed.", true);
     });
   });
+  if (el.qualifyLeadBtn) {
+    el.qualifyLeadBtn.addEventListener("click", function () {
+      qualifySelectedLead().catch(function (error) {
+        setDetailStatus(error.message || "Lead qualification failed.", true);
+      });
+    });
+  }
+  if (el.approveCommercialBtn) {
+    el.approveCommercialBtn.addEventListener("click", function () {
+      markCommercialApproved().catch(function (error) {
+        setDetailStatus(error.message || "Commercial approval failed.", true);
+      });
+    });
+  }
   el.createDemoBtn.addEventListener("click", function () {
     createDemo().catch(function (error) {
-      setDetailStatus(error.message || "Demo creation failed.", true);
+      setDetailStatus(error.message || "Building review scheduling failed.", true);
     });
   });
+  if (el.provisionFacilityBtn) {
+    el.provisionFacilityBtn.addEventListener("click", function () {
+      provisionFacilityWorkspace().catch(function (error) {
+        setDetailStatus(error.message || "Facility workspace preparation failed.", true);
+      });
+    });
+  }
   el.createProposalBtn.addEventListener("click", function () {
     createProposal().catch(function (error) {
       setDetailStatus(error.message || "Proposal creation failed.", true);

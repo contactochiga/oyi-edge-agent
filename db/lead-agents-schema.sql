@@ -28,11 +28,29 @@ alter table leads add column if not exists primary_channel text;
 alter table leads add column if not exists channel_last_seen_at timestamptz;
 alter table leads add column if not exists unit_count integer;
 alter table leads add column if not exists project_type text;
+alter table leads add column if not exists source_channel text;
+alter table leads add column if not exists property_type text;
+alter table leads add column if not exists city text;
+alter table leads add column if not exists country text;
+alter table leads add column if not exists property_size text;
+alter table leads add column if not exists number_of_units integer;
+alter table leads add column if not exists pain_points text;
+alter table leads add column if not exists budget_range text;
+alter table leads add column if not exists timeline text;
+alter table leads add column if not exists decision_maker_status text;
+alter table leads add column if not exists interest_package text;
+alter table leads add column if not exists lead_score numeric;
+alter table leads add column if not exists qualification_status text;
+alter table leads add column if not exists stage text;
+alter table leads add column if not exists next_action_at timestamptz;
+alter table leads add column if not exists last_contact_at timestamptz;
+alter table leads add column if not exists notes text;
 alter table leads add column if not exists commercial_stage text;
 alter table leads add column if not exists lost_reason text;
 
 create index if not exists leads_updated_at_idx on leads (updated_at desc);
 create index if not exists leads_status_owner_idx on leads (status, owner);
+create index if not exists leads_stage_idx on leads (stage, owner);
 
 create table if not exists conversations (
   id uuid primary key default gen_random_uuid(),
@@ -52,6 +70,16 @@ alter table conversations add column if not exists parent_external_message_id te
 
 create index if not exists conversations_lead_id_created_at_idx
 on conversations (lead_id, created_at);
+
+create or replace function set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
 
 create table if not exists lead_channel_states (
   id uuid primary key default gen_random_uuid(),
@@ -203,6 +231,104 @@ on notifications (status, type);
 drop trigger if exists notifications_set_updated_at on notifications;
 create trigger notifications_set_updated_at
 before update on notifications
+for each row
+execute function set_updated_at();
+
+create table if not exists partners (
+  id uuid primary key default gen_random_uuid(),
+  partner_company text not null,
+  partner_type text not null default 'referral',
+  tier text not null default 'founding',
+  contact_name text,
+  contact_email text,
+  contact_phone text,
+  city text,
+  country text,
+  status text not null default 'prospect',
+  certification_status text not null default 'not_started',
+  leads_referred integer not null default 0,
+  deployments_supported integer not null default 0,
+  revenue_share_terms text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists partners_status_idx on partners (status, tier);
+
+drop trigger if exists partners_set_updated_at on partners;
+create trigger partners_set_updated_at
+before update on partners
+for each row
+execute function set_updated_at();
+
+create table if not exists deployment_projects (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references leads(id) on delete set null,
+  customer_name text,
+  property_name text,
+  property_type text,
+  location text,
+  package_name text,
+  status text not null default 'created',
+  owner text,
+  checklist jsonb not null default '{}'::jsonb,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists deployment_projects_status_idx on deployment_projects (status, owner);
+create index if not exists deployment_projects_lead_id_idx on deployment_projects (lead_id);
+
+drop trigger if exists deployment_projects_set_updated_at on deployment_projects;
+create trigger deployment_projects_set_updated_at
+before update on deployment_projects
+for each row
+execute function set_updated_at();
+
+create table if not exists facility_workspaces (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references leads(id) on delete set null,
+  customer_organization text,
+  estate_name text,
+  facility_admin_email text,
+  status text not null default 'pending_manual_provisioning',
+  activation_link text,
+  checklist jsonb not null default '{}'::jsonb,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists facility_workspaces_status_idx on facility_workspaces (status);
+create index if not exists facility_workspaces_lead_id_idx on facility_workspaces (lead_id);
+
+drop trigger if exists facility_workspaces_set_updated_at on facility_workspaces;
+create trigger facility_workspaces_set_updated_at
+before update on facility_workspaces
+for each row
+execute function set_updated_at();
+
+create table if not exists onboarding_emails (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references leads(id) on delete set null,
+  deployment_project_id uuid references deployment_projects(id) on delete set null,
+  recipient_email text,
+  subject text,
+  body text,
+  status text not null default 'draft',
+  sent_at timestamptz,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists onboarding_emails_status_idx on onboarding_emails (status);
+
+drop trigger if exists onboarding_emails_set_updated_at on onboarding_emails;
+create trigger onboarding_emails_set_updated_at
+before update on onboarding_emails
 for each row
 execute function set_updated_at();
 

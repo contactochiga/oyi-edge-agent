@@ -44,11 +44,27 @@ function normalizeLeadInput(input, fallbackSource) {
     primary_channel: normalizeText(input.primary_channel),
     source: normalizeSource(input.source, fallbackSource),
     location: normalizeText(input.location),
+    city: normalizeText(input.city),
+    country: normalizeText(input.country),
     unit_count:
       input.unit_count === undefined || input.unit_count === null || input.unit_count === ""
         ? undefined
         : Math.max(0, Math.round(Number(input.unit_count) || 0)),
     project_type: normalizeText(input.project_type),
+    property_type: normalizeText(input.property_type),
+    property_size: normalizeText(input.property_size),
+    number_of_units:
+      input.number_of_units === undefined || input.number_of_units === null || input.number_of_units === ""
+        ? undefined
+        : Math.max(0, Math.round(Number(input.number_of_units) || 0)),
+    pain_points: normalizeText(input.pain_points),
+    budget_range: normalizeText(input.budget_range),
+    timeline: normalizeText(input.timeline),
+    decision_maker_status: normalizeText(input.decision_maker_status),
+    interest_package: normalizeText(input.interest_package),
+    lead_score: normalizeScore(input.lead_score),
+    qualification_status: normalizeText(input.qualification_status),
+    stage: normalizeText(input.stage),
     status: normalizeText(input.status),
     owner: normalizeText(input.owner),
     commercial_stage: normalizeText(input.commercial_stage),

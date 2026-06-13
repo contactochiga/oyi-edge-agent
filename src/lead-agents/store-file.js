@@ -2,6 +2,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const crypto = require("crypto");
 const { normalizeEmail, normalizeLeadInput, normalizeLeadPatch, normalizeText } = require("./normalize-lead");
+const { buildDeploymentFromLead, normalizePartner } = require("./commercial-ops");
 const { buildOfficeSnapshot, createOfficeSeedData } = require("./office-data");
 
 class FileLeadAgentsStore {
@@ -32,6 +33,10 @@ class FileLeadAgentsStore {
       office_documents: [],
       office_support_mappings: [],
       office_files: [],
+      partners: [],
+      deployment_projects: [],
+      facility_workspaces: [],
+      onboarding_emails: [],
     };
     this.pendingWrite = Promise.resolve();
   }
@@ -72,6 +77,10 @@ class FileLeadAgentsStore {
           ? parsed.office_support_mappings
           : [],
         office_files: Array.isArray(parsed.office_files) ? parsed.office_files : [],
+        partners: Array.isArray(parsed.partners) ? parsed.partners : [],
+        deployment_projects: Array.isArray(parsed.deployment_projects) ? parsed.deployment_projects : [],
+        facility_workspaces: Array.isArray(parsed.facility_workspaces) ? parsed.facility_workspaces : [],
+        onboarding_emails: Array.isArray(parsed.onboarding_emails) ? parsed.onboarding_emails : [],
       };
       if (await this.ensureOfficeSeedData()) {
         await this.persist();
@@ -134,12 +143,29 @@ class FileLeadAgentsStore {
       primary_channel: input.primary_channel || "",
       channel_last_seen_at: input.channel_last_seen_at || "",
       source: input.source || "",
+      source_channel: input.source_channel || input.primary_channel || input.source || "",
       location: input.location || "",
+      city: input.city || "",
+      country: input.country || "",
       unit_count:
         input.unit_count === undefined || input.unit_count === null || input.unit_count === ""
           ? null
           : Number(input.unit_count),
       project_type: input.project_type || "",
+      property_type: input.property_type || input.project_type || "",
+      property_size: input.property_size || "",
+      number_of_units:
+        input.number_of_units === undefined || input.number_of_units === null || input.number_of_units === ""
+          ? null
+          : Number(input.number_of_units),
+      pain_points: input.pain_points || "",
+      budget_range: input.budget_range || "",
+      timeline: input.timeline || "",
+      decision_maker_status: input.decision_maker_status || "",
+      interest_package: input.interest_package || "",
+      lead_score: Number.isFinite(Number(input.lead_score)) ? Number(input.lead_score) : Number(input.score || 0),
+      qualification_status: input.qualification_status || "",
+      stage: input.stage || input.commercial_stage || input.status || "new",
       status: input.status || "new",
       owner: input.owner || "marketing_agent",
       commercial_stage: input.commercial_stage || "",
@@ -147,6 +173,9 @@ class FileLeadAgentsStore {
       score: Number.isFinite(Number(input.score)) ? Number(input.score) : 0,
       summary: input.summary || "",
       next_action: input.next_action || "",
+      next_action_at: input.next_action_at || null,
+      last_contact_at: input.last_contact_at || null,
+      notes: input.notes || "",
     };
   }
 
@@ -382,6 +411,119 @@ class FileLeadAgentsStore {
     };
     await this.persist();
     return this.state.proposals[index];
+  }
+
+  async qualifyLead(leadId, qualification) {
+    const updated = await this.updateLead(leadId, {
+      ...qualification.patch,
+      summary: qualification.summary,
+      next_action: qualification.recommended_next_action,
+      owner: qualification.qualification_status === "qualified" ? "sales_agent" : undefined,
+    });
+    if (!updated) return null;
+    await this.appendTimelineEvent({
+      lead_id: leadId,
+      event_type: "lead_qualified",
+      actor: "oma",
+      title: "Lead qualified",
+      body: qualification.summary,
+      metadata: qualification,
+    });
+    return updated;
+  }
+
+  async listPartners() {
+    return [...(this.state.partners || [])].sort((a, b) =>
+      String(b.updated_at || b.created_at).localeCompare(String(a.updated_at || a.created_at))
+    );
+  }
+
+  async createPartner(input) {
+    const partner = {
+      id: crypto.randomUUID(),
+      ...normalizePartner(input),
+      created_at: this.nowIso(),
+      updated_at: this.nowIso(),
+    };
+    this.state.partners.push(partner);
+    await this.persist();
+    return partner;
+  }
+
+  async listDeploymentProjects() {
+    return [...(this.state.deployment_projects || [])].sort((a, b) =>
+      String(b.updated_at || b.created_at).localeCompare(String(a.updated_at || a.created_at))
+    );
+  }
+
+  async createDeploymentProject(input) {
+    const lead = input.lead_id ? await this.getLead(input.lead_id) : null;
+    const project = {
+      id: crypto.randomUUID(),
+      ...buildDeploymentFromLead(lead || {}, input),
+      created_at: this.nowIso(),
+      updated_at: this.nowIso(),
+    };
+    this.state.deployment_projects.push(project);
+    if (project.lead_id) {
+      await this.appendTimelineEvent({
+        lead_id: project.lead_id,
+        event_type: "deployment_project_created",
+        actor: input.actor || "office",
+        title: "Deployment project created",
+        body: project.property_name || project.customer_name || "Deployment project created.",
+        metadata: project,
+      });
+    }
+    await this.persist();
+    return project;
+  }
+
+  async createFacilityWorkspace(input) {
+    const lead = input.lead_id ? await this.getLead(input.lead_id) : null;
+    const workspace = {
+      id: crypto.randomUUID(),
+      lead_id: input.lead_id || null,
+      customer_organization: input.customer_organization || lead?.company || lead?.name || "",
+      estate_name: input.estate_name || input.property_name || lead?.company || "",
+      facility_admin_email: input.facility_admin_email || lead?.email || "",
+      status: "pending_manual_provisioning",
+      activation_link: input.activation_link || "",
+      checklist: {
+        customer_organization: "ready_to_create",
+        estate_or_building_record: "ready_to_create",
+        facility_admin_invite: input.facility_admin_email || lead?.email ? "ready_to_send" : "needs_email",
+        deployment_project: "ready_to_link",
+        onboarding_email: "ready_to_send",
+      },
+      notes: input.notes || "Manual approval required before provisioning live Facility workspace.",
+      created_at: this.nowIso(),
+      updated_at: this.nowIso(),
+    };
+    this.state.facility_workspaces.push(workspace);
+    if (workspace.lead_id) {
+      await this.updateLead(workspace.lead_id, {
+        stage: "commercial_approved",
+        commercial_stage: "commercial_approved",
+        next_action: "Create or approve Facility workspace",
+      });
+      await this.appendTimelineEvent({
+        lead_id: workspace.lead_id,
+        event_type: "facility_workspace_prepared",
+        actor: input.actor || "office",
+        title: "Facility workspace prepared",
+        body: "Manual provisioning checklist created.",
+        metadata: workspace,
+      });
+    }
+    await this.persist();
+    return workspace;
+  }
+
+  async listFacilityWorkspaces() {
+    return [...(this.state.facility_workspaces || [])].sort((a, b) =>
+      String(b.created_at).localeCompare(String(a.created_at))
+    );
   }
 
   async getLeadChannelState(leadId, channel) {
