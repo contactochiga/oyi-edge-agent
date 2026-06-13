@@ -218,7 +218,7 @@
       const id = lead.id || "";
       const owner = lead.owner || "unknown";
       const status = lead.status || "unknown";
-      const stage = lead.commercial_stage || "lead";
+      const stage = lead.stage || lead.commercial_stage || "new";
       const source = lead.source || "";
       const project = String(lead.project_type || "").toLowerCase();
       const score = Number(lead.score || 0);
@@ -925,7 +925,7 @@
 
       if (toolName === "schedule_demo") {
         return [
-          "Scheduled demo",
+          "Scheduled building review",
           args.preferred_time ? `time: ${args.preferred_time}` : "",
           args.timezone ? `timezone: ${args.timezone}` : "",
         ]
@@ -1225,14 +1225,14 @@
           },
           {
             title: "Commercial and support pressure",
-            meta: `${openNotifications} support events · ${state.report ? state.report.demos_booked || 0 : 0} demos`,
+            meta: `${openNotifications} support events · ${state.report ? state.report.demos_booked || 0 : 0} reviews`,
             body: "CRM, support, relationship ownership, and deployment pipeline pressure remain the main active commercial surfaces already flowing through Office.",
           },
         ],
       },
       facility: {
-        title: "Estate Portfolio",
-        subtitle: "Portfolio-level estate intelligence across subscribed estates, buildings, communities, requests, packages, wallets, and operational posture.",
+        title: "Building Portfolio",
+        subtitle: "Portfolio-level building intelligence across subscribed estates, buildings, communities, requests, packages, wallets, and operational posture.",
         badge: estateKeys.length ? "Connected" : "Awaiting sync",
         tone: estateKeys.length ? "" : "warning",
         primaryMetric: estateKeys.length,
@@ -1255,13 +1255,13 @@
           return {
             title: key,
             meta: `${displayValue(lead.project_type, "Estate profile pending")} · ${displayValue(lead.location, "Location pending")}`,
-            body: `Units: ${displayValue(lead.unit_count, "n/a")} · Package: ${displayValue(lead.commercial_stage, "subscription sync pending")} · Status: ${displayValue(lead.status, "new")}`,
+            body: `Units: ${displayValue(lead.number_of_units || lead.unit_count, "n/a")} · Package: ${displayValue(lead.interest_package, "package pending")} · Status: ${displayValue(lead.status, "new")}`,
           };
         }),
       },
       smart_buildings: {
         title: "Smart Buildings",
-        subtitle: "Smart homes, building permissions, occupancy posture, hardware device activity, and automation state.",
+        subtitle: "Connected homes, building permissions, occupancy posture, hardware device activity, and automation state.",
         badge: buildingCount ? "Monitoring" : "Queued",
         tone: buildingCount ? "" : "warning",
         primaryMetric: buildingCount,
@@ -1339,13 +1339,13 @@
           { label: "Active records", value: totals.leads || 0 },
           { label: "Customers", value: derived.statusCounts.customer || derived.statusCounts.closed || 0 },
           { label: "Organizations", value: Object.keys(derived.projectTypeCounts || {}).length },
-          { label: "Demos booked", value: state.report ? state.report.demos_booked || 0 : 0 },
+          { label: "Reviews booked", value: state.report ? state.report.demos_booked || 0 : 0 },
         ],
         items: hotRecords.slice(0, 6).map(function (lead) {
           return {
             title: leadTitle(lead),
             meta: `${displayValue(lead.company, "Company pending")} · score ${displayValue(lead.score, 0)}`,
-            body: `Stage: ${displayValue(lead.commercial_stage, "lead")} · Source: ${displayValue(lead.source, lead.channel || "office")} · Next: ${displayValue(lead.next_action, "No next action yet")}`,
+            body: `Stage: ${displayValue(lead.stage || lead.commercial_stage, "new")} · Source: ${displayValue(lead.source, lead.channel || "office")} · Next: ${displayValue(lead.next_action, "No next action yet")}`,
           };
         }),
       },
@@ -1427,7 +1427,7 @@
         { label: "Reports", value: state.report ? 1 : 0 },
         { label: "Requests", value: openNotifications },
         { label: "Proposals", value: state.allProposals.length || 0 },
-        { label: "Demos", value: state.allDemos.length || officeStats.demos || 0 },
+        { label: "Reviews", value: state.allDemos.length || officeStats.demos || 0 },
       ];
       result.domains.facility.charts = [
         { title: "Estate stages", entries: rankEntries((state.report && state.report.by_commercial_stage) || {}, 5) },
@@ -3113,7 +3113,7 @@
 	            <h4>${escapeHtml(activeFacet.replace(/_/g, " "))}</h4>
 	            <span class="office-system-badge">${estates.length ? "Live Data" : "Pending Integration"}</span>
 	          </div>
-	          <div class="subtext">Estate Portfolio section view is using the same estate, building, facility account, deployment, performance, and monitoring data stream.</div>
+	          <div class="subtext">Building Portfolio section view is using the same estate, building, facility account, deployment, performance, and monitoring data stream.</div>
 	        </article>` : ""}
 	        <div class="command-layout">
 	          <div class="command-main">
@@ -3979,7 +3979,7 @@
         return [`Review ${proposal.status || "proposal"} proposal`, proposal.owner || "Commercial", "High"];
       });
       const demoTasks = state.allDemos.slice(0, 2).map(function (demo) {
-        return [`Demo call${demo.lead_name ? ` with ${demo.lead_name}` : ""}`, demo.owner || "Oma", "Medium"];
+        return [`Building review${demo.lead_name ? ` with ${demo.lead_name}` : ""}`, demo.owner || "Oma", "Medium"];
       });
       const notificationTasks = state.notifications.slice(0, 2).map(function (note) {
         return [note.title || "Review support escalation", note.owner || "Support Team", note.priority || "Medium"];
@@ -4180,7 +4180,7 @@
     const maxStage = Math.max(1, ...stages.map(function (stage) { return stage[1]; }));
     const activeFacet = state.moduleFacet.crm_agents || "dashboard";
     const customers = state.leads.filter(function (lead) {
-      return /customer|closed|won|active/i.test(`${lead.status || ""} ${lead.commercial_stage || ""}`);
+      return /customer|closed|won|active/i.test(`${lead.status || ""} ${lead.stage || lead.commercial_stage || ""}`);
     });
     const organizations = rankEntries(derived.projectTypeCounts || {}, 8);
     const supportTickets = state.notifications.filter(function (note) {
@@ -4207,7 +4207,7 @@
           return [leadTitle(lead), displayValue(lead.status, "new"), displayValue(lead.source || lead.channel, "source pending")];
         }),
         customers: customers.slice(0, 8).map(function (lead) {
-          return [leadTitle(lead), displayValue(lead.company, "Company pending"), displayValue(lead.commercial_stage, "customer")];
+          return [leadTitle(lead), displayValue(lead.company, "Company pending"), displayValue(lead.stage || lead.commercial_stage, "customer")];
         }),
         organizations: organizations.map(function (entry) {
           return [entry.label, `${entry.value} records`, "CRM category"];
@@ -5133,14 +5133,14 @@
       el.statusesPanel.innerHTML = '<div class="value empty">No stage breakdown yet.</div>';
       el.ownersPanel.innerHTML = '<div class="value empty">No owner breakdown yet.</div>';
       el.commercialStagesPanel.innerHTML = '<div class="value empty">No commercial stage data yet.</div>';
-      el.upcomingDemosPanel.innerHTML = '<div class="value empty">No upcoming demos yet.</div>';
+      el.upcomingDemosPanel.innerHTML = '<div class="value empty">No upcoming reviews yet.</div>';
       return;
     }
 
     const totals = state.report.totals || {};
     el.reportsPanel.innerHTML = `
       <div class="trace-head"><strong>Total records</strong><span>${escapeHtml(String(totals.leads || 0))}</span></div>
-      <div class="trace-head"><strong>Total demos</strong><span>${escapeHtml(String(totals.demos || 0))}</span></div>
+      <div class="trace-head"><strong>Total reviews</strong><span>${escapeHtml(String(totals.demos || 0))}</span></div>
       <div class="trace-head"><strong>Escalations</strong><span>${escapeHtml(String(totals.escalations || 0))}</span></div>
       <div class="trace-head"><strong>Sales handoff conversion</strong><span>${escapeHtml(
         `${totals.sales_handoff_conversion_pct || 0}%`
@@ -5176,7 +5176,7 @@
             `;
           })
           .join("")
-      : '<div class="value empty">No upcoming demos yet.</div>';
+      : '<div class="value empty">No upcoming reviews yet.</div>';
   }
 
   function renderLeadList() {
@@ -5206,9 +5206,9 @@
                   <span class="pill ${statusClass(lead.status)}">${escapeHtml(lead.status || "new")}</span>
                   <span class="pill" style="background:rgba(10,44,34,0.08);color:#214238;">${escapeHtml(ownerLabel(lead.owner))}</span>
                   ${
-                    lead.commercial_stage
+                    (lead.stage || lead.commercial_stage)
                       ? `<span class="pill" style="background:rgba(38, 120, 92, 0.12);color:#1b5a45;">${escapeHtml(
-                          lead.commercial_stage
+                          lead.stage || lead.commercial_stage
                         )}</span>`
                       : ""
                   }
@@ -5365,7 +5365,7 @@
 
     if (!state.allDemos.length) {
       el.bookingsPanel.innerHTML =
-        '<div class="value empty">No demo bookings available right now.</div>';
+        '<div class="value empty">No building reviews available right now.</div>';
       return;
     }
 
@@ -5484,13 +5484,24 @@
     }
 
     const derived = getDerivedData();
-    const stages = ["lead", "discovery", "proposal", "quote", "negotiation", "procurement", "won", "lost"];
+    const stages = [
+      "new",
+      "contacted",
+      "qualified",
+      "discovery_scheduled",
+      "site_visit_scheduled",
+      "proposal_sent",
+      "negotiation",
+      "commercial_approved",
+      "won",
+      "lost",
+    ];
     const salesOwned = derived.ownerCounts.sales_agent || 0;
     const proposalActive = derived.activeProposalCount;
     const wonCount = derived.stageCounts.won || derived.wonCount || 0;
     const lostCount = derived.stageCounts.lost || derived.lostCount || 0;
     const leadsByStage = state.leads.reduce(function (acc, lead) {
-      const stage = lead.commercial_stage || "lead";
+      const stage = lead.stage || lead.commercial_stage || "new";
       if (!acc[stage]) acc[stage] = [];
       acc[stage].push(lead);
       return acc;
@@ -5525,7 +5536,7 @@
                               displayValue(lead.next_action || lead.summary, "Open record to review commercial next step")
                             )}</div>
                             <div class="board-card-actions">
-                              <span class="subtext">${escapeHtml(displayValue(lead.project_type, "Project type pending"))}</span>
+                              <span class="subtext">${escapeHtml(displayValue(lead.property_type || lead.project_type, "Property type pending"))}</span>
                               <button class="ghost" type="button" data-commercial-open="${lead.id}">Open</button>
                             </div>
                           </div>
@@ -5689,9 +5700,9 @@
               <span class="pill ${statusClass(lead.status)}">${escapeHtml(lead.status || "new")}</span>
               <span class="pill" style="background:rgba(10,44,34,0.08);color:#214238;">${escapeHtml(ownerLabel(lead.owner))}</span>
               ${
-                lead.commercial_stage
+                (lead.stage || lead.commercial_stage)
                   ? `<span class="pill" style="background:rgba(38, 120, 92, 0.12);color:#1b5a45;">${escapeHtml(
-                      lead.commercial_stage
+                      lead.stage || lead.commercial_stage
                     )}</span>`
                   : ""
               }
@@ -6408,9 +6419,9 @@
         subtitle: "Realtime map, twin, heat, health, alerts, devices, and estate infrastructure command view.",
       },
       facility: {
-        title: "Estate Portfolio",
+        title: "Building Portfolio",
         subtitle:
-          "Portfolio dashboard for subscribed estates, community activity, package posture, buildings, wallets, and estate support from one office.",
+          "Portfolio dashboard for subscribed buildings, estates, community activity, package posture, wallets, and support from one office.",
       },
       smart_buildings: {
         title: "Smart Building Supervision",
@@ -6477,8 +6488,8 @@
         subtitle: "Supervise live channels, support flow, and automation-linked operating surfaces.",
       },
       bookings: {
-        title: "Demo Bookings",
-        subtitle: "Review scheduled sessions, pending requests, and commercial timing.",
+        title: "Building Reviews",
+        subtitle: "Review discovery calls, building reviews, site visits, technical inspections, and commercial timing.",
       },
       commercial: {
         title: "Commercial Command",
@@ -6550,7 +6561,7 @@
   function renderDetail() {
     if (!state.selectedLead) {
       el.detailTitle.textContent = "No record selected";
-      el.detailSubtitle.textContent = "Update ownership, score, summary, demos, permissions, and escalation notes.";
+      el.detailSubtitle.textContent = "Update ownership, qualification, stage, next action, and commercial notes.";
       el.detailSummaryPrimary.innerHTML = '<div class="value empty">Select a record to inspect details and take action.</div>';
       el.detailSummaryMore.innerHTML = '<div class="value empty">More record detail appears here.</div>';
       el.memoryPanel.textContent = "No record selected.";
@@ -6580,7 +6591,7 @@
             return `${formatDate(demo.scheduled_for)} · ${demo.status}`;
           })
           .join("\n")
-      : "No demos yet";
+      : "No reviews yet";
 
     el.detailSummaryPrimary.innerHTML = [
       summaryField("Company", displayValue(state.selectedLead.company, "Not captured")),
@@ -6592,19 +6603,26 @@
     el.detailSummaryMore.innerHTML = [
       summaryField("Source", displayValue(state.selectedLead.source, "Not captured")),
       summaryField("Location", displayValue(state.selectedLead.location, "Not captured")),
-      summaryField("Project Type", displayValue(state.selectedLead.project_type, "Not captured")),
       summaryField(
-        "Unit Count",
-        state.selectedLead.unit_count ? String(state.selectedLead.unit_count) : "Not captured"
+        "Property Type",
+        displayValue(state.selectedLead.property_type || state.selectedLead.project_type, "Not captured")
+      ),
+      summaryField(
+        "Property Size / Units",
+        state.selectedLead.number_of_units || state.selectedLead.unit_count
+          ? String(state.selectedLead.number_of_units || state.selectedLead.unit_count)
+          : "Not captured"
       ),
       summaryField("Status", displayValue(state.selectedLead.status, "new")),
       summaryField("Owner", ownerLabel(state.selectedLead.owner)),
-      summaryField("Commercial Stage", displayValue(state.selectedLead.commercial_stage, "Not set")),
+      summaryField("Pipeline Stage", displayValue(state.selectedLead.stage || state.selectedLead.commercial_stage, "Not set")),
+      summaryField("Recommended Package", displayValue(state.selectedLead.interest_package, "Not recommended")),
+      summaryField("Qualification", displayValue(state.selectedLead.qualification_status, "Not scored")),
       summaryField("Lost Reason", displayValue(state.selectedLead.lost_reason, "Not set")),
       summaryField("Score", String(state.selectedLead.score || 0)),
       summaryField("Next Action", displayValue(state.selectedLead.next_action, "No next action yet")),
       summaryField("Summary", displayValue(state.selectedLead.summary, "No summary yet")),
-      summaryField("Demo Pipeline", demos),
+      summaryField("Review Pipeline", demos),
     ].join("");
     el.snapshotBadge.textContent = "4";
     el.moreFieldsBadge.textContent = "8";
@@ -6666,9 +6684,9 @@
 
     el.statusInput.value = "";
     el.ownerInput.value = "";
-    el.projectTypeInput.value = state.selectedLead.project_type || "";
-    el.unitCountInput.value = state.selectedLead.unit_count || "";
-    el.commercialStageInput.value = state.selectedLead.commercial_stage || "";
+    el.projectTypeInput.value = state.selectedLead.property_type || state.selectedLead.project_type || "";
+    el.unitCountInput.value = state.selectedLead.number_of_units || state.selectedLead.unit_count || "";
+    el.commercialStageInput.value = state.selectedLead.stage || state.selectedLead.commercial_stage || "";
     el.lostReasonInput.value = state.selectedLead.lost_reason || "";
     el.scoreInput.value = state.selectedLead.score || "";
     el.nextActionInput.value = state.selectedLead.next_action || "";
@@ -6715,6 +6733,10 @@
     } else {
       el.proposalListPanel.innerHTML = state.proposals
         .map(function (proposal) {
+          const proposalText = proposal.body || "";
+          const downloadHref = proposalText
+            ? `data:text/markdown;charset=utf-8,${encodeURIComponent(proposalText)}`
+            : "";
           return `
             <div class="trace-item">
               <div class="trace-head">
@@ -6722,7 +6744,16 @@
                 <span>${escapeHtml(proposal.status || "draft")}</span>
               </div>
               <div class="subtext">${escapeHtml(proposal.tier_name || "Tier not set")}</div>
-              <div class="value" style="margin-top:8px;">${escapeHtml(proposal.body || "")}</div>
+              <div class="value" style="margin-top:8px;">${escapeHtml(proposalText)}</div>
+              ${
+                downloadHref
+                  ? `<div class="toolbar" style="margin-top:10px;">
+                      <a class="outline" href="${downloadHref}" download="${escapeHtml(
+                        `${proposal.title || proposal.tier_name || "oyi-proposal"}.md`
+                      )}">Download draft</a>
+                    </div>`
+                  : ""
+              }
             </div>
           `;
         })
@@ -6978,17 +7009,17 @@
   }
 
   async function moveCommercialLead(leadId, nextStage) {
-    const patch = { commercial_stage: nextStage };
+    const patch = { stage: nextStage, commercial_stage: nextStage };
     if (nextStage === "won") {
       patch.status = "closed";
     }
     if (nextStage === "lost") {
       patch.status = "lost";
     }
-    if (["proposal", "quote", "negotiation", "procurement"].includes(nextStage)) {
+    if (["proposal_sent", "negotiation", "commercial_approved"].includes(nextStage)) {
       patch.status = "sales";
     }
-    setDetailStatus(`Moving lead to ${nextStage}...`);
+    setDetailStatus(`Moving commercial record to ${nextStage}...`);
     await updateLeadPatch(leadId, patch);
     if (state.selectedLeadId === leadId) {
       await selectLead(leadId, true);
@@ -7328,19 +7359,26 @@
       return;
     }
 
-    setDetailStatus("Updating lead...");
+    setDetailStatus("Updating commercial record...");
+    const propertyType = el.projectTypeInput.value || undefined;
+    const unitCount = el.unitCountInput.value ? Number(el.unitCountInput.value) : undefined;
+    const stage = el.commercialStageInput.value || undefined;
     await updateLeadPatch(state.selectedLead.id, {
       status: el.statusInput.value || undefined,
       owner: el.ownerInput.value || undefined,
-      project_type: el.projectTypeInput.value || undefined,
-      unit_count: el.unitCountInput.value ? Number(el.unitCountInput.value) : undefined,
-      commercial_stage: el.commercialStageInput.value || undefined,
+      property_type: propertyType,
+      project_type: propertyType,
+      number_of_units: unitCount,
+      unit_count: unitCount,
+      stage,
+      commercial_stage: stage,
       lost_reason: el.lostReasonInput.value || undefined,
+      lead_score: el.scoreInput.value ? Number(el.scoreInput.value) : undefined,
       score: el.scoreInput.value ? Number(el.scoreInput.value) : undefined,
       next_action: el.nextActionInput.value || undefined,
       summary: el.summaryInput.value || undefined,
     });
-    setDetailStatus("Lead updated.");
+    setDetailStatus("Commercial record updated.");
   }
 
   async function qualifySelectedLead() {
@@ -7403,7 +7441,8 @@
       method: "POST",
       body: JSON.stringify({
         unit_count: el.proposalUnitsInput.value ? Number(el.proposalUnitsInput.value) : undefined,
-        project_type: state.selectedLead.project_type || undefined,
+        property_type: state.selectedLead.property_type || state.selectedLead.project_type || undefined,
+        project_type: state.selectedLead.property_type || state.selectedLead.project_type || undefined,
         status: el.proposalStatusInput.value || "draft",
       }),
     });
@@ -7436,11 +7475,11 @@
       return;
     }
     if (!hasPermission("manage_demos")) {
-      setDetailStatus("Your role cannot create demos.", true);
+      setDetailStatus("Your role cannot schedule building reviews.", true);
       return;
     }
 
-    setDetailStatus("Creating demo...");
+    setDetailStatus("Scheduling building review...");
     await api(`/api/lead-agents/leads/${state.selectedLead.id}/building-review`, {
       method: "POST",
       body: JSON.stringify({

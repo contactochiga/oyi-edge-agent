@@ -325,10 +325,10 @@ class FileLeadAgentsStore {
     this.state.demos.push(demo);
     await this.appendTimelineEvent({
       lead_id: input.lead_id,
-      event_type: "demo_created",
+      event_type: "building_review_scheduled",
       actor: "system",
-      title: "Demo created",
-      body: demo.notes || "Demo record created.",
+      title: "Building review scheduled",
+      body: demo.notes || "Building review record created.",
       metadata: demo,
     });
     await this.persist();
@@ -1101,7 +1101,7 @@ class FileLeadAgentsStore {
         return acc;
       }, {}),
       by_commercial_stage: leads.reduce((acc, lead) => {
-        const key = lead.commercial_stage || "unassigned";
+        const key = lead.stage || lead.commercial_stage || "unassigned";
         acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {}),
@@ -1110,8 +1110,8 @@ class FileLeadAgentsStore {
       upcoming_demos: upcomingDemos,
       proposals_total: this.state.proposals.length,
       proposals_sent: this.state.proposals.filter((item) => ["sent", "accepted"].includes(item.status)).length,
-      deals_won: leads.filter((lead) => lead.commercial_stage === "won").length,
-      deals_lost: leads.filter((lead) => lead.commercial_stage === "lost").length,
+      deals_won: leads.filter((lead) => (lead.stage || lead.commercial_stage) === "won").length,
+      deals_lost: leads.filter((lead) => (lead.stage || lead.commercial_stage) === "lost").length,
     };
   }
 

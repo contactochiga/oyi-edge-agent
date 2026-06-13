@@ -241,10 +241,10 @@ class SupabaseLeadAgentsStore {
     );
     await this.appendTimelineEvent({
       lead_id: input.lead_id,
-      event_type: "demo_created",
+      event_type: "building_review_scheduled",
       actor: "system",
-      title: "Demo created",
-      body: input.notes || "Demo record created.",
+      title: "Building review scheduled",
+      body: input.notes || "Building review record created.",
       metadata: response.data[0],
     });
     return response.data[0];
@@ -989,7 +989,7 @@ class SupabaseLeadAgentsStore {
         return acc;
       }, {}),
       by_commercial_stage: leads.reduce((acc, lead) => {
-        const key = lead.commercial_stage || "unassigned";
+        const key = lead.stage || lead.commercial_stage || "unassigned";
         acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {}),
@@ -998,8 +998,8 @@ class SupabaseLeadAgentsStore {
       upcoming_demos: upcomingDemos,
       proposals_total: proposals.data.length,
       proposals_sent: proposals.data.filter((item) => ["sent", "accepted"].includes(item.status)).length,
-      deals_won: leads.filter((lead) => lead.commercial_stage === "won").length,
-      deals_lost: leads.filter((lead) => lead.commercial_stage === "lost").length,
+      deals_won: leads.filter((lead) => (lead.stage || lead.commercial_stage) === "won").length,
+      deals_lost: leads.filter((lead) => (lead.stage || lead.commercial_stage) === "lost").length,
     };
   }
 

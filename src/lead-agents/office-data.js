@@ -182,7 +182,7 @@ function createOfficeSeedData(nowIso = new Date().toISOString()) {
       id: "building_atlas_gardens",
       estate_id: "estate_atlas_district",
       name: "Atlas Gardens",
-      type: "smart homes",
+      type: "connected residences",
       status: "active",
       homes_count: 61,
       devices_count: 188,

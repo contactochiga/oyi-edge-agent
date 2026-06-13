@@ -4724,7 +4724,7 @@
                   </button>
                   <button class="office-nav-btn" data-office-target="facility" data-office-focus="facility" type="button">
                     <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></span>
-                    <span class="office-nav-copy"><strong>Estate Portfolio</strong></span>
+                    <span class="office-nav-copy"><strong>Building Portfolio</strong></span>
                   </button>
                   <button class="office-nav-btn" data-office-target="devices" data-office-focus="devices" type="button">
                     <span class="office-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="12" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg></span>
@@ -4847,7 +4847,7 @@
             <button class="mini-office-btn active" data-office-target="overview" data-office-focus="summary" type="button" aria-label="Office Overview">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h8V3H3z"></path><path d="M13 21h8v-6h-8z"></path><path d="M13 10h8V3h-8z"></path><path d="M3 21h8v-4H3z"></path></svg>
             </button>
-            <button class="mini-office-btn" data-office-target="facility" data-office-focus="facility" type="button" aria-label="Estate Portfolio">
+            <button class="mini-office-btn" data-office-target="facility" data-office-focus="facility" type="button" aria-label="Building Portfolio">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg>
             </button>
             <button class="mini-office-btn" data-office-target="devices" data-office-focus="devices" type="button" aria-label="Hardware Devices">
@@ -5148,7 +5148,7 @@
                     <div>
                       <p class="eyebrow">Office Inbox</p>
                       <h3>Notification command center</h3>
-                      <p class="subtext" style="margin:8px 0 0;">Route founder alerts, sales handoffs, demo requests, and inbound messages from one operations queue.</p>
+                      <p class="subtext" style="margin:8px 0 0;">Route founder alerts, sales handoffs, building review requests, and inbound messages from one operations queue.</p>
                     </div>
                     <span class="office-system-badge">Live routing</span>
                   </div>
@@ -5157,7 +5157,7 @@
                     <button class="filter-chip" data-notification-filter="all" type="button">All</button>
                     <button class="filter-chip" data-notification-filter="founder" type="button">Founder</button>
                     <button class="filter-chip" data-notification-filter="sales" type="button">Sales</button>
-                    <button class="filter-chip" data-notification-filter="demo" type="button">Demos</button>
+                    <button class="filter-chip" data-notification-filter="demo" type="button">Reviews</button>
                   </div>
                   <div class="command-card">
                     <div class="command-card-head">
@@ -5187,9 +5187,9 @@
             <div class="tab-panel" data-panel="bookings">
               <div class="tab-panel-scroll stack-16">
                 <div class="card detail-card">
-                  <div class="key">Demo Bookings</div>
+                  <div class="key">Building Reviews</div>
                   <div id="bookingsPanel" class="trace-list">
-                    <div class="value empty">No demo bookings loaded yet.</div>
+                    <div class="value empty">No building reviews loaded yet.</div>
                   </div>
                 </div>
               </div>
@@ -5357,7 +5357,7 @@
             <div class="detail-copy">
               <p class="eyebrow">Operational Detail</p>
               <h2 id="detailTitle" style="margin: 6px 0 0; font-size: 28px;">No record selected</h2>
-              <p class="subtext" id="detailSubtitle">Update ownership, score, summary, demos, permissions, and escalation notes.</p>
+              <p class="subtext" id="detailSubtitle">Update ownership, qualification, stage, next action, and commercial notes.</p>
             </div>
             <button class="detail-toggle" id="detailToggleBtn" type="button" aria-label="Toggle detail rail" title="Toggle detail rail">
               <span id="detailToggleGlyph">→</span>
@@ -5370,7 +5370,7 @@
               <span id="miniTraceCount">0</span>
             </div>
             <div class="mini-rail-card">
-              <strong>Demo</strong>
+              <strong>Review</strong>
               <span id="miniDemoCount">0</span>
             </div>
             <div class="mini-rail-card">
@@ -5599,7 +5599,7 @@
                 <div class="accordion-head">
                   <span class="accordion-badge" id="demoBadge">0</span>
                   <div>
-                    <div class="key" style="margin:0;">Schedule Demo</div>
+                    <div class="key" style="margin:0;">Schedule Review</div>
                     <div class="accordion-meta">Book discovery, building review, site visit, or technical inspection</div>
                   </div>
                 </div>
@@ -5621,8 +5621,8 @@
                     </select>
                   </div>
                   <div>
-                    <label class="key" for="demoNotesInput">Demo Notes</label>
-                    <textarea id="demoNotesInput" class="textarea-input" placeholder="Optional notes for the demo record"></textarea>
+                    <label class="key" for="demoNotesInput">Review Notes</label>
+                    <textarea id="demoNotesInput" class="textarea-input" placeholder="Optional notes for the building review record"></textarea>
                   </div>
                   <button class="sand" id="createDemoBtn" type="button">Schedule review</button>
                   <button class="ghost" id="provisionFacilityBtn" type="button">Create Facility Workspace</button>

@@ -2933,10 +2933,17 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
                 : proposalStatus === "declined"
                 ? "lost"
                 : proposalStatus === "sent"
-                ? "proposal"
-                : lead.commercial_stage || "proposal",
+                ? "proposal_sent"
+                : lead.stage || lead.commercial_stage || "qualified",
             status: proposalStatus === "accepted" ? "closed" : proposalStatus === "declined" ? "lost" : undefined,
-            stage: proposalStatus === "sent" ? "proposal_sent" : proposalStatus === "accepted" ? "won" : undefined,
+            stage:
+              proposalStatus === "sent"
+                ? "proposal_sent"
+                : proposalStatus === "accepted"
+                ? "won"
+                : proposalStatus === "declined"
+                ? "lost"
+                : undefined,
             interest_package: proposalPayload.tier_name,
             lost_reason: proposalStatus === "declined" ? "proposal_declined" : undefined,
             next_action:
@@ -3145,9 +3152,10 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
               : proposalStatus === "declined"
               ? "lost"
               : proposalStatus === "sent"
-              ? "proposal"
-              : "proposal",
+              ? "proposal_sent"
+              : "proposal_sent",
           status: proposalStatus === "accepted" ? "closed" : proposalStatus === "declined" ? "lost" : undefined,
+          stage: proposalStatus === "sent" ? "proposal_sent" : proposalStatus === "accepted" ? "won" : proposalStatus === "declined" ? "lost" : undefined,
           lost_reason: proposalStatus === "declined" ? "proposal_declined" : undefined,
           next_action:
             proposalStatus === "accepted"
