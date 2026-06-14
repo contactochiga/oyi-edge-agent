@@ -6449,6 +6449,7 @@
         "devices",
         "crm_agents",
         "ai_operations",
+        "conversation",
         "support",
         "web_presence",
         "team",
