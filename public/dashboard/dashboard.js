@@ -6399,10 +6399,15 @@
       const target = node.getAttribute("data-office-target");
       const focus = node.getAttribute("data-office-focus");
       const visible = canAccessOfficeModule(target, focus);
+      const destination = normalizeOfficeWorkspace(target, focus);
+      const facet = destination.facet;
       node.hidden = !visible;
       node.setAttribute("aria-hidden", visible ? "false" : "true");
       const isActive =
-        visible && target === state.workspaceTab && (!focus || focus === state.overviewFocus);
+        visible &&
+        destination.target === state.workspaceTab &&
+        (!destination.focus || destination.focus === state.overviewFocus) &&
+        (!facet || state.moduleFacet[state.workspaceTab] === facet);
       node.classList.toggle("active", isActive);
     });
     updateOfficeDomainActiveStates();
