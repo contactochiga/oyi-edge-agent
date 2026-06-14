@@ -5133,6 +5133,87 @@
           border-color: rgba(125,211,252,0.16);
           background: radial-gradient(circle at 50% 20%, rgba(125,211,252,0.18), rgba(124,77,255,0.10));
         }
+        .office-mobile-composer {
+          min-width: 100%;
+          min-height: 58px;
+          flex: 0 0 auto;
+          scroll-snap-align: start;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          border-radius: 24px;
+          border: 1px solid rgba(125,211,252,0.15);
+          background: radial-gradient(circle at 14% 18%, rgba(56,189,248,0.18), rgba(255,255,255,0.052) 42%, rgba(255,255,255,0.025) 100%);
+          color: rgba(255,255,255,0.86);
+          padding: 10px 12px;
+          text-align: left;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 30px rgba(56,189,248,0.18);
+          transition: transform 180ms ease, border-color 220ms ease, box-shadow 220ms ease;
+        }
+        .office-mobile-composer:active {
+          transform: scale(0.99);
+        }
+        .office-mobile-composer.active {
+          border-color: rgba(186,223,255,0.28);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 34px rgba(56,189,248,0.26);
+        }
+        .office-mobile-orb {
+          position: relative;
+          width: 40px;
+          height: 40px;
+          flex: 0 0 auto;
+          display: grid;
+          place-items: center;
+          border-radius: 999px;
+          border: 1px solid rgba(186,223,255,0.20);
+          background: rgba(56,189,248,0.12);
+          box-shadow: 0 0 24px rgba(56,189,248,0.28);
+        }
+        .office-mobile-orb::after {
+          content: "";
+          width: 16px;
+          height: 16px;
+          border-radius: 999px;
+          background: #bae6fd;
+          box-shadow: 0 0 22px rgba(125,211,252,0.95);
+        }
+        .office-mobile-composer-copy {
+          min-width: 0;
+          flex: 1;
+        }
+        .office-mobile-composer-copy strong,
+        .office-mobile-composer-copy span {
+          display: block;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .office-mobile-composer-copy strong {
+          font-size: 12px;
+          font-weight: 650;
+          letter-spacing: -0.02em;
+        }
+        .office-mobile-composer-copy span {
+          margin-top: 2px;
+          font-size: 10px;
+          color: rgba(255,255,255,0.42);
+        }
+        .office-mobile-mic {
+          width: 36px;
+          height: 36px;
+          flex: 0 0 auto;
+          display: grid;
+          place-items: center;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.055);
+          color: #e0f2fe;
+          box-shadow: 0 0 20px rgba(56,189,248,0.16);
+        }
+        .office-mobile-mic svg {
+          width: 16px;
+          height: 16px;
+        }
       }
     </style>
     <script defer src="/_vercel/insights/script.js"></script>
@@ -6285,8 +6366,10 @@
           <button class="office-mobile-nav-item" data-office-target="team" data-office-focus="staff_roles" type="button" aria-label="Administration">
             <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path></svg></span><span>Administration</span>
           </button>
-          <button class="office-mobile-nav-item is-ai" data-office-target="conversation" data-office-focus="conversation" type="button" aria-label="Oyi Intelligence">
-            <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"></path><path d="M12 18v4"></path><path d="M4.93 4.93l2.83 2.83"></path><path d="M16.24 16.24l2.83 2.83"></path><circle cx="12" cy="12" r="4"></circle></svg></span><span>Oyi Intelligence</span>
+          <button class="office-mobile-composer" data-office-target="conversation" data-office-focus="conversation" type="button" aria-label="Message Oyi Office">
+            <span class="office-mobile-orb" aria-hidden="true"></span>
+            <span class="office-mobile-composer-copy"><strong>Message Oyi Office...</strong><span>Ask about projects, clients, deployments, or operations</span></span>
+            <span class="office-mobile-mic" aria-label="Open Oyi Office voice input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><path d="M12 19v3"></path></svg></span>
           </button>
         </div>
       </div>
