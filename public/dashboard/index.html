@@ -5077,9 +5077,17 @@
         .office-mobile-footer-track::-webkit-scrollbar {
           display: none;
         }
+        .office-mobile-footer-page {
+          min-width: 100%;
+          flex: 0 0 auto;
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 4px;
+          scroll-snap-align: start;
+        }
         .office-mobile-nav-item {
           position: relative;
-          min-width: calc((100% - 16px) / 5);
+          min-width: 0;
           min-height: 58px;
           border-radius: 24px;
           display: flex;
@@ -5089,7 +5097,6 @@
           gap: 2px;
           color: rgba(255,255,255,0.52);
           background: transparent;
-          scroll-snap-align: start;
           transition: color 220ms ease, background 220ms ease, box-shadow 220ms ease, transform 220ms ease;
         }
         .office-mobile-nav-item:active {
@@ -6339,33 +6346,37 @@
     <nav class="office-mobile-footer" aria-label="Office mobile modules">
       <div class="office-mobile-footer-shell">
         <div class="office-mobile-footer-track">
-          <button class="office-mobile-nav-item" data-office-target="overview" data-office-focus="summary" type="button" aria-label="Office Overview">
-            <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h8V3H3z"></path><path d="M13 21h8v-6h-8z"></path><path d="M13 10h8V3h-8z"></path><path d="M3 21h8v-4H3z"></path></svg></span><span>Office Overview</span>
-          </button>
-          <button class="office-mobile-nav-item" data-office-target="facility" data-office-focus="facility" type="button" aria-label="Building Portfolio">
-            <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></span><span>Building Portfolio</span>
-          </button>
-          <button class="office-mobile-nav-item" data-office-target="devices" data-office-focus="devices" type="button" aria-label="Hardware Devices">
-            <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="12" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg></span><span>Hardware Devices</span>
-          </button>
-          <button class="office-mobile-nav-item" data-office-target="crm_agents" data-office-focus="crm_agents" type="button" aria-label="Commercial Command">
-            <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-6"></path></svg></span><span>Commercial Command</span>
-          </button>
-          <button class="office-mobile-nav-item" data-office-target="web_presence" data-office-focus="web_presence" type="button" aria-label="Documents & Plans">
-            <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg></span><span>Documents & Plans</span>
-          </button>
-          <button class="office-mobile-nav-item" data-office-target="reports" data-office-focus="reports" type="button" aria-label="Infrastructure Intelligence">
-            <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"></path><path d="M12 7v5l3 2"></path><path d="M19 3v5h-5"></path></svg></span><span>Infrastructure Intelligence</span>
-          </button>
-          <button class="office-mobile-nav-item" data-office-target="audit" data-office-focus="governance" type="button" aria-label="Knowledge & Audit">
-            <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"></path><path d="M9 12l2 2 4-4"></path></svg></span><span>Knowledge & Audit</span>
-          </button>
-          <button class="office-mobile-nav-item" data-office-target="settings" data-office-focus="platform_infrastructure" type="button" aria-label="Platform Infrastructure">
-            <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path></svg></span><span>Platform Infrastructure</span>
-          </button>
-          <button class="office-mobile-nav-item" data-office-target="team" data-office-focus="staff_roles" type="button" aria-label="Administration">
-            <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path></svg></span><span>Administration</span>
-          </button>
+          <div class="office-mobile-footer-page" aria-label="Primary office modules">
+            <button class="office-mobile-nav-item" data-office-target="overview" data-office-focus="summary" type="button" aria-label="Office Overview">
+              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h8V3H3z"></path><path d="M13 21h8v-6h-8z"></path><path d="M13 10h8V3h-8z"></path><path d="M3 21h8v-4H3z"></path></svg></span><span>Office Overview</span>
+            </button>
+            <button class="office-mobile-nav-item" data-office-target="facility" data-office-focus="facility" type="button" aria-label="Building Portfolio">
+              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg></span><span>Building Portfolio</span>
+            </button>
+            <button class="office-mobile-nav-item" data-office-target="devices" data-office-focus="devices" type="button" aria-label="Hardware Devices">
+              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="12" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg></span><span>Hardware Devices</span>
+            </button>
+            <button class="office-mobile-nav-item" data-office-target="crm_agents" data-office-focus="crm_agents" type="button" aria-label="Commercial Command">
+              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-6"></path></svg></span><span>Commercial Command</span>
+            </button>
+            <button class="office-mobile-nav-item" data-office-target="web_presence" data-office-focus="web_presence" type="button" aria-label="Documents & Plans">
+              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg></span><span>Documents & Plans</span>
+            </button>
+          </div>
+          <div class="office-mobile-footer-page" aria-label="Secondary office modules">
+            <button class="office-mobile-nav-item" data-office-target="reports" data-office-focus="reports" type="button" aria-label="Infrastructure Intelligence">
+              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"></path><path d="M12 7v5l3 2"></path><path d="M19 3v5h-5"></path></svg></span><span>Infrastructure Intelligence</span>
+            </button>
+            <button class="office-mobile-nav-item" data-office-target="audit" data-office-focus="governance" type="button" aria-label="Knowledge & Audit">
+              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"></path><path d="M9 12l2 2 4-4"></path></svg></span><span>Knowledge & Audit</span>
+            </button>
+            <button class="office-mobile-nav-item" data-office-target="settings" data-office-focus="platform_infrastructure" type="button" aria-label="Platform Infrastructure">
+              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path></svg></span><span>Platform Infrastructure</span>
+            </button>
+            <button class="office-mobile-nav-item" data-office-target="team" data-office-focus="staff_roles" type="button" aria-label="Administration">
+              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path></svg></span><span>Administration</span>
+            </button>
+          </div>
           <button class="office-mobile-composer" data-office-target="conversation" data-office-focus="conversation" type="button" aria-label="Message Oyi Office">
             <span class="office-mobile-orb" aria-hidden="true"></span>
             <span class="office-mobile-composer-copy"><strong>Message Oyi Office...</strong><span>Ask about projects, clients, deployments, or operations</span></span>
