@@ -795,6 +795,9 @@
         line-height: 1;
         font-weight: 600;
       }
+      .office-mobile-overview-strips {
+        display: none;
+      }
       .welcome-copy h2 {
         margin: 0;
         font-size: 20px;
@@ -4659,7 +4662,121 @@
           font-size: 13px;
           line-height: 1.45;
         }
-        body.workspace-overview .mothership-kpi-grid,
+        body.workspace-overview .office-mobile-overview-strips {
+          display: grid;
+          gap: 8px;
+        }
+        body.workspace-overview .office-mobile-metric-strip,
+        body.workspace-overview .office-mobile-action-strip {
+          border-radius: 20px;
+          border: 1px solid rgba(255,255,255,0.07);
+          background: linear-gradient(145deg, rgba(255,255,255,0.046), rgba(255,255,255,0.012));
+          box-shadow: 0 12px 38px rgba(0,0,0,0.30);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          padding: 10px;
+        }
+        body.workspace-overview .office-mobile-strip-track {
+          display: flex;
+          gap: 8px;
+          max-width: 100%;
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+          scroll-snap-type: x mandatory;
+          scroll-behavior: smooth;
+          padding-bottom: 4px;
+          scrollbar-width: none;
+        }
+        body.workspace-overview .office-mobile-strip-track::-webkit-scrollbar {
+          display: none;
+        }
+        body.workspace-overview .office-mobile-metric-item {
+          min-width: 86px;
+          flex: 0 0 auto;
+          scroll-snap-align: start;
+          border-radius: 16px;
+          border: 1px solid rgba(255,255,255,0.055);
+          background: rgba(255,255,255,0.026);
+          padding: 8px;
+          text-align: center;
+        }
+        body.workspace-overview .office-mobile-metric-value {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          color: #7dd3fc;
+          font-size: 20px;
+          line-height: 1;
+          font-weight: 650;
+          letter-spacing: -0.05em;
+        }
+        body.workspace-overview .office-mobile-metric-value svg {
+          width: 16px;
+          height: 16px;
+        }
+        body.workspace-overview .office-mobile-metric-label {
+          margin-top: 5px;
+          font-size: 11px;
+          color: rgba(255,255,255,0.48);
+        }
+        body.workspace-overview .office-mobile-action-item {
+          min-width: 148px;
+          flex: 0 0 auto;
+          scroll-snap-align: start;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          border-radius: 17px;
+          border: 1px solid rgba(255,255,255,0.055);
+          background: rgba(0,0,0,0.20);
+          padding: 8px 10px;
+          color: rgba(255,255,255,0.84);
+          text-align: left;
+          transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+        }
+        body.workspace-overview .office-mobile-action-item:active {
+          transform: scale(0.98);
+        }
+        body.workspace-overview .office-mobile-action-icon {
+          width: 32px;
+          height: 32px;
+          flex: 0 0 auto;
+          display: grid;
+          place-items: center;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,0.07);
+          background: rgba(255,255,255,0.045);
+          color: #7dd3fc;
+          filter: drop-shadow(0 0 12px rgba(56,189,248,0.42));
+        }
+        body.workspace-overview .office-mobile-action-icon svg {
+          width: 16px;
+          height: 16px;
+        }
+        body.workspace-overview .office-mobile-action-copy {
+          min-width: 0;
+        }
+        body.workspace-overview .office-mobile-action-copy strong,
+        body.workspace-overview .office-mobile-action-copy span {
+          display: block;
+        }
+        body.workspace-overview .office-mobile-action-copy strong {
+          font-size: 11px;
+          font-weight: 650;
+        }
+        body.workspace-overview .office-mobile-action-copy span {
+          max-width: 112px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          margin-top: 2px;
+          font-size: 10px;
+          color: rgba(255,255,255,0.42);
+        }
+        body.workspace-overview .mothership-kpi-grid {
+          display: none;
+        }
         body.workspace-overview .overview-metric-grid,
         body.workspace-overview .office-system-grid {
           display: flex;
@@ -4671,25 +4788,14 @@
           scroll-snap-type: x mandatory;
           scrollbar-width: none;
         }
-        body.workspace-overview .mothership-kpi-grid::-webkit-scrollbar,
         body.workspace-overview .overview-metric-grid::-webkit-scrollbar,
         body.workspace-overview .office-system-grid::-webkit-scrollbar {
           display: none;
         }
-        body.workspace-overview .mothership-kpi,
         body.workspace-overview .overview-metric-card,
         body.workspace-overview .office-system-card {
           min-width: 154px;
           scroll-snap-align: start;
-        }
-        body.workspace-overview .mothership-kpi {
-          min-height: 104px;
-          padding: 12px;
-          border-radius: 20px;
-        }
-        body.workspace-overview .mothership-kpi strong,
-        body.workspace-overview .overview-metric-card strong {
-          font-size: 22px;
         }
         body.workspace-overview .overview-dashboard-grid,
         body.workspace-overview .overview-analytics-grid,
@@ -4755,6 +4861,9 @@
           width: 30px;
           height: 30px;
           border-radius: 13px;
+        }
+        body.workspace-overview .overview-shortcuts-card {
+          display: none;
         }
         body.workspace-overview .office-system-metrics {
           gap: 8px;
@@ -5143,6 +5252,42 @@
                       <h2 id="officeWelcomeTitle">Welcome back, John</h2>
                       <p>Here is what is happening across your ecosystem today.</p>
                     </div>
+                    <div class="office-mobile-overview-strips" aria-label="Office mobile status and shortcuts">
+                      <section class="office-mobile-metric-strip" aria-label="Office platform metrics">
+                        <div class="office-mobile-strip-track">
+                          <article class="office-mobile-metric-item">
+                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h3l2-5 4 10 2-5h5"/></svg><span id="officeMobileRealtimeMetric">0</span></div>
+                            <div class="office-mobile-metric-label">Realtime</div>
+                          </article>
+                          <article class="office-mobile-metric-item">
+                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7c0-2 4-4 8-4s8 2 8 4-4 4-8 4-8-2-8-4Z"/><path d="M4 7v5c0 2 4 4 8 4s8-2 8-4V7"/><path d="M4 12v5c0 2 4 4 8 4s8-2 8-4v-5"/></svg><span id="officeMobileStorageMetric">0</span></div>
+                            <div class="office-mobile-metric-label">Storage</div>
+                          </article>
+                          <article class="office-mobile-metric-item">
+                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg><span id="officeMobileApiMetric">0/0</span></div>
+                            <div class="office-mobile-metric-label">API Health</div>
+                          </article>
+                          <article class="office-mobile-metric-item">
+                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 7h2a2 2 0 0 1 2 2v2"/><path d="M7 17H5a2 2 0 0 1-2-2v-2"/><path d="M7 7H5a2 2 0 0 0-2 2v2"/><path d="M17 17h2a2 2 0 0 0 2-2v-2"/><path d="M8 12h8"/></svg><span id="officeMobileSyncMetric">0</span></div>
+                            <div class="office-mobile-metric-label">Sync</div>
+                          </article>
+                          <article class="office-mobile-metric-item">
+                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.8 18a2 2 0 0 0 1.8 3h14.8a2 2 0 0 0 1.8-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span id="officeMobileChecksMetric">0</span></div>
+                            <div class="office-mobile-metric-label">Checks</div>
+                          </article>
+                        </div>
+                      </section>
+                      <section class="office-mobile-action-strip" aria-label="Office mobile quick actions">
+                        <div class="office-mobile-strip-track">
+                          <button class="office-mobile-action-item" data-mobile-refresh type="button"><span class="office-mobile-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 1 0 2.34-5.66"/><path d="M4 4v6h6"/></svg></span><span class="office-mobile-action-copy"><strong>Refresh</strong><span>Office data</span></span></button>
+                          <button class="office-mobile-action-item" data-office-target="commercial" type="button"><span class="office-mobile-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-6h6v6"/></svg></span><span class="office-mobile-action-copy"><strong>Projects</strong><span>Pipeline</span></span></button>
+                          <button class="office-mobile-action-item" data-office-target="crm_agents" data-office-focus="crm_agents" type="button"><span class="office-mobile-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg></span><span class="office-mobile-action-copy"><strong>Clients</strong><span>CRM</span></span></button>
+                          <button class="office-mobile-action-item" data-office-target="web_presence" data-office-focus="web_presence" type="button"><span class="office-mobile-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6"/></svg></span><span class="office-mobile-action-copy"><strong>Documents</strong><span>Proposals</span></span></button>
+                          <button class="office-mobile-action-item" data-office-target="notifications" type="button"><span class="office-mobile-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span class="office-mobile-action-copy"><strong>Tasks</strong><span>Follow-ups</span></span></button>
+                          <button class="office-mobile-action-item" data-office-target="ai_operations" data-office-focus="ai_operations" type="button"><span class="office-mobile-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83"/></svg></span><span class="office-mobile-action-copy"><strong>AI Ops</strong><span>Agents</span></span></button>
+                        </div>
+                      </section>
+                    </div>
                     <div class="mothership-kpi-grid">
                       <article class="mothership-kpi">
                         <div class="key">Estate Facilities</div>
@@ -5229,7 +5374,7 @@
 	                        </div>
 	                      </section>
 	                      <section class="overview-analytics-grid">
-	                        <article class="mission-card">
+	                        <article class="mission-card overview-shortcuts-card">
 	                          <div class="mission-card-head">
 	                            <h3>Estate Distribution</h3>
 	                            <button class="ghost compact" data-office-target="facility" type="button">View all estates</button>

@@ -365,6 +365,11 @@
     mothershipWalletMetric: document.getElementById("mothershipWalletMetric"),
     mothershipSupportMetric: document.getElementById("mothershipSupportMetric"),
     mothershipRevenueMetric: document.getElementById("mothershipRevenueMetric"),
+    officeMobileRealtimeMetric: document.getElementById("officeMobileRealtimeMetric"),
+    officeMobileStorageMetric: document.getElementById("officeMobileStorageMetric"),
+    officeMobileApiMetric: document.getElementById("officeMobileApiMetric"),
+    officeMobileSyncMetric: document.getElementById("officeMobileSyncMetric"),
+    officeMobileChecksMetric: document.getElementById("officeMobileChecksMetric"),
     officeWelcomeTitle: document.getElementById("officeWelcomeTitle"),
     officeHealthMetric: document.getElementById("officeHealthMetric"),
     officeHealthLegend: document.getElementById("officeHealthLegend"),
@@ -3848,6 +3853,44 @@
     }
     if (el.mothershipRevenueMetric) {
       el.mothershipRevenueMetric.textContent = formatCompactMoney(revenueValue);
+    }
+    const integrations = state.integrations || {};
+    const apiChecks = [
+      integrations.facility,
+      integrations.consumer,
+      integrations.office,
+      integrations.digital_twin,
+    ].filter(Boolean);
+    const readyApiChecks = apiChecks.filter(function (item) {
+      return Boolean(item.production_ready || item.connected || item.ready);
+    }).length;
+    const syncMetric =
+      Number(state.officeStats?.webhooks || 0) ||
+      Number(state.channelOverview?.channels?.length || 0) ||
+      Number(domains.platform_infrastructure?.primaryMetric || 0);
+    const checksPending = Math.max(
+      0,
+      Number(warningCount || 0) +
+        Number(criticalCount || 0) +
+        Number(offlineCount || 0) +
+        Number(overview.openEscalations || 0)
+    );
+    if (el.officeMobileRealtimeMetric) {
+      el.officeMobileRealtimeMetric.textContent = state.officeEventSource
+        ? "Live"
+        : String(domains.platform_infrastructure?.metrics?.[0]?.value || state.channelOverview?.channels?.length || 0);
+    }
+    if (el.officeMobileStorageMetric) {
+      el.officeMobileStorageMetric.textContent = String(state.officeStats?.office_files || state.officeStats?.documents || 0);
+    }
+    if (el.officeMobileApiMetric) {
+      el.officeMobileApiMetric.textContent = apiChecks.length ? `${readyApiChecks}/${apiChecks.length}` : "0/0";
+    }
+    if (el.officeMobileSyncMetric) {
+      el.officeMobileSyncMetric.textContent = String(syncMetric);
+    }
+    if (el.officeMobileChecksMetric) {
+      el.officeMobileChecksMetric.textContent = String(checksPending);
     }
     if (el.officeWelcomeTitle) {
       const accountName =
@@ -7907,6 +7950,18 @@
     });
   }
   document.addEventListener("click", function (event) {
+    const mobileRefreshNode = event.target.closest("[data-mobile-refresh]");
+    if (mobileRefreshNode) {
+      event.preventDefault();
+      loadLeads()
+        .then(function () {
+          setBulkStatus("Office data refreshed.");
+        })
+        .catch(function (error) {
+          setBulkStatus(error.message || "Refresh failed.", true);
+        });
+      return;
+    }
     const actionNode = event.target.closest("[data-command-action]");
     if (actionNode) {
       event.preventDefault();
