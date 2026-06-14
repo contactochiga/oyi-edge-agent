@@ -4572,11 +4572,11 @@
           width: 100%;
           overflow-x: auto;
         }
-        .live-infra-viewport,
-        .live-infra-canvas {
+        body.workspace-overview .live-infra-viewport,
+        body.workspace-overview .live-infra-canvas {
           min-height: 520px;
         }
-        .estate-health-overlay {
+        body.workspace-overview .estate-health-overlay {
           left: 12px;
           right: 12px;
           bottom: 86px;
@@ -4593,7 +4593,7 @@
           right: 62px;
           width: auto;
         }
-        .overview-shell {
+        body.workspace-overview .overview-shell {
           height: auto;
         }
         .staff-identity-row {
@@ -4634,6 +4634,137 @@
         .workspace-body,
         .tab-panel-scroll {
           padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+        }
+        .workspace-shell,
+        .workspace-body,
+        .tab-panel-scroll,
+        body.workspace-overview .overview-shell {
+          max-width: 100%;
+          overflow-x: hidden;
+        }
+        body.workspace-overview .overview-shell {
+          gap: 12px;
+        }
+        body.workspace-overview .office-overview-hero {
+          min-height: auto;
+          border-radius: 24px;
+          padding: 14px;
+        }
+        body.workspace-overview .office-overview-hero .welcome-copy h2 {
+          font-size: 24px;
+          line-height: 1.05;
+        }
+        body.workspace-overview .office-overview-hero .welcome-copy p {
+          max-width: 30rem;
+          font-size: 13px;
+          line-height: 1.45;
+        }
+        body.workspace-overview .mothership-kpi-grid,
+        body.workspace-overview .overview-metric-grid,
+        body.workspace-overview .office-system-grid {
+          display: flex;
+          grid-template-columns: none;
+          gap: 8px;
+          max-width: 100%;
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+          scroll-snap-type: x mandatory;
+          scrollbar-width: none;
+        }
+        body.workspace-overview .mothership-kpi-grid::-webkit-scrollbar,
+        body.workspace-overview .overview-metric-grid::-webkit-scrollbar,
+        body.workspace-overview .office-system-grid::-webkit-scrollbar {
+          display: none;
+        }
+        body.workspace-overview .mothership-kpi,
+        body.workspace-overview .overview-metric-card,
+        body.workspace-overview .office-system-card {
+          min-width: 154px;
+          scroll-snap-align: start;
+        }
+        body.workspace-overview .mothership-kpi {
+          min-height: 104px;
+          padding: 12px;
+          border-radius: 20px;
+        }
+        body.workspace-overview .mothership-kpi strong,
+        body.workspace-overview .overview-metric-card strong {
+          font-size: 22px;
+        }
+        body.workspace-overview .overview-dashboard-grid,
+        body.workspace-overview .overview-analytics-grid,
+        body.workspace-overview .overview-analytics-grid.lower {
+          gap: 12px;
+        }
+        body.workspace-overview .live-infra-card,
+        body.workspace-overview .mission-card,
+        body.workspace-overview .intelligence-card,
+        body.workspace-overview .office-system-card {
+          border-radius: 22px;
+          padding: 12px;
+        }
+        body.workspace-overview .live-infra-head,
+        body.workspace-overview .mission-card-head,
+        body.workspace-overview .intelligence-head,
+        body.workspace-overview .office-system-top {
+          gap: 10px;
+        }
+        body.workspace-overview .live-infra-head h3,
+        body.workspace-overview .mission-card-head h3,
+        body.workspace-overview .intelligence-head h3,
+        body.workspace-overview .office-system-title h3 {
+          font-size: 15px;
+        }
+        body.workspace-overview .live-infra-viewport,
+        body.workspace-overview .live-infra-canvas {
+          min-height: 360px;
+        }
+        body.workspace-overview .estate-health-overlay {
+          left: 10px;
+          right: 10px;
+          bottom: 74px;
+        }
+        body.workspace-overview .overview-intelligence {
+          display: grid;
+          gap: 12px;
+        }
+        body.workspace-overview .shortcut-grid,
+        body.workspace-overview .compact-action-grid {
+          display: flex;
+          grid-template-columns: none;
+          gap: 8px;
+          max-width: 100%;
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+          scroll-snap-type: x mandatory;
+          scrollbar-width: none;
+        }
+        body.workspace-overview .shortcut-grid::-webkit-scrollbar,
+        body.workspace-overview .compact-action-grid::-webkit-scrollbar {
+          display: none;
+        }
+        body.workspace-overview .shortcut-btn {
+          min-width: 136px;
+          min-height: 46px;
+          scroll-snap-align: start;
+          border-radius: 18px;
+          padding: 8px 10px;
+          font-size: 12px;
+        }
+        body.workspace-overview .shortcut-btn span {
+          width: 30px;
+          height: 30px;
+          border-radius: 13px;
+        }
+        body.workspace-overview .office-system-metrics {
+          gap: 8px;
+        }
+        body.workspace-overview .office-system-metric {
+          padding: 9px;
+          border-radius: 15px;
+        }
+        body.workspace-overview .office-system-metric strong {
+          font-size: 18px;
         }
         .detail-column {
           display: none;
