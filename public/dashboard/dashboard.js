@@ -365,6 +365,11 @@
     mothershipWalletMetric: document.getElementById("mothershipWalletMetric"),
     mothershipSupportMetric: document.getElementById("mothershipSupportMetric"),
     mothershipRevenueMetric: document.getElementById("mothershipRevenueMetric"),
+    officeMobileProjectsMetric: document.getElementById("officeMobileProjectsMetric"),
+    officeMobileClientsMetric: document.getElementById("officeMobileClientsMetric"),
+    officeMobileTasksMetric: document.getElementById("officeMobileTasksMetric"),
+    officeMobileDeploymentsMetric: document.getElementById("officeMobileDeploymentsMetric"),
+    officeMobileFinanceMetric: document.getElementById("officeMobileFinanceMetric"),
     officeMobileRealtimeMetric: document.getElementById("officeMobileRealtimeMetric"),
     officeMobileStorageMetric: document.getElementById("officeMobileStorageMetric"),
     officeMobileApiMetric: document.getElementById("officeMobileApiMetric"),
@@ -3853,6 +3858,21 @@
     }
     if (el.mothershipRevenueMetric) {
       el.mothershipRevenueMetric.textContent = formatCompactMoney(revenueValue);
+    }
+    if (el.officeMobileProjectsMetric) {
+      el.officeMobileProjectsMetric.textContent = String(state.allProposals.length || totals.proposals || 0);
+    }
+    if (el.officeMobileClientsMetric) {
+      el.officeMobileClientsMetric.textContent = String(totals.leads || state.leads.length || 0);
+    }
+    if (el.officeMobileTasksMetric) {
+      el.officeMobileTasksMetric.textContent = String(state.notifications.length || openSupport || 0);
+    }
+    if (el.officeMobileDeploymentsMetric) {
+      el.officeMobileDeploymentsMetric.textContent = String(state.allDemos.length || totals.demos || 0);
+    }
+    if (el.officeMobileFinanceMetric) {
+      el.officeMobileFinanceMetric.textContent = formatCompactMoney(revenueValue || walletFloat || 0);
     }
     const integrations = state.integrations || {};
     const apiChecks = [

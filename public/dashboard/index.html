@@ -798,6 +798,12 @@
       .office-mobile-overview-strips {
         display: none;
       }
+      .office-mobile-platform-health {
+        display: none;
+      }
+      .office-mobile-hero-copy {
+        display: none;
+      }
       .welcome-copy h2 {
         margin: 0;
         font-size: 20px;
@@ -4772,12 +4778,36 @@
           font-size: 13px;
           line-height: 1.45;
         }
+        body.workspace-overview .office-overview-hero > .welcome-copy {
+          display: none;
+        }
+        body.workspace-overview .office-mobile-hero-copy {
+          display: block;
+          text-align: center;
+        }
+        body.workspace-overview .office-mobile-hero-copy .eyebrow {
+          color: rgba(125,211,252,0.86);
+        }
+        body.workspace-overview .office-mobile-hero-copy h2 {
+          margin: 6px 0 0;
+          font-size: 27px;
+          line-height: 1;
+          letter-spacing: -0.055em;
+        }
+        body.workspace-overview .office-mobile-hero-copy p {
+          margin: 8px auto 0;
+          max-width: 280px;
+          color: rgba(255,255,255,0.56);
+          font-size: 13px;
+          line-height: 1.45;
+        }
         body.workspace-overview .office-mobile-overview-strips {
           display: grid;
           gap: 8px;
         }
         body.workspace-overview .office-mobile-metric-strip,
-        body.workspace-overview .office-mobile-action-strip {
+        body.workspace-overview .office-mobile-action-strip,
+        body.workspace-overview .office-mobile-platform-health {
           width: 100%;
           min-width: 0;
           max-width: 100%;
@@ -4789,6 +4819,10 @@
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
           padding: 10px;
+        }
+        body.workspace-overview .office-mobile-platform-health {
+          display: grid;
+          gap: 10px;
         }
         body.workspace-overview .office-mobile-strip-track {
           display: flex;
@@ -5378,6 +5412,11 @@
               <div class="tab-panel-scroll">
                 <div class="overview-shell">
                   <article class="office-overview-hero">
+                    <div class="office-mobile-hero-copy">
+                      <p class="eyebrow">Ochiga Office</p>
+                      <h2>Ochiga Operations</h2>
+                      <p>Review business activity, customer movement, agent work, and platform health.</p>
+                    </div>
                     <div class="welcome-copy">
                       <h2 id="officeWelcomeTitle">Welcome back, John</h2>
                       <p>Here is what is happening across your ecosystem today.</p>
@@ -5386,24 +5425,24 @@
                       <section class="office-mobile-metric-strip" aria-label="Office platform metrics">
                         <div class="office-mobile-strip-track">
                           <article class="office-mobile-metric-item">
-                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h3l2-5 4 10 2-5h5"/></svg><span id="officeMobileRealtimeMetric">0</span></div>
-                            <div class="office-mobile-metric-label">Realtime</div>
+                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-6h6v6"/></svg><span id="officeMobileProjectsMetric">0</span></div>
+                            <div class="office-mobile-metric-label">Projects</div>
                           </article>
                           <article class="office-mobile-metric-item">
-                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7c0-2 4-4 8-4s8 2 8 4-4 4-8 4-8-2-8-4Z"/><path d="M4 7v5c0 2 4 4 8 4s8-2 8-4V7"/><path d="M4 12v5c0 2 4 4 8 4s8-2 8-4v-5"/></svg><span id="officeMobileStorageMetric">0</span></div>
-                            <div class="office-mobile-metric-label">Storage</div>
+                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg><span id="officeMobileClientsMetric">0</span></div>
+                            <div class="office-mobile-metric-label">Clients</div>
                           </article>
                           <article class="office-mobile-metric-item">
-                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg><span id="officeMobileApiMetric">0/0</span></div>
-                            <div class="office-mobile-metric-label">API Health</div>
+                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span id="officeMobileTasksMetric">0</span></div>
+                            <div class="office-mobile-metric-label">Tasks</div>
                           </article>
                           <article class="office-mobile-metric-item">
-                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 7h2a2 2 0 0 1 2 2v2"/><path d="M7 17H5a2 2 0 0 1-2-2v-2"/><path d="M7 7H5a2 2 0 0 0-2 2v2"/><path d="M17 17h2a2 2 0 0 0 2-2v-2"/><path d="M8 12h8"/></svg><span id="officeMobileSyncMetric">0</span></div>
-                            <div class="office-mobile-metric-label">Sync</div>
+                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h18v18H3z"/><path d="M8 21V8h8v13"/></svg><span id="officeMobileDeploymentsMetric">0</span></div>
+                            <div class="office-mobile-metric-label">Deployments</div>
                           </article>
                           <article class="office-mobile-metric-item">
-                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.8 18a2 2 0 0 0 1.8 3h14.8a2 2 0 0 0 1.8-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span id="officeMobileChecksMetric">0</span></div>
-                            <div class="office-mobile-metric-label">Checks</div>
+                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4z"/><path d="M16 7a4 4 0 0 0-8 0"/><path d="M8 13h8"/></svg><span id="officeMobileFinanceMetric">0</span></div>
+                            <div class="office-mobile-metric-label">Finance</div>
                           </article>
                         </div>
                       </section>
@@ -5501,6 +5540,34 @@
 	                            <button class="ghost compact" data-live-infra-control="report" type="button">View Full Report</button>
 	                          </aside>
 	                          <nav class="live-infra-actionbar" id="liveInfraActions" aria-label="Infrastructure routing actions"></nav>
+	                        </div>
+	                      </section>
+	                      <section class="office-mobile-platform-health" aria-label="Office platform health">
+	                        <div class="mission-card-head">
+	                          <h3>Platform Health</h3>
+	                          <button class="ghost compact" data-office-target="settings" data-office-focus="platform_infrastructure" type="button">Open</button>
+	                        </div>
+	                        <div class="office-mobile-strip-track">
+	                          <article class="office-mobile-metric-item">
+	                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg><span id="officeMobileApiMetric">0/0</span></div>
+	                            <div class="office-mobile-metric-label">API Health</div>
+	                          </article>
+	                          <article class="office-mobile-metric-item">
+	                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h3l2-5 4 10 2-5h5"/></svg><span id="officeMobileRealtimeMetric">0</span></div>
+	                            <div class="office-mobile-metric-label">Realtime</div>
+	                          </article>
+	                          <article class="office-mobile-metric-item">
+	                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7c0-2 4-4 8-4s8 2 8 4-4 4-8 4-8-2-8-4Z"/><path d="M4 7v5c0 2 4 4 8 4s8-2 8-4V7"/><path d="M4 12v5c0 2 4 4 8 4s8-2 8-4v-5"/></svg><span id="officeMobileStorageMetric">0</span></div>
+	                            <div class="office-mobile-metric-label">Storage</div>
+	                          </article>
+	                          <article class="office-mobile-metric-item">
+	                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 7h2a2 2 0 0 1 2 2v2"/><path d="M7 17H5a2 2 0 0 1-2-2v-2"/><path d="M7 7H5a2 2 0 0 0-2 2v2"/><path d="M17 17h2a2 2 0 0 0 2-2v-2"/><path d="M8 12h8"/></svg><span id="officeMobileSyncMetric">0</span></div>
+	                            <div class="office-mobile-metric-label">Sync</div>
+	                          </article>
+	                          <article class="office-mobile-metric-item">
+	                            <div class="office-mobile-metric-value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.8 18a2 2 0 0 0 1.8 3h14.8a2 2 0 0 0 1.8-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span id="officeMobileChecksMetric">0</span></div>
+	                            <div class="office-mobile-metric-label">Checks</div>
+	                          </article>
 	                        </div>
 	                      </section>
 	                      <section class="overview-analytics-grid">
