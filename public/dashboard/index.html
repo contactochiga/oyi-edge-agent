@@ -2145,6 +2145,48 @@
         font-size: 18px;
         font-weight: 600;
       }
+      .office-operational-strip {
+        display: flex;
+        align-items: stretch;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 8px;
+        border-radius: 12px;
+        background: rgba(17, 25, 50, 0.68);
+        border: 1px solid rgba(149, 166, 255, 0.12);
+        scrollbar-width: none;
+      }
+      .office-operational-strip::-webkit-scrollbar {
+        display: none;
+      }
+      .office-strip-item {
+        min-width: 128px;
+        flex: 1 0 128px;
+        display: grid;
+        gap: 3px;
+        padding: 9px 10px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.045);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .office-strip-item span {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .office-strip-item strong {
+        color: var(--ink);
+        font-size: 17px;
+        font-weight: 650;
+        line-height: 1.1;
+      }
+      .office-strip-item small {
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.25;
+      }
       .command-layout {
         display: grid;
         grid-template-columns: minmax(0, 1fr) 300px;
@@ -5576,38 +5618,7 @@
                         </div>
                       </section>
                     </div>
-                    <div class="mothership-kpi-grid">
-                      <article class="mothership-kpi">
-                        <div class="key">Facilities</div>
-                        <strong id="mothershipEstatesMetric">0</strong>
-                        <div class="subtext">Connected estates</div>
-                      </article>
-                      <article class="mothership-kpi">
-                        <div class="key">Consumers</div>
-                        <strong id="mothershipBuildingsMetric">0</strong>
-                        <div class="subtext">Residents and homes in view</div>
-                      </article>
-                      <article class="mothership-kpi">
-                        <div class="key">Deployments</div>
-                        <strong id="mothershipDevicesMetric">0</strong>
-                        <div class="subtext">Reviews and rollout flow</div>
-                      </article>
-                      <article class="mothership-kpi">
-                        <div class="key">Open Leads</div>
-                        <strong id="mothershipWalletMetric">NGN 0</strong>
-                        <div class="subtext">Commercial pressure</div>
-                      </article>
-                      <article class="mothership-kpi">
-                        <div class="key">Active Agents</div>
-                        <strong id="mothershipSupportMetric">0</strong>
-                        <div class="subtext">Observed operations</div>
-                      </article>
-                      <article class="mothership-kpi">
-                        <div class="key">Edge Health</div>
-                        <strong id="mothershipRevenueMetric">NGN 0</strong>
-                        <div class="subtext">Runtime and provider posture</div>
-                      </article>
-	                    </div>
+                    <div id="overviewOperationalStrip"></div>
 	                  </article>
 	                  <div class="overview-dashboard-grid">
 	                    <div class="overview-main-column">

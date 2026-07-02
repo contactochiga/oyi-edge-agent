@@ -399,6 +399,7 @@
     overviewActivityFeed: document.getElementById("overviewActivityFeed"),
     overviewAiInsights: document.getElementById("overviewAiInsights"),
     overviewDomainGrid: document.getElementById("overviewDomainGrid"),
+    overviewOperationalStrip: document.getElementById("overviewOperationalStrip"),
     overviewFocusPanel: document.getElementById("overviewFocusPanel"),
     settingsIntegrationHub: document.getElementById("settingsIntegrationHub"),
     infrastructureIntelligencePanel: document.getElementById("infrastructureIntelligencePanel"),
@@ -1794,6 +1795,14 @@
     return `<div class="office-ops-mini"><div class="key" style="margin:0;">${escapeHtml(label)}</div><strong>${escapeHtml(String(value))}</strong></div>`;
   }
 
+  function operationalStrip(items) {
+    return `<div class="office-operational-strip" aria-label="Operational summary">${asList(items)
+      .map(function (item) {
+        return `<div class="office-strip-item"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(String(item.value))}</strong><small>${escapeHtml(item.meta || "")}</small></div>`;
+      })
+      .join("")}</div>`;
+  }
+
 	  function assetActionMarkup(kind, id, isLive) {
 	    return `
 	      <details class="asset-menu">
@@ -3133,6 +3142,20 @@
 	    const selectedStatus = selectedEstate ? String(selectedEstate.subscription_status || selectedEstate.status || "pending") : "pending";
 	    const estatePortfolioView = state.estatePortfolioView || "map";
 	    const activeFacet = state.moduleFacet.facilities || "dashboard";
+	    const liveFacilities = estates.filter(function (estate) { return ["active", "live"].includes(String(estate.status || estate.subscription_status || "").toLowerCase()); }).length;
+	    const visitorSignals = supportMappings.filter(function (item) {
+	      return /visitor|access|gate/i.test(`${item.type || ""} ${item.title || ""} ${item.summary || ""}`);
+	    }).length;
+	    const maintenanceSignals = supportMappings.filter(function (item) {
+	      return /maintenance|service|repair|ticket/i.test(`${item.type || ""} ${item.title || ""} ${item.summary || ""}`);
+	    }).length;
+	    const offlineDevices = hardwareDevices.filter(function (device) {
+	      return /offline|fault|down/i.test(String(device.status || ""));
+	    }).length;
+	    const lastSync = displayValue(
+	      selectedEstate?.updated_at || selectedEstate?.last_sync_at || state.officeData?.updated_at || state.officeStats?.updated_at,
+	      "Pending"
+	    );
 	    const estateCards = estates.map(function (estate) {
 	      const stats = estateStats(estate);
 	      const status = String(estate.subscription_status || estate.status || "pending");
@@ -3164,22 +3187,20 @@
 	            <button class="ghost" data-command-action="geocode_estates" type="button">Geocode Map</button>
 	          </div>
 	        </div>
+	        ${operationalStrip([
+	          { label: "Facilities", value: estates.length, meta: `${liveFacilities} active` },
+	          { label: "Buildings", value: buildings.length, meta: `${homes.length} homes` },
+	          { label: "Devices", value: hardwareDevices.length, meta: `${offlineDevices} offline` },
+	          { label: "Visitors", value: visitorSignals, meta: "Access activity" },
+	          { label: "Maintenance", value: maintenanceSignals || supportMappings.length, meta: "Service workload" },
+	          { label: "Wallets", value: formatCompactMoney(totalWallet), meta: `${wallets.length} records` },
+	          { label: "Runtime", value: state.officeEventSource ? "Live" : "Standby", meta: "Office sync" },
+	          { label: "Last Sync", value: lastSync === "Pending" ? "Pending" : formatDate(lastSync), meta: "Facility data" },
+	        ])}
 	        <div class="estate-tabs">
 	          <button class="estate-tab ${estatePortfolioView === "map" ? "active" : ""}" data-estate-view="map" type="button">Map View</button>
 	          <button class="estate-tab ${estatePortfolioView === "list" ? "active" : ""}" data-estate-view="list" type="button">List View</button>
 	          <button class="estate-tab ${estatePortfolioView === "all" ? "active" : ""}" data-estate-view="all" type="button">All Estates</button>
-	        </div>
-	        <div class="command-kpis">
-	          ${[
-	            ["Total Estates", estates.length],
-	            ["Live Estates", estates.filter(function (estate) { return ["active", "live"].includes(String(estate.status || estate.subscription_status || "").toLowerCase()); }).length],
-	            ["Estate Wallet Float", formatCompactMoney(totalWallet)],
-	            ["Support Pressure", supportMappings.length],
-	            ["Estate Communities", estates.reduce(function (sum, estate) { return sum + Number(countSignals(estate, ["community_posts", "community_count", "community_activity", "community_members"], 0)); }, 0)],
-	            ["Packages", packages.length],
-	          ].map(function (item) {
-	            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Synced from Office data</div></div>`;
-	          }).join("")}
 	        </div>
 	        ${activeFacet !== "dashboard" ? `<article class="command-card module-section-banner">
 	          <div class="command-card-head">
@@ -3228,8 +3249,13 @@
 	            </section>
 	            <section class="estate-split-grid">
 	              <article class="command-card estate-list-panel estate-registry-wide">
-	                <div class="command-card-head"><h4>Estate Registry</h4><button class="ghost compact" data-estate-view="all" type="button">All Estates</button></div>
-	                <input class="estate-search" type="search" placeholder="Search estates..." />
+	                <div class="command-card-head">
+	                  <h4>Facility Registry</h4>
+	                  <div class="toolbar">
+	                    <input class="estate-search" type="search" placeholder="Search facilities..." />
+	                    <button class="ghost compact" data-estate-view="all" type="button">All</button>
+	                  </div>
+	                </div>
 	                <table class="estate-table">
 	                  <thead><tr><th>Estate</th><th>Status</th><th>Health</th><th>Units</th><th>Actions</th></tr></thead>
 	                  <tbody>${estateRows || '<tr><td colspan="5"><div class="office-detail-empty">No estate facility records have synced into Office yet.</div></td></tr>'}</tbody>
@@ -3895,6 +3921,12 @@
     const revenueValue =
       Number(officeTotals.revenue_today || officeTotals.revenue || 0) ||
       Number(state.report ? state.report.pipeline_value || state.report.revenue_today || 0 : 0);
+    const collections = officeCollections();
+    const estates = asList(collections.estates);
+    const buildings = asList(collections.buildings);
+    const homes = asList(collections.homes);
+    const devices = asList(collections.devices);
+    const supportMappings = asList(collections.support_mappings);
     const warningCount = Number(officeTotals.warning_assets || openSupport || 0);
     const criticalCount = Number(officeTotals.critical_assets || overview.openEscalations || 0);
     const offlineCount = Number(officeTotals.offline_assets || 0);
@@ -3921,6 +3953,30 @@
     }
     if (el.mothershipRevenueMetric) {
       el.mothershipRevenueMetric.textContent = formatCompactMoney(revenueValue);
+    }
+    const activeFacilities = estates.filter(function (estate) {
+      return ["active", "live"].includes(String(estate.status || estate.subscription_status || "").toLowerCase());
+    }).length;
+    const visitorActivity = state.notifications.filter(function (note) {
+      return /visitor|access|gate/i.test(`${note.type || ""} ${note.title || ""} ${note.summary || ""}`);
+    }).length;
+    const maintenanceWorkload = state.notifications.filter(function (note) {
+      return /maintenance|service|repair|workload|ticket/i.test(`${note.type || ""} ${note.title || ""} ${note.summary || ""}`);
+    }).length;
+    if (el.overviewOperationalStrip) {
+      el.overviewOperationalStrip.innerHTML = operationalStrip([
+        { label: "Facilities", value: connectedEstates, meta: `${activeFacilities} active` },
+        { label: "Consumers", value: homes.length || connectedHomes || connectedBuildings, meta: "Homes/residents in view" },
+        { label: "Homes/Buildings", value: connectedHomes ? `${connectedBuildings}/${connectedHomes}` : connectedBuildings, meta: "Structure coverage" },
+        { label: "Devices", value: connectedDevices || devices.length, meta: "Active device inventory" },
+        { label: "Visitor Access", value: visitorActivity, meta: "Access signals" },
+        { label: "Maintenance", value: maintenanceWorkload || openSupport, meta: "Service workload" },
+        { label: "Wallets", value: formatCompactMoney(walletFloat), meta: "Finance posture" },
+        { label: "Deployments", value: state.allDemos.length || totals.demos || 0, meta: "Rollout activity" },
+        { label: "Open Leads", value: totals.leads || state.leads.length || 0, meta: "Commercial pressure" },
+        { label: "Agents", value: state.traces.length || state.officeStats?.traces || 0, meta: "Runtime activity" },
+        { label: "Edge Health", value: `${healthPct}%`, meta: `${offlineCount} offline` },
+      ]);
     }
     if (el.officeMobileProjectsMetric) {
       el.officeMobileProjectsMetric.textContent = String(connectedEstates || estates.length || 0);
@@ -3997,10 +4053,6 @@
         <span><i class="offline"></i>Offline <strong>${escapeHtml(String(offlineCount))}</strong></span>
       `;
     }
-    const collections = officeCollections();
-    const estates = asList(collections.estates);
-    const devices = asList(collections.devices);
-    const supportMappings = asList(collections.support_mappings);
     const cityCounts = estates.reduce(function (acc, estate) {
       const location = String(estate.location || "Other Cities").split(",")[0].trim() || "Other Cities";
       acc[location] = (acc[location] || 0) + 1;
@@ -4250,6 +4302,24 @@
     const estates = asList(collections.estates);
     const homes = asList(collections.homes);
     const wallets = asList(collections.wallets);
+    const devices = asList(collections.devices);
+    const supportMappings = asList(collections.support_mappings);
+    const activeHomes = homes.filter(function (home) {
+      return !/vacant|inactive|disabled/i.test(String(home.status || home.occupancy_status || ""));
+    }).length;
+    const homeDeviceIds = new Set(homes.map(function (home) { return String(home.id || ""); }));
+    const adoptedDevices = devices.filter(function (device) {
+      return homeDeviceIds.has(String(device.home_id || device.unit_id || ""));
+    }).length;
+    const communityActivity = homes.reduce(function (sum, home) {
+      return sum + Number(countSignals(home, ["community_posts", "community_count", "community_activity", "community_members"], 0));
+    }, 0);
+    const serviceRequests = supportMappings.filter(function (item) {
+      return /service|maintenance|request|support|complaint/i.test(`${item.type || ""} ${item.title || ""} ${item.summary || ""}`);
+    }).length;
+    const walletTotal = wallets.reduce(function (sum, wallet) {
+      return sum + Number(wallet.balance || 0);
+    }, 0);
     const consumers = homes.slice(0, 10).map(function (home, index) {
       const estate = findById(estates, home.estate_id);
       return {
@@ -4268,20 +4338,25 @@
           </div>
           <button class="ghost" data-office-target="facilities" type="button">Open Facilities</button>
         </div>
-        <div class="command-kpis">
-          ${[
-            ["Homes", homes.length],
-            ["Wallets", wallets.length],
-            ["Estates", estates.length],
-            ["Active Residents", consumers.length],
-          ].map(function (item) {
-            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Existing Office data</div></div>`;
-          }).join("")}
-        </div>
+        ${operationalStrip([
+          { label: "Population", value: homes.length, meta: `${activeHomes} active homes` },
+          { label: "Wallets", value: wallets.length, meta: formatCompactMoney(walletTotal) },
+          { label: "Device Adoption", value: adoptedDevices, meta: `${devices.length} devices in inventory` },
+          { label: "Community", value: communityActivity, meta: "Activity signals" },
+          { label: "Service Requests", value: serviceRequests, meta: "Support workload" },
+          { label: "Support", value: supportMappings.length, meta: "Open signals" },
+          { label: "Consumer App", value: state.officeEventSource ? "Live" : "Pending", meta: "Runtime channel" },
+        ])}
         <div class="command-layout">
           <div class="command-main">
             <article class="command-card">
-              <div class="command-card-head"><h4>Consumer Oversight Registry</h4><span class="office-system-badge">${consumers.length ? "Live Data" : "Pending"}</span></div>
+              <div class="command-card-head">
+                <h4>Consumer Registry</h4>
+                <div class="toolbar">
+                  <input class="estate-search" type="search" placeholder="Search homes or residents..." />
+                  <span class="office-system-badge">${consumers.length ? "Live Data" : "Pending"}</span>
+                </div>
+              </div>
               <div class="mission-list">
                 ${consumers.length ? consumers.map(function (item) {
                   return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(item.title)}</strong><small class="subtext">${escapeHtml(item.meta)}</small></span><strong>${escapeHtml(item.status)}</strong></div>`;
@@ -4347,6 +4422,18 @@
   function renderDeploymentsWorkspace(domain) {
     if (!el.deploymentsPanel || !domain) return;
     const demos = asList(state.allDemos);
+    const collections = officeCollections();
+    const devices = asList(collections.devices);
+    const documents = asList(collections.documents).concat(asList(state.allProposals));
+    const edgeReady = devices.filter(function (device) {
+      return !/offline|fault|down/i.test(String(device.status || ""));
+    }).length;
+    const blockers = state.notifications.filter(function (item) {
+      return /block|risk|pending|failed|deploy|review|visit/i.test(`${item.type || ""} ${item.title || ""} ${item.summary || ""}`);
+    });
+    const workspaceProjects = demos.filter(function (item) {
+      return /workspace|facility|onboard|deploy/i.test(`${item.title || ""} ${item.notes || ""} ${item.review_type || ""}`);
+    }).length;
     el.deploymentsPanel.innerHTML = `
       <div class="command-page">
         <div class="command-head">
@@ -4357,21 +4444,29 @@
           </div>
           <button class="ghost" data-office-target="crm" data-office-focus="crm" type="button">Open CRM</button>
         </div>
-        <div class="command-kpis">
-          ${[
-            ["Reviews", demos.length],
-            ["Pending", demos.filter(function (item) { return /pending|scheduled/i.test(String(item.status || "")); }).length],
-            ["Provisioning", demos.filter(function (item) { return /workspace|facility/i.test(String(item.title || item.notes || "")); }).length],
-            ["Escalations", state.notifications.filter(function (item) { return /deploy|review|visit/i.test(String(item.type || "") + String(item.title || "")); }).length],
-          ].map(function (item) {
-            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Deployment workflow</div></div>`;
-          }).join("")}
-        </div>
-        <div class="trace-list">
-          ${demos.length ? demos.slice(0, 8).map(function (demo) {
-            return `<div class="trace-row"><div><strong>${escapeHtml(displayValue(demo.title || demo.lead_name, "Deployment review"))}</strong><div class="subtext">${escapeHtml(displayValue(demo.review_type || demo.type, "Review"))} · ${escapeHtml(formatDate(demo.scheduled_at || demo.created_at))}</div></div><span class="office-system-badge">${escapeHtml(displayValue(demo.status, "pending"))}</span></div>`;
-          }).join("") : '<div class="office-detail-empty">Deployment reviews will appear here as existing Office demo and workspace data syncs.</div>'}
-        </div>
+        ${operationalStrip([
+          { label: "Projects", value: demos.length, meta: "Deployment records" },
+          { label: "Workspaces", value: workspaceProjects, meta: "Facility rollout" },
+          { label: "Onboarding", value: demos.filter(function (item) { return /pending|scheduled|onboard/i.test(String(item.status || "") + String(item.review_type || "")); }).length, meta: "Active status" },
+          { label: "Site Readiness", value: blockers.length ? "Review" : "Stable", meta: `${blockers.length} blockers` },
+          { label: "Edge Readiness", value: `${edgeReady}/${devices.length}`, meta: "Device health" },
+          { label: "Documents", value: documents.length, meta: "Required files" },
+          { label: "Timeline", value: demos.length ? formatDate(demos[0].scheduled_at || demos[0].created_at) : "Pending", meta: "Next rollout" },
+        ])}
+        <article class="command-card">
+          <div class="command-card-head">
+            <h4>Deployment Registry</h4>
+            <div class="toolbar">
+              <input class="estate-search" type="search" placeholder="Search deployments..." />
+              <button class="ghost compact" data-office-target="documents" type="button">Documents</button>
+            </div>
+          </div>
+          <div class="trace-list">
+            ${demos.length ? demos.slice(0, 8).map(function (demo) {
+              return `<div class="trace-row"><div><strong>${escapeHtml(displayValue(demo.title || demo.lead_name, "Deployment review"))}</strong><div class="subtext">${escapeHtml(displayValue(demo.review_type || demo.type, "Review"))} · ${escapeHtml(formatDate(demo.scheduled_at || demo.created_at))}</div></div><span class="office-system-badge">${escapeHtml(displayValue(demo.status, "pending"))}</span></div>`;
+            }).join("") : '<div class="office-detail-empty">Deployment reviews will appear here as existing Office demo and workspace data syncs.</div>'}
+          </div>
+        </article>
       </div>
     `;
   }
@@ -4492,6 +4587,15 @@
     const escalations = state.notifications.filter(function (note) {
       return /founder|escalat|critical|urgent/i.test(`${note.type || ""} ${note.priority || ""} ${note.summary || ""}`);
     });
+    const followUps = state.leads.filter(function (lead) {
+      return /follow|next|call|review/i.test(`${lead.next_action || ""} ${lead.status || ""}`);
+    }).length;
+    const partnerRecords = state.leads.filter(function (lead) {
+      return /partner|channel|broker|developer/i.test(`${lead.source || ""} ${lead.company || ""} ${lead.project_type || ""}`);
+    }).length;
+    const leadRegistryRows = state.leads.slice(0, 8).map(function (lead) {
+      return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(leadTitle(lead))}</strong><small class="subtext">${escapeHtml(displayValue(lead.company || lead.source || lead.channel, "Source pending"))}</small></span><strong>${escapeHtml(displayValue(lead.status || lead.commercial_stage, "new"))}</strong></div>`;
+    }).join("");
     function crmFacetSummary() {
       const titleMap = {
         leads: "Lead Registry",
@@ -4559,20 +4663,30 @@
           </div>
           <button class="ghost" data-command-action="view_reports" type="button">View full report</button>
         </div>
-        <div class="command-kpis">
-          ${[
-            ["Total Leads", totals.leads || state.leads.length],
-            ["Active Deals", activeDeals],
-            ["Conversion Rate", `${totals.sales_handoff_conversion_pct || 0}%`],
-            ["Pipeline Value", formatCompactMoney(state.report?.pipeline_value || 0)],
-            ["Closed Deals", derived.statusCounts.closed || 0],
-            ["Avg Deal Value", formatCompactMoney(state.report?.avg_deal_value || 0)],
-          ].map(function (item) {
-            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Live CRM data</div></div>`;
-          }).join("")}
-        </div>
+        ${operationalStrip([
+          { label: "Leads", value: totals.leads || state.leads.length, meta: "CRM records" },
+          { label: "Conversations", value: state.officeStats?.conversations || state.leads.length || 0, meta: "Relationship signals" },
+          { label: "Demos", value: state.allDemos.length || totals.demos || 0, meta: "Reviews booked" },
+          { label: "Proposals", value: state.allProposals.length, meta: formatCompactMoney(state.report?.pipeline_value || 0) },
+          { label: "Partners", value: partnerRecords, meta: "Channel records" },
+          { label: "Pipeline", value: `${totals.sales_handoff_conversion_pct || 0}%`, meta: "Conversion" },
+          { label: "Follow-ups", value: followUps, meta: "Next actions" },
+          { label: "Support Handoff", value: supportTickets.length, meta: "Support load" },
+        ])}
         <div class="command-layout">
           <div class="command-main">
+            <article class="command-card">
+              <div class="command-card-head">
+                <h4>Lead Registry</h4>
+                <div class="toolbar">
+                  <input class="estate-search" type="search" placeholder="Search leads, partners, or companies..." />
+                  <button class="ghost compact" data-crm-facet="leads" type="button">All leads</button>
+                </div>
+              </div>
+              <div class="mission-list">
+                ${leadRegistryRows || '<div class="office-detail-empty">CRM records will appear when leads sync into Office.</div>'}
+              </div>
+            </article>
             ${crmFacetSummary()}
             <article class="command-card">
 	              <div class="command-card-head"><h4>Channel Performance</h4><button class="ghost compact" data-crm-facet="conversations" type="button">View all</button></div>
