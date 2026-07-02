@@ -4411,7 +4411,7 @@
     const aiTools = Array.isArray(aiOps.tools) ? aiOps.tools : [];
     const activeAiOpsView = state.aiOpsView || "dashboard";
     const aiOpsTabs = [
-      ["dashboard", "Dashboard", "summary"],
+      ["dashboard", "Overview", "summary"],
       ["agent_console", "Agent Console", "estate"],
       ["voice_command", "Voice Command", "trend"],
       ["tool_registry", "Tool Registry", "settings"],
@@ -6043,7 +6043,7 @@
 
   function renderAdministrationDashboard(roleCounts, activeUsers, adminUsers, pendingLogins) {
     const integrationRows = crmIntegrationStatusRows();
-    if (el.adminMainTitle) el.adminMainTitle.textContent = "Administration dashboard";
+    if (el.adminMainTitle) el.adminMainTitle.textContent = "Administration workspace";
     if (el.adminMainSubtitle) {
       el.adminMainSubtitle.textContent = "Holistic identity, roles, permissions, settings, integrations, accounts, and super-admin posture";
     }
@@ -6490,7 +6490,7 @@
       facility: {
         title: "Building Portfolio",
         subtitle:
-          "Portfolio dashboard for subscribed buildings, estates, community activity, package posture, wallets, and support from one office.",
+          "Portfolio workspace for subscribed buildings, estates, community activity, package posture, wallets, and support from one office.",
       },
       smart_buildings: {
         title: "Smart Building Supervision",

@@ -12,5 +12,6 @@ edge/camera/go2rtc/*.local.yaml
 go2rtc.generated.yaml
 .DS_Store
 .vercel
+outputs/
 
 edge/camera/go2rtc/go2rtc.generated.yaml

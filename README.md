@@ -1,4 +1,4 @@
-# Oyi Edge Agent
+# Ochiga Office OS + Oyi Edge Agent
 
 Phase 1 edge-core daemon for Oyi Smart Estate OS.
 
@@ -102,7 +102,7 @@ Production-ready backend modules live under [`src/lead-agents`](/Users/ochigaido
 
 - pluggable storage with file and Supabase drivers
 - API-key auth and in-memory rate limiting
-- admin session login for the internal dashboard
+- admin session login for the internal Office workspace
 - Responses API orchestration and tool execution
 - tracing, lead memory, and file-backed knowledge retrieval
 - founder and demo webhook dispatch
@@ -119,10 +119,10 @@ Website widget assets:
 - [`public/widget/index.html`](/Users/ochigaidoko/oyi-edge-agent/public/widget/index.html): local preview page for Oma
 - [`public/widget/oma-widget.js`](/Users/ochigaidoko/oyi-edge-agent/public/widget/oma-widget.js): embeddable website widget script
 
-Dashboard assets:
+Office workspace assets:
 
-- [`public/dashboard/index.html`](/Users/ochigaidoko/oyi-edge-agent/public/dashboard/index.html): internal lead operations dashboard
-- [`public/dashboard/dashboard.js`](/Users/ochigaidoko/oyi-edge-agent/public/dashboard/dashboard.js): dashboard client logic for lead desk workflows
+- [`public/dashboard/index.html`](/Users/ochigaidoko/oyi-edge-agent/public/dashboard/index.html): internal Ochiga Office workspace shell
+- [`public/dashboard/dashboard.js`](/Users/ochigaidoko/oyi-edge-agent/public/dashboard/dashboard.js): Office workspace client logic for commercial and operational workflows
 
 V1.5 foundation assets:
 

@@ -1,3 +1,13 @@
+/**
+ * Transitional Office intelligence registry.
+ *
+ * Ochiga Backend is the intended long-term owner of canonical Oyi Core
+ * intelligence. This file remains in the hybrid Office/Edge repo only for
+ * compatibility with existing Office workflows while backend integration is
+ * completed. Do not expand this local intelligence surface with new runtime
+ * ownership; route future reasoning, awareness, and execution logic toward the
+ * backend-owned Oyi Core instead.
+ */
 const CORE_ID = "ochiga_intelligence_core";
 
 const MEMORY_SCOPES = Object.freeze([
