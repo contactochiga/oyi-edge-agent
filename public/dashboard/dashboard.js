@@ -381,6 +381,7 @@
     officeMobileSyncMetric: document.getElementById("officeMobileSyncMetric"),
     officeMobileChecksMetric: document.getElementById("officeMobileChecksMetric"),
     officeWelcomeTitle: document.getElementById("officeWelcomeTitle"),
+    officeExecutiveBrief: document.getElementById("officeExecutiveBrief"),
     officeHealthMetric: document.getElementById("officeHealthMetric"),
     officeHealthLegend: document.getElementById("officeHealthLegend"),
     officeCityMap: document.getElementById("officeCityMap"),
@@ -400,6 +401,12 @@
     overviewAiInsights: document.getElementById("overviewAiInsights"),
     overviewDomainGrid: document.getElementById("overviewDomainGrid"),
     overviewOperationalStrip: document.getElementById("overviewOperationalStrip"),
+    officeAttentionBadge: document.getElementById("officeAttentionBadge"),
+    officeExecutiveAttentionList: document.getElementById("officeExecutiveAttentionList"),
+    officeDeploymentQueueList: document.getElementById("officeDeploymentQueueList"),
+    officeCommercialQueueList: document.getElementById("officeCommercialQueueList"),
+    officeFacilitySupervisionList: document.getElementById("officeFacilitySupervisionList"),
+    officeConsumerSupervisionList: document.getElementById("officeConsumerSupervisionList"),
     overviewFocusPanel: document.getElementById("overviewFocusPanel"),
     settingsIntegrationHub: document.getElementById("settingsIntegrationHub"),
     infrastructureIntelligencePanel: document.getElementById("infrastructureIntelligencePanel"),
@@ -623,6 +630,13 @@
     if (amount >= 1000000) return `NGN ${(amount / 1000000).toFixed(1)}M`;
     if (amount >= 1000) return `NGN ${Math.round(amount / 1000)}K`;
     return `NGN ${amount.toLocaleString("en-NG")}`;
+  }
+
+  function greetingForHour() {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
   }
 
   function asList(value) {
@@ -4054,19 +4068,14 @@
     }).length;
     if (el.overviewOperationalStrip) {
       el.overviewOperationalStrip.innerHTML = operationalStrip([
-        { label: "Facilities", value: connectedEstates, meta: `${activeFacilities} active` },
-        { label: "Consumers", value: homes.length || connectedHomes || connectedBuildings, meta: "Homes/residents in view" },
-        { label: "Homes/Buildings", value: connectedHomes ? `${connectedBuildings}/${connectedHomes}` : connectedBuildings, meta: "Structure coverage" },
-        { label: "Devices", value: connectedDevices || devices.length, meta: "Active device inventory" },
-        { label: "Visitor Access", value: visitorActivity, meta: "Access signals" },
-        { label: "Maintenance", value: maintenanceWorkload || openSupport, meta: "Service workload" },
-        { label: "Wallets", value: formatCompactMoney(walletFloat), meta: "Finance posture" },
-        { label: "Deployments", value: state.allDemos.length || totals.demos || 0, meta: "Rollout activity" },
-        { label: "Open Leads", value: totals.leads || state.leads.length || 0, meta: "Commercial pressure" },
-        { label: "Agents", value: state.traces.length || state.officeStats?.traces || 0, meta: "Runtime activity" },
-        { label: "Edge Health", value: `${healthPct}%`, meta: `${offlineCount} offline` },
+        { label: "Attention", value: openSupport + criticalCount + warningCount, meta: "Executive review" },
+        { label: "Approvals", value: state.allDemos.length || totals.demos || 0, meta: "Deployment queue" },
+        { label: "Escalated", value: overview.openEscalations || totals.escalations || 0, meta: "Human review" },
+        { label: "Commercial", value: totals.leads || state.leads.length || 0, meta: "Open records" },
+        { label: "Edge", value: `${healthPct}%`, meta: `${offlineCount} offline` },
       ]);
     }
+    renderOisOverviewStack({ attentionCount: openSupport + criticalCount + warningCount });
     if (el.officeMobileProjectsMetric) {
       el.officeMobileProjectsMetric.textContent = String(connectedEstates || estates.length || 0);
     }
@@ -4129,7 +4138,21 @@
         "John";
       const firstName = String(accountName)
         .split(/[ @]/)[0] || "John";
-      el.officeWelcomeTitle.textContent = `Welcome back, ${firstName}`;
+      el.officeWelcomeTitle.textContent = `${greetingForHour()}, Ochiga Office 👋`;
+    }
+    if (el.officeExecutiveBrief) {
+      const attentionCount = openSupport + criticalCount + warningCount;
+      const highestPriority =
+        state.notifications[0]?.title ||
+        state.notifications[0]?.type ||
+        state.allDemos[0]?.title ||
+        state.allDemos[0]?.review_type ||
+        state.leads[0] && leadTitle(state.leads[0]);
+      el.officeExecutiveBrief.textContent = attentionCount
+        ? `${attentionCount} executive action${attentionCount === 1 ? "" : "s"} require review. Highest priority: ${highestPriority || "review Office operations"}.`
+        : state.allDemos.length
+          ? `${state.allDemos.length} deployment review${state.allDemos.length === 1 ? "" : "s"} are ready for supervision.`
+          : "No urgent executive action is blocking Office operations right now.";
     }
     if (el.officeHealthMetric) {
       el.officeHealthMetric.textContent = `${healthPct}%`;
@@ -4383,6 +4406,81 @@
     });
     bindOfficeAssetActions(el.facilityPanel);
     bindOfficeAssetActions(el.smartBuildingsPanel);
+  }
+
+  function oisOfficeRow(item) {
+    return `
+      <div class="ois-office-row">
+        <span class="ois-office-row-icon">${officeIcon(item.icon || "trend")}</span>
+        <div class="ois-office-row-main">
+          <strong class="ois-office-row-title">${escapeHtml(item.title || "Office activity")}</strong>
+          <div class="ois-office-row-desc">${escapeHtml(item.description || "No description available.")}</div>
+          <div class="ois-office-row-meta">${escapeHtml(item.meta || "Office")}</div>
+        </div>
+        ${item.status ? `<span class="office-system-badge ${escapeHtml(item.tone || "")}">${escapeHtml(item.status)}</span>` : ""}
+      </div>
+    `;
+  }
+
+  function renderOisOverviewStack(options) {
+    const source = options || {};
+    const collections = officeCollections();
+    const estates = asList(collections.estates);
+    const homes = asList(collections.homes);
+    const attentionRows = state.notifications.slice(0, 4).map(function (note) {
+      return {
+        title: displayValue(note.title || note.type, "Executive attention"),
+        description: displayValue(note.summary || note.reason || note.message, "Review the related Office signal."),
+        meta: `${displayValue(note.channel || note.type, "office")} · ${formatDate(note.created_at || note.ts)}`,
+        status: displayValue(note.status || note.priority, "review"),
+        tone: /critical|urgent|failed|blocked/i.test(`${note.priority || ""} ${note.type || ""} ${note.summary || ""}`) ? "alert" : "warning",
+        icon: "alert",
+      };
+    });
+    const deploymentRows = state.allDemos.slice(0, 4).map(function (demo) {
+      return {
+        title: displayValue(demo.title || demo.company || demo.review_type, "Deployment review"),
+        description: `${displayValue(demo.status, "pending")} · ${displayValue(demo.notes, "Workspace readiness pending")}`,
+        meta: formatDate(demo.scheduled_for || demo.created_at),
+        status: displayValue(demo.status, "pending"),
+        icon: "estate",
+      };
+    });
+    const commercialRows = state.leads.slice(0, 4).map(function (lead) {
+      return {
+        title: leadTitle(lead),
+        description: `${displayValue(lead.company, "Company pending")} · ${displayValue(lead.next_action, "No next action recorded")}`,
+        meta: `${displayValue(lead.stage || lead.commercial_stage || lead.status, "new")} · score ${displayValue(lead.score, 0)}`,
+        status: displayValue(lead.status, "new"),
+        tone: /hot|escalated|urgent/i.test(`${lead.status || ""} ${lead.stage || ""}`) ? "warning" : "",
+        icon: "lead",
+      };
+    });
+    const facilityRows = estates.slice(0, 4).map(function (estate) {
+      return {
+        title: displayValue(estate.name || estate.company || estate.id, "Facility"),
+        description: displayValue(estate.location || estate.address || estate.status, "Facility context available"),
+        meta: `${displayValue(estate.status || estate.subscription_status, "synced")} · ${displayValue(estate.type, "estate")}`,
+        status: displayValue(estate.status || estate.subscription_status, "synced"),
+        icon: "estate",
+      };
+    });
+    const consumerRows = homes.slice(0, 4).map(function (home) {
+      return {
+        title: displayValue(home.name || home.home_name || home.id, "Consumer home"),
+        description: `${displayValue(home.occupancy_status || home.status, "occupancy pending")} · ${displayValue(home.member_count, "members pending")}`,
+        meta: displayValue(home.estate_name || home.building_name || home.id, "consumer context"),
+        status: displayValue(home.occupancy_status || home.status, "pending"),
+        icon: "support",
+      };
+    });
+    const fallback = '<div class="office-detail-empty">No live Office records are available for this queue yet.</div>';
+    if (el.officeAttentionBadge) el.officeAttentionBadge.textContent = String(source.attentionCount || attentionRows.length || 0);
+    if (el.officeExecutiveAttentionList) el.officeExecutiveAttentionList.innerHTML = attentionRows.length ? attentionRows.map(oisOfficeRow).join("") : fallback;
+    if (el.officeDeploymentQueueList) el.officeDeploymentQueueList.innerHTML = deploymentRows.length ? deploymentRows.map(oisOfficeRow).join("") : fallback;
+    if (el.officeCommercialQueueList) el.officeCommercialQueueList.innerHTML = commercialRows.length ? commercialRows.map(oisOfficeRow).join("") : fallback;
+    if (el.officeFacilitySupervisionList) el.officeFacilitySupervisionList.innerHTML = facilityRows.length ? facilityRows.map(oisOfficeRow).join("") : fallback;
+    if (el.officeConsumerSupervisionList) el.officeConsumerSupervisionList.innerHTML = consumerRows.length ? consumerRows.map(oisOfficeRow).join("") : fallback;
   }
 
   function renderConsumersWorkspace(domain) {
@@ -8668,6 +8766,18 @@
     });
   }
   document.addEventListener("click", function (event) {
+    const footerDotNode = event.target.closest("[data-mobile-footer-dot]");
+    if (footerDotNode) {
+      event.preventDefault();
+      const page = footerDotNode.getAttribute("data-mobile-footer-dot") || "0";
+      Array.from(document.querySelectorAll("[data-mobile-footer-page]")).forEach(function (node) {
+        node.classList.toggle("active", node.getAttribute("data-mobile-footer-page") === page);
+      });
+      Array.from(document.querySelectorAll("[data-mobile-footer-dot]")).forEach(function (node) {
+        node.classList.toggle("active", node.getAttribute("data-mobile-footer-dot") === page);
+      });
+      return;
+    }
     const mobileRefreshNode = event.target.closest("[data-mobile-refresh]");
     if (mobileRefreshNode) {
       event.preventDefault();
