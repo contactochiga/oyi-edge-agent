@@ -1782,38 +1782,45 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, l
         }
         const body = await readJsonBody(req);
         const attemptKey = loginAttemptKey(req, body.email);
-        try {
-          const loginLimit = adminLoginRateLimiter.checkKey(attemptKey);
-          res.setHeader("x-login-ratelimit-remaining", String(loginLimit.remaining));
-          res.setHeader("x-login-ratelimit-reset", new Date(loginLimit.resetAt).toISOString());
-        } catch (error) {
-          json(
-            res,
-            429,
-            {
-              error: "login_rate_limit_exceeded",
-              message: "Too many sign-in attempts. Please wait a few minutes and try again.",
-            },
-            {
-              "x-request-id": ctx.requestId,
-              "x-login-ratelimit-reset": error.rateLimit?.resetAt
-                ? new Date(error.rateLimit.resetAt).toISOString()
-                : "",
-            }
-          );
-          return;
-        }
         const adminUser = await store.getAdminUserByEmail(body.email);
         const fallbackAllowed =
           !adminUser &&
           normalizeEmail(body.email) &&
           config.apiKeys.includes(String(body.password || ""));
+        const credentialsValid =
+          fallbackAllowed ||
+          Boolean(adminUser && verifyPassword(body.password, adminUser.password_hash));
+        try {
+          const loginLimit = adminLoginRateLimiter.checkKey(attemptKey);
+          res.setHeader("x-login-ratelimit-remaining", String(loginLimit.remaining));
+          res.setHeader("x-login-ratelimit-reset", new Date(loginLimit.resetAt).toISOString());
+        } catch (error) {
+          if (credentialsValid) {
+            adminLoginRateLimiter.resetKey(attemptKey);
+          } else {
+            json(
+              res,
+              429,
+              {
+                error: "login_rate_limit_exceeded",
+                message: "Too many sign-in attempts. Please wait a few minutes and try again.",
+              },
+              {
+                "x-request-id": ctx.requestId,
+                "x-login-ratelimit-reset": error.rateLimit?.resetAt
+                  ? new Date(error.rateLimit.resetAt).toISOString()
+                  : "",
+              }
+            );
+            return;
+          }
+        }
 
         if (adminUser && adminUser.status !== "active") {
           json(res, 403, { error: "account_inactive", message: "This Office account is inactive." });
           return;
         }
-        if ((!adminUser || !verifyPassword(body.password, adminUser.password_hash)) && !fallbackAllowed) {
+        if (!credentialsValid) {
           json(res, 401, { error: "unauthorized", message: "Email or password is incorrect." });
           return;
         }

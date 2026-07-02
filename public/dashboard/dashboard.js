@@ -592,7 +592,10 @@
 
     if (!response.ok) {
       const detail = data.details || data.message || data.sync_warning || "";
-      throw new Error([data.error || "Request failed", detail].filter(Boolean).join(": "));
+      const error = new Error([data.error || "Request failed", detail].filter(Boolean).join(": "));
+      error.statusCode = response.status;
+      error.payload = data;
+      throw error;
     }
     return data;
   }
@@ -4025,7 +4028,7 @@
       el.officeMobileProjectsMetric.textContent = String(connectedEstates || estates.length || 0);
     }
     if (el.officeMobileClientsMetric) {
-      el.officeMobileClientsMetric.textContent = String(buildingCount || homes.length || 0);
+      el.officeMobileClientsMetric.textContent = String(connectedBuildings || homes.length || 0);
     }
     if (el.officeMobileTasksMetric) {
       el.officeMobileTasksMetric.textContent = String(totals.leads || state.leads.length || 0);
@@ -7246,6 +7249,29 @@
     updateDetailRailState();
   }
 
+  function renderDashboardAfterData() {
+    try {
+      renderLeadList();
+      renderReports();
+      renderNotifications();
+      renderFounderInbox();
+      renderBookings();
+      renderChannels();
+      renderCommercial();
+      renderTeamPanel();
+      renderAudit();
+      renderTraceExplorer();
+      renderTimeline();
+      renderWorkspaceTabs();
+    } catch (error) {
+      console.error("[office-dashboard-render]", error);
+      setAuthStatus("Signed in. Some dashboard sections could not render; refresh or open another module.", true);
+      if (el.infrastructureIntelligencePanel) {
+        el.infrastructureIntelligencePanel.innerHTML = `<div class="office-detail-empty">A dashboard section could not render: ${escapeHtml(error.message || "Unknown render error")}</div>`;
+      }
+    }
+  }
+
   function summaryField(label, value) {
     return `
       <div class="detail-card">
@@ -7632,25 +7658,19 @@
       state.memory = null;
     }
 
-    renderLeadList();
-    renderReports();
-    renderNotifications();
-    renderFounderInbox();
-    renderBookings();
-    renderChannels();
-    renderCommercial();
-    renderTeamPanel();
-    renderAudit();
-    renderTraceExplorer();
-    renderTimeline();
-    renderWorkspaceTabs();
+    renderDashboardAfterData();
 
     if (state.selectedLeadId) {
       await selectLead(state.selectedLeadId, true);
     } else {
       state.centerMode = "browser";
-      renderConversation();
-      renderDetail();
+      try {
+        renderConversation();
+        renderDetail();
+      } catch (error) {
+        console.error("[office-dashboard-detail-render]", error);
+        setAuthStatus("Signed in. The selected workspace could not render completely.", true);
+      }
     }
   }
 
@@ -8280,17 +8300,23 @@
       window.localStorage.setItem(ADMIN_EMAIL_STORAGE, email);
       el.adminPassword.value = "";
       updateAuthUi();
-      await loadLeads();
-	      setAuthStatus(`Signed in as ${email}.`);
-	      connectOfficeEventStream();
+      try {
+        await loadLeads();
+        setAuthStatus(`Signed in as ${email}.`);
+      } catch (loadError) {
+        console.error("[office-dashboard-load-after-login]", loadError);
+        setAuthStatus(`Signed in as ${email}, but dashboard data could not load: ${loadError.message || "Unknown error"}`, true);
+      }
+      connectOfficeEventStream();
 	      setComposerStatus("");
       setDetailStatus("");
       setBulkStatus("");
       setTeamStatus("");
       setPasswordStatus("");
     } catch (error) {
-      state.session = null;
-      updateAuthUi();
+      if (!state.session) {
+        updateAuthUi();
+      }
       setAuthStatus(error.message || "Unable to sign in.", true);
     }
   }
@@ -8897,9 +8923,14 @@
   restoreSession()
     .then(function (restored) {
       if (restored) {
-        return loadLeads().then(function () {
-          setAuthStatus(`Signed in as ${state.adminEmail}.`);
-        });
+        return loadLeads()
+          .then(function () {
+            setAuthStatus(`Signed in as ${state.adminEmail}.`);
+          })
+          .catch(function (error) {
+            console.error("[office-dashboard-restore-load]", error);
+            setAuthStatus(`Signed in as ${state.adminEmail}, but dashboard data could not load: ${error.message || "Unknown error"}`, true);
+          });
       }
       setAuthStatus("Log in to access Ochiga Office.");
     })
