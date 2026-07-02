@@ -633,6 +633,36 @@
     return state.officeData && state.officeData.collections ? state.officeData.collections : {};
   }
 
+  function safeCount() {
+    for (let index = 0; index < arguments.length; index += 1) {
+      const value = arguments[index];
+      const numeric = Number(value);
+      if (Number.isFinite(numeric) && numeric > 0) return numeric;
+    }
+    return 0;
+  }
+
+  function officeCount(name, fallback) {
+    const collections = officeCollections();
+    const officeTotals = state.officeData && state.officeData.totals ? state.officeData.totals : {};
+    return safeCount(
+      officeTotals[name],
+      asList(collections[name]).length,
+      fallback
+    );
+  }
+
+  function officeCountSnapshot(fallbacks) {
+    const fallback = fallbacks || {};
+    return {
+      estates: officeCount("estates", fallback.estates),
+      buildings: officeCount("buildings", fallback.buildings),
+      homes: officeCount("homes", fallback.homes),
+      devices: officeCount("devices", fallback.devices),
+      wallets: officeCount("wallets", fallback.wallets),
+    };
+  }
+
   function documentUrl(doc) {
     return doc?.html_url || doc?.file_url || doc?.url || doc?.metadata?.source_file_url || "";
   }
@@ -1254,7 +1284,7 @@
     const latestNotifications = state.notifications.slice(0, 4);
     const latestTraces = state.traces.slice(0, 4);
     const totalUnits = derived.totalUnits;
-    const buildingCount = derived.buildingCount;
+    const safeBuildingTotal = safeCount(derived.buildingCount);
     const sourceEntries = Object.entries((state.report && state.report.by_source) || {}).sort(function (a, b) {
       return b[1] - a[1];
     });
@@ -1285,7 +1315,7 @@
         primaryLabel: "Records",
         metrics: [
           { label: "Estates connected", value: estateKeys.length },
-          { label: "Buildings tracked", value: buildingCount },
+          { label: "Buildings tracked", value: safeBuildingTotal },
           { label: "Open support", value: openNotifications },
           { label: "Trace records", value: state.traces.length || officeStats.traces || 0 },
         ],
@@ -1297,7 +1327,7 @@
           },
           {
             title: "Smart building posture",
-            meta: `${buildingCount} building records · ${totalUnits || 0} units referenced`,
+            meta: `${safeBuildingTotal} building records · ${totalUnits || 0} units referenced`,
             body: "Building-level hardware devices, permissions, and household automation activity should surface through this office layer.",
           },
           {
@@ -1339,12 +1369,12 @@
       smart_buildings: {
         title: "Smart Buildings",
         subtitle: "Connected homes, building permissions, occupancy posture, hardware device activity, and automation state.",
-        badge: buildingCount ? "Monitoring" : "Queued",
-        tone: buildingCount ? "" : "warning",
-        primaryMetric: buildingCount,
+        badge: safeBuildingTotal ? "Monitoring" : "Queued",
+        tone: safeBuildingTotal ? "" : "warning",
+        primaryMetric: safeBuildingTotal,
         primaryLabel: "Buildings",
         metrics: [
-          { label: "Buildings tracked", value: buildingCount },
+          { label: "Buildings tracked", value: safeBuildingTotal },
           { label: "Units referenced", value: totalUnits || 0 },
           { label: "Live channels", value: activeChannels },
           { label: "Permitted staff", value: state.adminUsers.length || officeStats.admin_users || 0 },
@@ -1512,7 +1542,7 @@
       ];
 
       result.domains.smart_buildings.batches = [
-        { label: "Homes", value: buildingCount },
+        { label: "Homes", value: safeBuildingTotal },
         { label: "Units", value: totalUnits || 0 },
         { label: "Channels", value: activeChannels },
         { label: "Wallet-linked users", value: smartBuildingRecords.length },
@@ -3954,25 +3984,38 @@
 
   function renderOverview() {
     const overview = buildOverviewDomains();
-    const totals = overview.totals;
-    const domains = overview.domains;
+    const totals = overview.totals || {};
+    const domains = overview.domains || {};
     renderOfficeCommandPanels(domains);
     const officeTotals = state.officeData && state.officeData.totals ? state.officeData.totals : {};
-    const connectedEstates = Number(officeTotals.estates || domains.facility.primaryMetric || 0);
-    const connectedBuildings = Number(officeTotals.buildings || domains.smart_buildings.primaryMetric || 0);
-    const connectedHomes = Number(officeTotals.homes || 0);
-    const connectedDevices = Number(officeTotals.devices || domains.smart_buildings.metrics?.[1]?.value || 0);
+    const safeDomains = {
+      facility: domains.facility || { primaryMetric: 0 },
+      smart_buildings: domains.smart_buildings || { primaryMetric: 0, metrics: [] },
+      support: domains.support || { primaryMetric: 0 },
+    };
     const walletFloat = officeTotals.wallet_balance_total || 0;
-    const openSupport = Number(overview.openNotifications || domains.support.primaryMetric || 0);
-    const revenueValue =
-      Number(officeTotals.revenue_today || officeTotals.revenue || 0) ||
-      Number(state.report ? state.report.pipeline_value || state.report.revenue_today || 0 : 0);
     const collections = officeCollections();
     const estates = asList(collections.estates);
     const buildings = asList(collections.buildings);
     const homes = asList(collections.homes);
     const devices = asList(collections.devices);
+    const wallets = asList(collections.wallets);
     const supportMappings = asList(collections.support_mappings);
+    const countSnapshot = officeCountSnapshot({
+      estates: safeDomains.facility.primaryMetric || estates.length,
+      buildings: safeDomains.smart_buildings.primaryMetric || buildings.length,
+      homes: homes.length,
+      devices: safeDomains.smart_buildings.metrics?.[1]?.value || devices.length,
+      wallets: wallets.length,
+    });
+    const connectedEstates = countSnapshot.estates;
+    const connectedBuildings = countSnapshot.buildings;
+    const connectedHomes = countSnapshot.homes;
+    const connectedDevices = countSnapshot.devices;
+    const openSupport = safeCount(overview.openNotifications, safeDomains.support.primaryMetric);
+    const revenueValue =
+      Number(officeTotals.revenue_today || officeTotals.revenue || 0) ||
+      Number(state.report ? state.report.pipeline_value || state.report.revenue_today || 0 : 0);
     const warningCount = Number(officeTotals.warning_assets || openSupport || 0);
     const criticalCount = Number(officeTotals.critical_assets || overview.openEscalations || 0);
     const offlineCount = Number(officeTotals.offline_assets || 0);
