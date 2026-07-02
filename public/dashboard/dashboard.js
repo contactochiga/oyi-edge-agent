@@ -66,6 +66,10 @@
     dataRevision: 0,
     officeEventSource: null,
     officeEventRefreshTimer: null,
+    mobileFooterPage: 0,
+    footerComposerOpen: false,
+    footerComposerText: "",
+    footerVoiceState: "idle",
     leftCollapsed: window.localStorage.getItem(LEFT_COLLAPSED_STORAGE) === "1",
     detailCollapsed: window.localStorage.getItem(DETAIL_COLLAPSED_STORAGE) === "1",
     centerMode: "browser",
@@ -103,6 +107,11 @@
 
   const auditSearchCache = new WeakMap();
   const traceSearchCache = new WeakMap();
+  const footerVoiceRuntime = {
+    recognition: null,
+    fallbackTimer: 0,
+    touchStartX: null,
+  };
 
   const OFFICE_MODULE_REGISTRY = [
     { key: "overview", focus: "summary", permissions: ["view_office", "view_reports"] },
@@ -407,6 +416,14 @@
     officeCommercialQueueList: document.getElementById("officeCommercialQueueList"),
     officeFacilitySupervisionList: document.getElementById("officeFacilitySupervisionList"),
     officeConsumerSupervisionList: document.getElementById("officeConsumerSupervisionList"),
+    officeFooterAskOyi: document.getElementById("officeFooterAskOyi"),
+    officeFooterComposerExpanded: document.getElementById("officeFooterComposerExpanded"),
+    officeFooterComposerClose: document.getElementById("officeFooterComposerClose"),
+    officeFooterComposerInput: document.getElementById("officeFooterComposerInput"),
+    officeFooterComposerVoice: document.getElementById("officeFooterComposerVoice"),
+    officeFooterComposerSend: document.getElementById("officeFooterComposerSend"),
+    officeFooterComposerWave: document.getElementById("officeFooterComposerWave"),
+    officeMobileFooterTrack: document.querySelector(".office-mobile-footer-track"),
     overviewFocusPanel: document.getElementById("overviewFocusPanel"),
     settingsIntegrationHub: document.getElementById("settingsIntegrationHub"),
     infrastructureIntelligencePanel: document.getElementById("infrastructureIntelligencePanel"),
@@ -920,6 +937,9 @@
     target = destination.target;
     focus = destination.focus;
     if (!target || !canAccessOfficeModule(target, focus)) return;
+    if (state.footerComposerOpen && target !== "intelligence") {
+      closeFooterComposer();
+    }
     if (destination.facet) setModuleFacet(target, destination.facet);
     state.workspaceTab = target;
     if (target === "crm") {
@@ -933,20 +953,194 @@
   }
 
   function officeMobileFooterPageForWorkspace(workspace) {
-    if (["overview", "facilities", "consumers", "crm", "projects"].includes(workspace)) return "0";
-    if (["deployments", "documents", "finance", "agents", "edge"].includes(workspace)) return "1";
-    if (["reports", "team", "settings", "digital_twin", "intelligence"].includes(workspace)) return "2";
-    return "0";
+    if (["overview", "facilities", "consumers", "crm", "projects"].includes(workspace)) return 0;
+    if (["deployments", "documents", "finance", "agents", "edge"].includes(workspace)) return 1;
+    if (["reports", "team", "settings", "digital_twin"].includes(workspace)) return 2;
+    return null;
+  }
+
+  function setOfficeMobileFooterPage(page) {
+    const normalized = Math.max(0, Math.min(2, Number(page) || 0));
+    state.mobileFooterPage = normalized;
+    Array.from(document.querySelectorAll("[data-mobile-footer-page]")).forEach(function (node) {
+      node.classList.toggle("active", node.getAttribute("data-mobile-footer-page") === String(normalized));
+    });
+    Array.from(document.querySelectorAll("[data-mobile-footer-dot]")).forEach(function (node) {
+      node.classList.toggle("active", node.getAttribute("data-mobile-footer-dot") === String(normalized));
+    });
   }
 
   function syncOfficeMobileFooterPage() {
-    const page = officeMobileFooterPageForWorkspace(state.workspaceTab || "overview");
-    Array.from(document.querySelectorAll("[data-mobile-footer-page]")).forEach(function (node) {
-      node.classList.toggle("active", node.getAttribute("data-mobile-footer-page") === page);
-    });
-    Array.from(document.querySelectorAll("[data-mobile-footer-dot]")).forEach(function (node) {
-      node.classList.toggle("active", node.getAttribute("data-mobile-footer-dot") === page);
-    });
+    const derivedPage = officeMobileFooterPageForWorkspace(state.workspaceTab || "overview");
+    if (derivedPage !== null) {
+      state.mobileFooterPage = derivedPage;
+    }
+    setOfficeMobileFooterPage(state.mobileFooterPage);
+  }
+
+  function footerVoiceIcon(kind) {
+    if (kind === "stop") {
+      return '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"></rect></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><path d="M12 19v3"></path></svg>';
+  }
+
+  function clearFooterVoiceFallback() {
+    if (footerVoiceRuntime.fallbackTimer) {
+      window.clearTimeout(footerVoiceRuntime.fallbackTimer);
+      footerVoiceRuntime.fallbackTimer = 0;
+    }
+  }
+
+  function stopFooterVoiceCapture() {
+    clearFooterVoiceFallback();
+    if (footerVoiceRuntime.recognition) {
+      try {
+        footerVoiceRuntime.recognition.onresult = null;
+        footerVoiceRuntime.recognition.onerror = null;
+        footerVoiceRuntime.recognition.onend = null;
+        footerVoiceRuntime.recognition.stop();
+      } catch (_error) {
+        // Ignore stop errors from already-ended sessions.
+      }
+      footerVoiceRuntime.recognition = null;
+    }
+    if (state.footerVoiceState === "recording") {
+      state.footerVoiceState = "idle";
+    }
+  }
+
+  function renderFooterComposer() {
+    if (!el.officeFooterAskOyi || !el.officeFooterComposerExpanded || !el.officeFooterComposerInput || !el.officeFooterComposerVoice || !el.officeFooterComposerSend) {
+      return;
+    }
+    const open = Boolean(state.footerComposerOpen);
+    const recording = state.footerVoiceState === "recording";
+    const unsupported = state.footerVoiceState === "unsupported";
+    el.officeFooterAskOyi.classList.toggle("hidden", open);
+    el.officeFooterComposerExpanded.classList.toggle("hidden", !open);
+    el.officeFooterComposerExpanded.classList.toggle("recording", recording);
+    el.officeFooterComposerExpanded.classList.toggle("unsupported", unsupported);
+    el.officeFooterComposerInput.value = state.footerComposerText || "";
+    el.officeFooterComposerInput.placeholder = unsupported ? "Voice unavailable in this browser" : "Ask Oyi...";
+    el.officeFooterComposerVoice.innerHTML = footerVoiceIcon(recording ? "stop" : "mic");
+    el.officeFooterComposerSend.classList.toggle("ready", Boolean((state.footerComposerText || "").trim()) || recording);
+  }
+
+  function openFooterComposer(options) {
+    const config = options || {};
+    state.footerComposerOpen = true;
+    if (typeof config.preset === "string") {
+      state.footerComposerText = config.preset;
+    }
+    if (state.footerVoiceState === "unsupported") {
+      state.footerVoiceState = "idle";
+    }
+    renderFooterComposer();
+    if (config.focus !== false && el.officeFooterComposerInput) {
+      window.requestAnimationFrame(function () {
+        el.officeFooterComposerInput.focus();
+      });
+    }
+  }
+
+  function closeFooterComposer(options) {
+    const config = options || {};
+    stopFooterVoiceCapture();
+    state.footerComposerOpen = false;
+    state.footerVoiceState = "idle";
+    if (config.clear !== false) {
+      state.footerComposerText = "";
+    }
+    renderFooterComposer();
+  }
+
+  function resolveOfficeConversationLeadId() {
+    return (
+      state.selectedLeadId ||
+      (state.selectedLead && state.selectedLead.id) ||
+      (state.filteredLeads[0] && state.filteredLeads[0].id) ||
+      (state.leads[0] && state.leads[0].id) ||
+      ""
+    );
+  }
+
+  async function submitFooterPrompt() {
+    const prompt = String(state.footerComposerText || "").trim();
+    if (!prompt) {
+      return;
+    }
+    stopFooterVoiceCapture();
+    closeFooterComposer();
+    state.workspaceTab = "intelligence";
+    renderWorkspaceTabs();
+    const leadId = resolveOfficeConversationLeadId();
+    if (!leadId) {
+      el.threadTitle.textContent = "Oyi Intelligence";
+      el.threadSubtitle.textContent = "No Office record is available yet. Load CRM data or select a record to continue.";
+      el.threadCanvas.classList.add("browser-mode");
+      el.threadCanvas.innerHTML = '<div class="value empty">No Office record is available for conversation yet.</div>';
+      setComposerStatus("No Office record is available for conversation yet.", true);
+      return;
+    }
+    await selectLead(String(leadId), true);
+    el.composerInput.value = prompt;
+    await sendAgentMessage(prompt);
+  }
+
+  function toggleFooterVoiceCapture() {
+    if (state.footerVoiceState === "recording") {
+      stopFooterVoiceCapture();
+      renderFooterComposer();
+      return;
+    }
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) {
+      state.footerVoiceState = "unsupported";
+      renderFooterComposer();
+      clearFooterVoiceFallback();
+      footerVoiceRuntime.fallbackTimer = window.setTimeout(function () {
+        if (state.footerVoiceState === "unsupported") {
+          state.footerVoiceState = "idle";
+          renderFooterComposer();
+        }
+      }, 1800);
+      return;
+    }
+    clearFooterVoiceFallback();
+    const recognition = new Recognition();
+    footerVoiceRuntime.recognition = recognition;
+    recognition.lang = "en-US";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    state.footerVoiceState = "recording";
+    renderFooterComposer();
+    recognition.onresult = function (event) {
+      const transcript = Array.from(event.results || []).map(function (result) {
+        return result[0] && result[0].transcript ? result[0].transcript : "";
+      }).join(" ").trim();
+      state.footerComposerText = transcript;
+      renderFooterComposer();
+    };
+    recognition.onerror = function () {
+      state.footerVoiceState = "unsupported";
+      footerVoiceRuntime.recognition = null;
+      renderFooterComposer();
+    };
+    recognition.onend = function () {
+      footerVoiceRuntime.recognition = null;
+      if (state.footerVoiceState === "recording") {
+        state.footerVoiceState = "idle";
+      }
+      renderFooterComposer();
+    };
+    try {
+      recognition.start();
+    } catch (_error) {
+      state.footerVoiceState = "unsupported";
+      footerVoiceRuntime.recognition = null;
+      renderFooterComposer();
+    }
   }
 
   function setModuleFacet(workspace, facet) {
@@ -8130,7 +8324,7 @@
     setBulkStatus(`Updated ${leadIds.length} lead${leadIds.length === 1 ? "" : "s"}.`);
   }
 
-  async function sendAgentMessage() {
+  async function sendAgentMessage(messageOverride) {
     if (!state.selectedLead) {
       setComposerStatus("Select a record first.", true);
       return;
@@ -8140,7 +8334,9 @@
       return;
     }
 
-    const message = el.composerInput.value.trim();
+    const message = typeof messageOverride === "string"
+      ? messageOverride.trim()
+      : el.composerInput.value.trim();
     if (!message) {
       setComposerStatus("Write a message first.", true);
       return;
@@ -8221,7 +8417,9 @@
     }
     renderTimeline();
     renderChannelState();
-    el.composerInput.value = "";
+    if (typeof messageOverride !== "string") {
+      el.composerInput.value = "";
+    }
     setComposerStatus("Message sent through agent.");
   }
 
@@ -8641,6 +8839,55 @@
       setOfficeWorkspace(target, focus);
     });
   });
+  if (el.officeFooterAskOyi) {
+    el.officeFooterAskOyi.addEventListener("click", function () {
+      openFooterComposer({ focus: true });
+    });
+  }
+  if (el.officeFooterComposerClose) {
+    el.officeFooterComposerClose.addEventListener("click", function () {
+      closeFooterComposer();
+    });
+  }
+  if (el.officeFooterComposerInput) {
+    el.officeFooterComposerInput.addEventListener("input", function (event) {
+      state.footerComposerText = event.target.value || "";
+      if (state.footerVoiceState === "unsupported") {
+        state.footerVoiceState = "idle";
+      }
+      renderFooterComposer();
+    });
+  }
+  if (el.officeFooterComposerVoice) {
+    el.officeFooterComposerVoice.addEventListener("click", function (event) {
+      event.preventDefault();
+      toggleFooterVoiceCapture();
+    });
+  }
+  if (el.officeFooterComposerExpanded) {
+    el.officeFooterComposerExpanded.addEventListener("submit", function (event) {
+      event.preventDefault();
+      submitFooterPrompt().catch(function (error) {
+        setComposerStatus(error.message || "Ask Oyi failed.", true);
+      });
+    });
+  }
+  if (el.officeMobileFooterTrack) {
+    el.officeMobileFooterTrack.addEventListener("touchstart", function (event) {
+      footerVoiceRuntime.touchStartX = event.touches[0] ? event.touches[0].clientX : null;
+    }, { passive: true });
+    el.officeMobileFooterTrack.addEventListener("touchend", function (event) {
+      if (footerVoiceRuntime.touchStartX == null) return;
+      const delta = (event.changedTouches[0] ? event.changedTouches[0].clientX : 0) - footerVoiceRuntime.touchStartX;
+      footerVoiceRuntime.touchStartX = null;
+      if (Math.abs(delta) < 28 || state.footerComposerOpen) return;
+      if (delta < 0) {
+        setOfficeMobileFooterPage(Math.min(2, state.mobileFooterPage + 1));
+      } else {
+        setOfficeMobileFooterPage(Math.max(0, state.mobileFooterPage - 1));
+      }
+    }, { passive: true });
+  }
   Array.from((el.notificationFilters || document).querySelectorAll("[data-notification-filter]")).forEach(
     function (node) {
       node.addEventListener("click", function () {
@@ -8787,13 +9034,7 @@
     const footerDotNode = event.target.closest("[data-mobile-footer-dot]");
     if (footerDotNode) {
       event.preventDefault();
-      const page = footerDotNode.getAttribute("data-mobile-footer-dot") || "0";
-      Array.from(document.querySelectorAll("[data-mobile-footer-page]")).forEach(function (node) {
-        node.classList.toggle("active", node.getAttribute("data-mobile-footer-page") === page);
-      });
-      Array.from(document.querySelectorAll("[data-mobile-footer-dot]")).forEach(function (node) {
-        node.classList.toggle("active", node.getAttribute("data-mobile-footer-dot") === page);
-      });
+      setOfficeMobileFooterPage(footerDotNode.getAttribute("data-mobile-footer-dot") || "0");
       return;
     }
     const mobileRefreshNode = event.target.closest("[data-mobile-refresh]");
@@ -9088,6 +9329,7 @@
   renderTraceExplorer();
   renderDetail();
   renderWorkspaceTabs();
+  renderFooterComposer();
   updateLeftRailState();
   updateDetailRailState();
 
