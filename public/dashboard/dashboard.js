@@ -4322,7 +4322,7 @@
       [el.financePanel, function () { renderFinanceWorkspace(safeDomains.web_presence); }],
       [el.supportPanel, function () { renderSupportWorkspace(safeDomains.support); }],
       [el.crmAgentsPanel, function () { renderCrmAgentsPanel(safeDomains.crm_agents); }],
-      [el.aiOperationsPanel, function () { renderAiOperationsDashboard(safeDomains.ai_operations); }],
+      [el.aiOperationsPanel, function () { renderAgentsSupervisionWorkspace(safeDomains.ai_operations); }],
       [el.digitalTwinPanel, function () { renderDigitalTwinWorkspace(safeDomains.infrastructure_intelligence); }],
     ];
     renderers.forEach(function (entry) {
@@ -4518,37 +4518,117 @@
     if (!el.financePanel || !domain) return;
     const wallets = asList(officeCollections().wallets);
     const proposals = asList(state.allProposals);
+    const docs = documentsFromCollections().concat(proposals.map(function (proposal) {
+      return {
+        title: proposal.title || proposal.company || "Proposal",
+        type: proposal.document_type || "proposal",
+        owner: proposal.owner || proposal.company,
+        status: proposal.status || proposal.commercial_stage || "draft",
+        value: proposal.total_value || proposal.estimated_value || proposal.value || proposal.amount || 0,
+        updated_at: proposal.updated_at || proposal.created_at,
+        source: "proposals",
+      };
+    }));
     const walletTotal = wallets.reduce(function (sum, wallet) {
       return sum + Number(wallet.balance || 0);
     }, 0);
+    const proposalValue = proposals.reduce(function (sum, proposal) {
+      return sum + Number(proposal.total_value || proposal.estimated_value || proposal.value || proposal.amount || 0);
+    }, 0);
+    const invoiceDocs = docs.filter(function (doc) {
+      return /invoice|billing|payment/i.test(`${doc.type || ""} ${doc.title || ""}`);
+    });
+    const contractDocs = docs.filter(function (doc) {
+      return /contract|agreement/i.test(`${doc.type || ""} ${doc.title || ""}`);
+    });
+    const deploymentFinance = state.allDemos.filter(function (demo) {
+      return /deploy|onboard|site|workspace|ready/i.test(`${demo.review_type || ""} ${demo.status || ""} ${demo.title || ""} ${demo.notes || ""}`);
+    });
+    const outstandingActions = proposals.filter(function (proposal) {
+      return !/won|closed|paid|signed|approved/i.test(`${proposal.status || ""} ${proposal.commercial_stage || ""}`);
+    });
+    const financeRows = docs.slice(0, 10);
+    const timelineRows = proposals.slice(0, 4).map(function (proposal) {
+      return {
+        title: displayValue(proposal.title || proposal.company, "Commercial proposal"),
+        meta: `${displayValue(proposal.status || proposal.commercial_stage, "pending")} · ${formatCompactMoney(proposal.total_value || proposal.estimated_value || proposal.value || 0)}`,
+        time: formatDate(proposal.updated_at || proposal.created_at),
+      };
+    }).concat(state.audit.filter(function (event) {
+      return /invoice|wallet|proposal|finance|commercial|payment/i.test(String(event.action || "") + " " + String(event.target_type || ""));
+    }).slice(0, 4).map(function (event) {
+      return {
+        title: displayValue(event.action, "Financial activity"),
+        meta: displayValue(event.actor_email || event.actor, "Office"),
+        time: formatDate(event.created_at || event.ts),
+      };
+    })).slice(0, 6);
     el.financePanel.innerHTML = `
       <div class="command-page">
         <div class="command-head">
           <div>
             <p class="eyebrow">Finance</p>
-            <h3>Wallet float, proposal values, and Office financial posture.</h3>
-            <p class="subtext" style="margin:8px 0 0;">This remains a transitional finance surface using current wallet and proposal records until backend-owned financial intelligence expands.</p>
+            <h3>Supervise commercial value, invoices, wallet posture, deployment readiness, and revenue pipeline.</h3>
+            <p class="subtext" style="margin:8px 0 0;">Office visualizes financial posture from existing Office records and mirrored wallet/accounting data. Facility wallet ownership remains backend-owned.</p>
           </div>
-          <button class="ghost" data-command-action="view_wallets" type="button">View wallet float</button>
-        </div>
-        <div class="command-kpis">
-          ${[
-            ["Wallet Float", formatCompactMoney(walletTotal)],
-            ["Wallets", wallets.length],
-            ["Proposals", proposals.length],
-            ["Pipeline Value", formatCompactMoney(state.report?.pipeline_value || 0)],
-          ].map(function (item) {
-            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Existing Office data</div></div>`;
-          }).join("")}
-        </div>
-        <article class="command-card">
-          <div class="command-card-head"><h4>Financial Posture</h4><span class="office-system-badge">${wallets.length ? "Live Data" : "Pending"}</span></div>
-          <div class="mission-list">
-            ${wallets.slice(0, 8).map(function (wallet) {
-              return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(displayValue(wallet.scope_name || wallet.scope_id, "Wallet"))}</strong><small class="subtext">${escapeHtml(displayValue(wallet.scope_type, "scope"))}</small></span><strong>${escapeHtml(formatCompactMoney(wallet.balance || 0))}</strong></div>`;
-            }).join("") || '<div class="office-detail-empty">Finance will populate from wallet, proposal, and future backend financial posture outputs.</div>'}
+          <div class="toolbar">
+            <button class="ghost" data-command-action="view_wallets" type="button">Wallet mirrors</button>
+            <button class="ghost" data-office-target="intelligence" type="button">Ask Oyi</button>
           </div>
-        </article>
+        </div>
+        ${operationalStrip([
+          { label: "Proposal Value", value: formatCompactMoney(proposalValue || state.report?.pipeline_value || 0), meta: "Commercial pipeline" },
+          { label: "Invoices", value: invoiceDocs.length || state.officeStats?.invoices || 0, meta: "Commercial documents" },
+          { label: "Wallet Posture", value: formatCompactMoney(walletTotal), meta: `${wallets.length} mirrored wallets` },
+          { label: "Deployments", value: deploymentFinance.length, meta: "Financial readiness" },
+          { label: "Revenue Pipeline", value: formatCompactMoney(state.report?.pipeline_value || proposalValue || 0), meta: "Report summary" },
+          { label: "Actions", value: outstandingActions.length, meta: "Outstanding commercial work" },
+        ])}
+        <div class="command-layout">
+          <section class="command-card">
+            <div class="command-card-head">
+              <h4>Finance Registry</h4>
+              <div class="toolbar">
+                <button class="ghost compact" data-office-target="documents" type="button">Documents</button>
+                <button class="ghost compact" data-office-target="deployments" type="button">Deployments</button>
+              </div>
+            </div>
+            <table class="command-table">
+              <thead><tr><th>Record</th><th>Type</th><th>Owner</th><th>Status</th><th>Value</th><th>Updated</th><th>Action</th></tr></thead>
+              <tbody>${financeRows.length ? financeRows.map(function (doc) {
+                return `<tr><td><strong>${escapeHtml(doc.title)}</strong><div class="subtext">${escapeHtml(doc.source || "Office record")}</div></td><td>${escapeHtml(displayValue(doc.type, "document"))}</td><td>${escapeHtml(displayValue(doc.owner, "Office"))}</td><td><span class="office-system-badge">${escapeHtml(displayValue(doc.status, "pending"))}</span></td><td>${escapeHtml(formatCompactMoney(doc.value || 0))}</td><td>${escapeHtml(formatDate(doc.updated_at || doc.created_at))}</td><td><button class="ghost compact" data-office-target="documents" type="button">Review</button></td></tr>`;
+              }).join("") : '<tr><td colspan="7"><div class="office-detail-empty">Finance registry will populate from proposals, invoices, contracts, wallet mirrors, and deployment records.</div></td></tr>'}</tbody>
+            </table>
+          </section>
+          <aside class="command-side">
+            <article class="command-card">
+              <div class="command-card-head"><h4>Financial Detail</h4><span class="office-system-badge">${wallets.length || proposals.length ? "Mirrored" : "Pending"}</span></div>
+              <div class="mission-list">
+                <div class="device-category"><span>Contracts</span><strong>${escapeHtml(String(contractDocs.length || state.officeStats?.contracts || 0))}</strong></div>
+                <div class="device-category"><span>Wallet/accounting source</span><strong>Backend-owned</strong></div>
+                <div class="device-category"><span>Deployment readiness</span><strong>${escapeHtml(deploymentFinance.length ? "Review" : "Pending")}</strong></div>
+                <div class="device-category"><span>Outstanding actions</span><strong>${escapeHtml(String(outstandingActions.length))}</strong></div>
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Finance Timeline</h4></div>
+              <div class="mission-list">
+                ${timelineRows.length ? timelineRows.map(function (row) {
+                  return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot"></i></span><div class="activity-copy"><strong>${escapeHtml(row.title)}</strong><span>${escapeHtml(row.meta)} · ${escapeHtml(row.time)}</span></div></div>`;
+                }).join("") : '<div class="office-detail-empty">Commercial and wallet activity will appear as Office records sync.</div>'}
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Conversation-ready Actions</h4></div>
+              <div class="shortcut-grid compact-action-grid">
+                <button class="shortcut-btn" data-office-target="intelligence" type="button"><span>${officeIcon("messenger")}</span>Ask about revenue</button>
+                <button class="shortcut-btn" data-office-target="crm" type="button"><span>${officeIcon("lead")}</span>Open pipeline</button>
+                <button class="shortcut-btn" data-office-target="documents" type="button"><span>${officeIcon("website")}</span>Review invoices</button>
+                <button class="shortcut-btn" data-office-target="reports" type="button"><span>${officeIcon("trend")}</span>Open reports</button>
+              </div>
+            </article>
+          </aside>
+        </div>
       </div>
     `;
   }
@@ -5103,6 +5183,138 @@
     });
   }
 
+  function renderAgentsSupervisionWorkspace(domain) {
+    if (!el.aiOperationsPanel) return;
+    const derived = getDerivedData();
+    const officeStats = state.officeStats || {};
+    const totals = state.report && state.report.totals ? state.report.totals : {};
+    const aiOps = state.aiOperations || { available: false, status: "pending_integration", tools: [], executions: [], confirmations: [] };
+    const aiExecutions = Array.isArray(aiOps.executions) ? aiOps.executions : [];
+    const aiConfirmations = Array.isArray(aiOps.confirmations) ? aiOps.confirmations : [];
+    const aiTools = Array.isArray(aiOps.tools) ? aiOps.tools : [];
+    const traceCount = state.traces.length || Number(officeStats.traces || 0);
+    const aiAuditEvents = state.audit.filter(function (event) {
+      return String(event.action || "").indexOf("ai.") === 0 || /agent|tool|runtime|conversation/i.test(`${event.action || ""} ${event.target_type || ""}`);
+    });
+    const failedTraces = state.traces.filter(function (trace) {
+      return /fail|error|denied|cancel/i.test(`${trace.status || ""} ${trace.type || ""} ${trace.error || ""}`);
+    });
+    const pendingExecutions = Math.max(aiConfirmations.length, state.traces.filter(function (trace) {
+      return /pending|running|queued|processing/i.test(`${trace.status || ""} ${trace.type || ""}`);
+    }).length);
+    const completedExecutions = aiExecutions.length
+      ? aiExecutions.filter(function (item) { return /executed|completed|success/i.test(String(item.execution_status || "")); }).length
+      : Math.max(0, traceCount - failedTraces.length - pendingExecutions);
+    const agentRows = [
+      { name: "Oyi Core", role: "Backend intelligence authority", status: aiOps.available === false ? "Transitional" : "Connected", count: traceCount, source: "Ochiga backend" },
+      { name: "Oma", role: "Commercial / operations assistant", status: (derived.ownerCounts.marketing_agent || 0) ? "Active" : "Idle", count: derived.ownerCounts.marketing_agent || 0, source: "Office records" },
+      { name: "Osa", role: "Sales / support assistant", status: derived.salesOwned.length ? "Active" : "Idle", count: derived.salesOwned.length, source: "Office records" },
+      { name: "Executive reporting", role: "Summary and review surface", status: state.report ? "Available" : "Pending", count: state.report ? 1 : 0, source: "/admin/reports/summary" },
+      { name: "Automation review", role: "Confirmation and safety queue", status: aiConfirmations.length ? "Review" : "Stable", count: aiConfirmations.length, source: "Backend runtime mirror" },
+    ];
+    const toolRows = aiTools.length ? aiTools.map(function (tool) {
+      return {
+        title: tool.tool_id || tool.id || "unknown_tool",
+        meta: `${displayValue(tool.risk_level, "authenticated_read")} · ${tool.enabled === false ? "disabled" : "enabled"}`,
+        count: aiExecutions.filter(function (execution) { return String(execution.tool_id || "") === String(tool.tool_id || tool.id || ""); }).length,
+      };
+    }) : [
+      { title: "summarize_estate", meta: "Backend-owned read tool", count: Number(totals.estates || domain?.metrics?.[0]?.value || 0) || 0 },
+      { title: "summarize_devices", meta: "Backend-owned read tool", count: traceCount },
+      { title: "summarize_support", meta: "Backend-owned read tool", count: derived.openNotifications || 0 },
+      { title: "open_module", meta: "Office navigation helper", count: Number(officeStats.conversations || totals.conversations || state.leads.length || 0) },
+    ];
+    const executionRows = aiExecutions.slice(0, 5).map(function (execution) {
+      return {
+        title: displayValue(execution.tool_id, "Runtime execution"),
+        meta: displayValue(execution.result_summary || execution.execution_status, "Execution ledger event"),
+        status: displayValue(execution.execution_status, "recorded"),
+        time: formatDate(execution.requested_at || execution.executed_at),
+      };
+    }).concat(state.traces.slice(0, 5).map(function (trace) {
+      return {
+        title: displayValue(trace.agent || trace.type, "Runtime trace"),
+        meta: displayValue(trace.tool_name || trace.summary || trace.status, "Trace evidence"),
+        status: displayValue(trace.status || trace.type, "trace"),
+        time: formatDate(trace.created_at || trace.ts),
+      };
+    })).slice(0, 8);
+    const healthRows = [
+      ["Backend runtime dependency", aiOps.available === false ? displayValue(aiOps.status, "Transitional") : "Connected"],
+      ["Local intelligence ownership", "Disabled"],
+      ["Trace evidence", traceCount],
+      ["Confirmations", aiConfirmations.length],
+      ["Failures", failedTraces.length],
+    ];
+
+    el.aiOperationsPanel.innerHTML = `
+      <div class="command-page">
+        <div class="command-head">
+          <div>
+            <p class="eyebrow">Agents</p>
+            <h3>Supervise Oyi Core agents, tools, executions, confirmations, traces, and AI operations health.</h3>
+            <p class="subtext" style="margin:8px 0 0;">Office visualizes backend-owned intelligence. Awareness, reasoning, recommendations, automation, and execution ledger remain owned by Ochiga backend.</p>
+          </div>
+          <div class="toolbar">
+            <button class="ghost" data-office-target="intelligence" type="button">Open Oyi</button>
+            <button class="ghost" data-office-target="reports" type="button">Runtime reports</button>
+          </div>
+        </div>
+        ${operationalStrip([
+          { label: "Active Agents", value: agentRows.filter(function (agent) { return /active|connected|available|review/i.test(agent.status); }).length, meta: "Supervised surfaces" },
+          { label: "Tools", value: toolRows.length, meta: "Registry mirror" },
+          { label: "Executions", value: Math.max(aiExecutions.length, traceCount), meta: "Ledger + traces" },
+          { label: "Confirmations", value: aiConfirmations.length, meta: "Approval queue" },
+          { label: "Failures", value: failedTraces.length, meta: "Needs review" },
+          { label: "Backend Runtime", value: aiOps.available === false ? "Transitional" : "Connected", meta: displayValue(aiOps.reason, "Oyi Core authority") },
+        ])}
+        <div class="command-layout">
+          <section class="command-card">
+            <div class="command-card-head">
+              <h4>Agent Registry</h4>
+              <div class="toolbar">
+                <button class="ghost compact" data-office-target="intelligence" type="button">Ask Oyi</button>
+                <button class="ghost compact" data-office-target="reports" type="button">Diagnostics</button>
+              </div>
+            </div>
+            <table class="command-table">
+              <thead><tr><th>Agent</th><th>Role</th><th>Status</th><th>Evidence</th><th>Source</th><th>Action</th></tr></thead>
+              <tbody>${agentRows.map(function (agent) {
+                return `<tr><td><strong>${escapeHtml(agent.name)}</strong></td><td>${escapeHtml(agent.role)}</td><td><span class="office-system-badge ${/review|transitional/i.test(agent.status) ? "warning" : ""}">${escapeHtml(agent.status)}</span></td><td>${escapeHtml(String(agent.count))}</td><td>${escapeHtml(agent.source)}</td><td><button class="ghost compact" data-office-target="intelligence" type="button">Review</button></td></tr>`;
+              }).join("")}</tbody>
+            </table>
+          </section>
+          <aside class="command-side">
+            <article class="command-card">
+              <div class="command-card-head"><h4>Tool Registry</h4><span class="office-system-badge">${aiTools.length ? "Backend" : "Fallback mirror"}</span></div>
+              <div class="mission-list">
+                ${toolRows.slice(0, 6).map(function (tool) {
+                  return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(tool.title)}</strong><small class="subtext">${escapeHtml(tool.meta)}</small></span><strong>${escapeHtml(String(tool.count))}</strong></div>`;
+                }).join("")}
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Execution Timeline</h4></div>
+              <div class="mission-list">
+                ${executionRows.length ? executionRows.map(function (row) {
+                  return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot ${/fail|error|denied/i.test(row.status) ? "critical" : ""}"></i></span><div class="activity-copy"><strong>${escapeHtml(row.title)}</strong><span>${escapeHtml(row.meta)} · ${escapeHtml(row.time)}</span></div></div>`;
+                }).join("") : '<div class="office-detail-empty">Runtime executions and traces will appear when backend Oyi Core activity syncs.</div>'}
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>AI Operations Health</h4></div>
+              <div class="mission-list">
+                ${healthRows.map(function (row) {
+                  return `<div class="device-category"><span>${escapeHtml(row[0])}</span><strong>${escapeHtml(String(row[1]))}</strong></div>`;
+                }).join("")}
+              </div>
+            </article>
+          </aside>
+        </div>
+      </div>
+    `;
+  }
+
   function renderSectionNav() {
     if (!el.sectionNav) return;
 
@@ -5445,7 +5657,7 @@
   function renderInfrastructureIntelligenceDashboard() {
     if (!el.infrastructureIntelligencePanel) return;
     if (!hasPermission("view_reports")) {
-      el.infrastructureIntelligencePanel.innerHTML = '<div class="office-detail-empty">Your role cannot access Infrastructure Intelligence.</div>';
+      el.infrastructureIntelligencePanel.innerHTML = '<div class="office-detail-empty">Your role cannot access Office reports.</div>';
       return;
     }
     const overview = buildOverviewDomains();
@@ -5453,69 +5665,137 @@
     const derived = getDerivedData();
     const totals = state.report?.totals || {};
     const activeFacet = state.moduleFacet.reports || "dashboard";
-    const healthScore = Math.max(0, 100 - Number(overview.openNotifications || 0));
-    const incidents = Number(overview.openNotifications || 0);
+    const reportRows = [
+      {
+        title: "Executive summary",
+        type: "Executive",
+        owner: "Office",
+        status: state.report ? "Available" : "Pending",
+        evidence: state.report ? `${totals.leads || 0} CRM records` : "Report summary not loaded",
+        action: "Review",
+      },
+      {
+        title: "Operational report",
+        type: "Operations",
+        owner: "Facilities",
+        status: overview.openNotifications ? "Attention" : "Stable",
+        evidence: `${overview.openNotifications || 0} open notifications`,
+        action: "Open",
+      },
+      {
+        title: "CRM / commercial report",
+        type: "Commercial",
+        owner: "CRM",
+        status: state.allProposals.length ? "Active" : "Pending",
+        evidence: `${state.allProposals.length} proposals · ${formatCompactMoney(state.report?.pipeline_value || 0)} pipeline`,
+        action: "Review",
+      },
+      {
+        title: "Deployment report",
+        type: "Deployments",
+        owner: "Operations",
+        status: state.allDemos.length ? "Active" : "Pending",
+        evidence: `${state.allDemos.length || 0} reviews/workspaces`,
+        action: "Open",
+      },
+      {
+        title: "Audit and trace report",
+        type: "Diagnostics",
+        owner: "Governance",
+        status: state.traces.length || state.audit.length ? "Available" : "Pending",
+        evidence: `${state.traces.length} traces · ${state.audit.length} audit events`,
+        action: "Inspect",
+      },
+    ];
     const diagnostics = state.traces.length + state.audit.filter(function (event) {
       return /error|denied|fail|diagnostic|permission/i.test(String(event.action || ""));
     }).length;
-    const trendEntries = rankEntries((state.report && state.report.by_status) || derived.notificationStatusCounts || {}, 6);
-    const categoryEntries = rankEntries(derived.projectTypeCounts || {}, 6);
-    const insightRows = [
-      { title: "Operational bottleneck detection", meta: incidents ? `${incidents} live support or incident signals need review.` : "No active incident pressure.", tone: incidents > 5 ? "warning" : "healthy", icon: "alert" },
-      { title: "Estate comparison readiness", meta: `${domain.metrics[1].value} estate groups available for portfolio comparison.`, tone: domain.metrics[1].value ? "info" : "warning", icon: "estate" },
-      { title: "Diagnostics trail", meta: `${diagnostics} traces/audit records available for system diagnostics.`, tone: diagnostics ? "info" : "healthy", icon: "trend" },
-      { title: "Predictive operations", meta: state.report ? "Report data is active for trend analysis." : "Connect more live events to strengthen prediction.", tone: state.report ? "healthy" : "warning", icon: "ai_operations" },
-    ];
-    const activityRows = state.notifications.slice(0, 2).map(function (note) {
+    const reportEvidenceRows = state.traces.slice(0, 4).map(function (trace) {
+      return {
+        title: displayValue(trace.agent || trace.type, "Trace evidence"),
+        meta: `${displayValue(trace.tool_name || trace.status, "runtime")} · ${formatDate(trace.created_at || trace.ts)}`,
+        tone: /fail|error|denied/i.test(`${trace.status || ""} ${trace.type || ""}`) ? "critical" : "",
+      };
+    }).concat(state.audit.slice(0, 4).map(function (event) {
+      return {
+        title: displayValue(event.action, "Audit event"),
+        meta: `${displayValue(event.actor_email || event.actor, "Office")} · ${formatDate(event.created_at || event.ts)}`,
+        tone: /fail|denied|error/i.test(String(event.action || "")) ? "critical" : "",
+      };
+    })).slice(0, 6);
+    const activityRows = state.notifications.slice(0, 3).map(function (note) {
       return {
         title: displayValue(note.title || note.type, "Operational signal"),
         meta: `${displayValue(note.status, "open")} · ${displayValue(note.summary || note.reason, "Infrastructure activity")}`,
         tone: /critical|urgent|forced|fail|offline/i.test(`${note.priority || ""} ${note.type || ""} ${note.summary || ""}`) ? "critical" : "warning",
       };
-    }).concat(state.audit.slice(0, 2).map(function (event) {
+    }).concat(state.audit.slice(0, 3).map(function (event) {
       return {
         title: displayValue(event.action, "audit.recorded"),
         meta: `${displayValue(event.actor_email || event.actor, "Office")} · ${formatDate(event.created_at || event.timestamp)}`,
         tone: /denied|fail|error/i.test(String(event.action || "")) ? "critical" : "info",
       };
-    })).concat(state.traces.slice(0, 1).map(function (trace) {
-      return {
-        title: displayValue(trace.name || trace.event || trace.type, "diagnostic trace"),
-        meta: `${displayValue(trace.agent || trace.tool_name, "Trace")} · ${formatDate(trace.created_at || trace.timestamp || trace.ts)}`,
-        tone: "healthy",
-      };
-    })).slice(0, 5);
+    })).slice(0, 6);
     const facetTitle = {
-      dashboard: "Operational Intelligence Overview",
+      dashboard: "Office Reports Overview",
       analytics: "Analytics",
       ai_insights: "AI Insights",
       reports: "Reports",
       predictive_operations: "Predictive Operations",
       diagnostics: "Diagnostics",
-    }[activeFacet] || "Operational Intelligence Overview";
+    }[activeFacet] || "Office Reports Overview";
 
     el.infrastructureIntelligencePanel.innerHTML = `
-      <div class="command-page intelligence-workspace">
-        <div class="command-kpis intelligence-kpis">
-          ${[
-            ["Infrastructure Health", `${healthScore}%`, "Support-adjusted estate posture", "trend"],
-            ["Estate Comparisons", domain.metrics[1].value, "Portfolio groups", "estate"],
-            ["Incident Signals", incidents, "Open operational pressure", "alert"],
-            ["Diagnostics", diagnostics, "Trace + audit evidence", "settings"],
-            ["Prediction Inputs", Number(totals.leads || 0) + state.traces.length, "CRM, trace, support data", "ai_operations"],
-          ].map(function (item) {
-            return `<div class="command-kpi"><span class="command-icon">${officeIcon(item[3])}</span><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
-          }).join("")}
+      <div class="command-page">
+        <div class="command-head">
+          <div>
+            <p class="eyebrow">Reports</p>
+            <h3>Review executive summaries, operational reports, commercial posture, deployment evidence, and runtime diagnostics.</h3>
+            <p class="subtext" style="margin:8px 0 0;">Office reports are assembled from existing report summaries, traces, audit logs, notifications, CRM, deployments, and Office collections.</p>
+          </div>
+          <div class="toolbar">
+            <button class="ghost" data-command-action="view_reports" type="button">Export summary</button>
+            <button class="ghost" data-office-target="intelligence" type="button">Ask Oyi</button>
+          </div>
         </div>
+        ${operationalStrip([
+          { label: "Executive", value: state.report ? "Available" : "Pending", meta: "Summary source" },
+          { label: "Operational", value: overview.openNotifications || 0, meta: "Open signals" },
+          { label: "Commercial", value: state.allProposals.length, meta: "Proposal records" },
+          { label: "Deployments", value: state.allDemos.length, meta: "Reviews/workspaces" },
+          { label: "Audit", value: state.audit.length, meta: "Governance trail" },
+          { label: "Diagnostics", value: diagnostics, meta: "Trace + audit evidence" },
+        ])}
         <div class="command-layout">
           <div class="command-main">
-            <div class="intelligence-grid">
-              ${renderIntelligenceFacetPanels(activeFacet, { healthScore, incidents, diagnostics, totals, trendEntries, categoryEntries, derived, insightRows })}
-            </div>
+            <section class="command-card">
+              <div class="command-card-head">
+                <h4>${escapeHtml(facetTitle)}</h4>
+                <div class="toolbar">
+                  <button class="ghost compact" data-office-target="crm" type="button">CRM</button>
+                  <button class="ghost compact" data-office-target="deployments" type="button">Deployments</button>
+                  <button class="ghost compact" data-office-target="agents" type="button">Traces</button>
+                </div>
+              </div>
+              <table class="command-table">
+                <thead><tr><th>Report</th><th>Type</th><th>Owner</th><th>Status</th><th>Evidence</th><th>Action</th></tr></thead>
+                <tbody>${reportRows.map(function (row) {
+                  return `<tr><td><strong>${escapeHtml(row.title)}</strong></td><td>${escapeHtml(row.type)}</td><td>${escapeHtml(row.owner)}</td><td><span class="office-system-badge ${/attention|pending/i.test(row.status) ? "warning" : ""}">${escapeHtml(row.status)}</span></td><td>${escapeHtml(row.evidence)}</td><td><button class="ghost compact" data-office-target="${row.type === "Commercial" ? "crm" : row.type === "Deployments" ? "deployments" : row.type === "Diagnostics" ? "agents" : "intelligence"}" type="button">${escapeHtml(row.action)}</button></td></tr>`;
+                }).join("")}</tbody>
+              </table>
+            </section>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Audit / Trace Evidence</h4><span class="office-system-badge">${reportEvidenceRows.length ? "Available" : "Pending"}</span></div>
+              <div class="mission-list">
+                ${reportEvidenceRows.length ? reportEvidenceRows.map(function (row) {
+                  return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot ${row.tone || ""}"></i></span><div class="activity-copy"><strong>${escapeHtml(row.title)}</strong><span>${escapeHtml(row.meta)}</span></div></div>`;
+                }).join("") : '<div class="office-detail-empty">Report evidence will appear as traces and audit records sync.</div>'}
+              </div>
+            </article>
           </div>
           <aside class="command-side context-rail">
             <article class="command-card">
-              <div class="command-card-head"><h4>Real-time Activity</h4><button class="ghost compact" data-office-target="reports" type="button">View all</button></div>
+              <div class="command-card-head"><h4>Recent Activity</h4><button class="ghost compact" data-office-target="notifications" type="button">View all</button></div>
               <div class="mission-list">
                 ${activityRows.length ? activityRows.map(function (item, index) {
                   const tone = item.tone || ["healthy", "warning", "info", "critical", "healthy"][index % 5];
@@ -5524,20 +5804,21 @@
               </div>
             </article>
             <article class="command-card">
-              <div class="command-card-head"><h4>AI Insights</h4><span class="office-system-badge">Live</span></div>
-              <div class="mission-list ai-insight-list">
-                ${insightRows.map(function (item) {
-                  return `<div class="insight-row"><span class="insight-icon">${officeIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.meta)}</span></div><span class="office-system-badge ${item.tone === "warning" ? "warning" : ""}">${escapeHtml(item.tone)}</span></div>`;
-                }).join("")}
+              <div class="command-card-head"><h4>Report Detail</h4><span class="office-system-badge">Review</span></div>
+              <div class="mission-list">
+                <div class="device-category"><span>Total records</span><strong>${escapeHtml(String(totals.leads || 0))}</strong></div>
+                <div class="device-category"><span>Review bookings</span><strong>${escapeHtml(String(state.report ? state.report.demos_booked || 0 : 0))}</strong></div>
+                <div class="device-category"><span>Conversion</span><strong>${escapeHtml(String(totals.sales_handoff_conversion_pct || 0))}%</strong></div>
+                <div class="device-category"><span>Average score</span><strong>${escapeHtml(String(totals.average_score || 0))}</strong></div>
               </div>
             </article>
             <article class="command-card">
-              <div class="command-card-head"><h4>Quick Actions</h4></div>
+              <div class="command-card-head"><h4>Conversation-ready Actions</h4></div>
               <div class="shortcut-grid compact-action-grid">
-                <button class="shortcut-btn" data-office-target="facilities" type="button"><span>${officeIcon("estate")}</span>Compare Facilities</button>
-                <button class="shortcut-btn" data-office-target="edge" type="button"><span>${officeIcon("camera")}</span>Edge Intelligence</button>
-                <button class="shortcut-btn" data-office-target="support" type="button"><span>${officeIcon("support")}</span>Support Intelligence</button>
-                <button class="shortcut-btn" data-office-target="reports" type="button"><span>${officeIcon("trend")}</span>Trace Diagnostics</button>
+                <button class="shortcut-btn" data-office-target="intelligence" type="button"><span>${officeIcon("messenger")}</span>Ask Oyi</button>
+                <button class="shortcut-btn" data-office-target="facilities" type="button"><span>${officeIcon("estate")}</span>Facility report</button>
+                <button class="shortcut-btn" data-office-target="crm" type="button"><span>${officeIcon("lead")}</span>Commercial report</button>
+                <button class="shortcut-btn" data-office-target="edge" type="button"><span>${officeIcon("camera")}</span>Edge report</button>
               </div>
             </article>
           </aside>
