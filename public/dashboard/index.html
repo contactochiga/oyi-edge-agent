@@ -5264,6 +5264,53 @@
           height: 16px;
         }
       }
+
+      /* Ochiga OIS port: Facility RC1 is the canonical interface language. */
+      :root {
+        --ois-canvas:#0b0f14;--ois-surface:#0f141b;--ois-surface-raised:#151b24;--ois-surface-evidence:rgba(255,255,255,.02);
+        --ois-border-subtle:rgba(31,39,51,.78);--ois-border-default:#1f2733;--ois-text-primary:rgba(255,255,255,.92);
+        --ois-text-secondary:rgba(255,255,255,.70);--ois-text-muted:rgba(255,255,255,.46);--ois-primary:#2563eb;
+        --ois-primary-strong:#1d4ed8;--ois-primary-soft:rgba(37,99,235,.14);--ois-status-attention:#7dd3fc;
+        --ois-status-attention-surface:rgba(125,211,252,.10);--ois-status-attention-border:rgba(125,211,252,.20);
+        --ois-status-warning:#fbbf24;--ois-status-warning-surface:rgba(251,191,36,.10);--ois-status-warning-border:rgba(251,191,36,.20);
+        --ois-status-critical:#f87171;--ois-status-critical-surface:rgba(248,113,113,.10);--ois-status-critical-border:rgba(248,113,113,.20);
+        --ois-radius-control:12px;--ois-radius-row:12px;--ois-radius-card:12px;--ois-radius-hero:18px;--ois-radius-pill:999px;
+        --ois-elevation-card:0 8px 24px rgba(0,0,0,.24);--ois-font-sans:"Inter",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        --ink:var(--ois-text-primary);--muted:var(--ois-text-muted);--line:var(--ois-border-default);--green:var(--ois-primary);
+        --green-deep:var(--ois-primary-strong);--sand:var(--ois-status-warning);--cream:var(--ois-canvas);--panel:var(--ois-surface);
+        --shadow:var(--ois-elevation-card);--office-blue:var(--ois-primary);--office-purple:var(--ois-primary);--office-pink:var(--ois-status-critical);
+        --office-card:var(--ois-surface);--office-card-strong:var(--ois-surface-raised);
+      }
+      html,body{width:100%;max-width:100vw;overflow-x:hidden;background:var(--ois-canvas);color:var(--ois-text-primary);font-family:var(--ois-font-sans);touch-action:pan-y;overscroll-behavior-x:none;-webkit-text-size-adjust:100%}
+      body{background:radial-gradient(circle at 18% 8%,rgba(37,99,235,.13),transparent 28%),radial-gradient(circle at 82% 16%,rgba(125,211,252,.08),transparent 24%),linear-gradient(135deg,#080b10 0%,#0b0f14 48%,#05070a 100%)}
+      .topbar{height:auto;min-height:64px;padding:calc(10px + env(safe-area-inset-top)) 20px 10px;border-bottom-color:var(--ois-border-subtle);background:rgba(7,10,15,.92);box-shadow:none}
+      .header-search input,.text-input,.select-input,.textarea-input,.mini-select,.command-search-input,.search-input{min-height:42px;border-radius:var(--ois-radius-control)!important;border:1px solid var(--ois-border-default)!important;background:var(--ois-surface)!important;color:var(--ois-text-primary)!important;box-shadow:none!important;outline:none}
+      .header-search input:focus,.text-input:focus,.select-input:focus,.textarea-input:focus,.mini-select:focus,.command-search-input:focus,.search-input:focus{border-color:rgba(125,211,252,.30)!important;box-shadow:0 0 0 3px rgba(37,99,235,.14)!important}
+      .office-nav-shell,.detail-column,.card,.lead-card,.message,.detail-card,.action-card,.mission-card,.intelligence-card,.office-system-card,.office-detail-card,.command-card,.command-kpi,.admin-dashboard-card,.staff-compact-card,.channel-card,.agent-mini-card,.live-infra-card,.infra-map-card,.infra-health-card{border-radius:var(--ois-radius-card)!important;border:1px solid var(--ois-border-default)!important;background:var(--ois-surface)!important;box-shadow:var(--ois-elevation-card)!important}
+      .brand-logo,.avatar,.office-system-icon,.command-icon,.office-mobile-nav-icon{border-radius:var(--ois-radius-control);background:var(--ois-primary-soft);color:var(--ois-status-attention);box-shadow:none}
+      .command-page{display:flex;flex-direction:column;gap:12px}
+      .command-head,.office-overview-hero{border-radius:var(--ois-radius-hero)!important;border:1px solid var(--ois-border-default)!important;background:radial-gradient(circle at top right,rgba(37,99,235,.16),transparent 34%),var(--ois-surface)!important;box-shadow:var(--ois-elevation-card)!important;padding:16px!important}
+      .command-head h3,.welcome-copy h2,.brand-copy h1{color:var(--ois-text-primary);font-size:22px;line-height:1.12;letter-spacing:-.025em;font-weight:650}
+      .eyebrow,.key,.queue-label,.office-strip-item span{color:var(--ois-text-muted)!important;font-size:10px!important;letter-spacing:.12em!important;text-transform:uppercase;font-weight:650}
+      .subtext,.office-strip-item small,.office-chart-head,.accordion-meta{color:var(--ois-text-muted)!important}
+      .primary,.sand,.ghost,.outline,.shortcut-btn,.filter-chip,.command-mini-btn,.admin-tab,.ai-command-pill,.agent-pill,.icon-pill{min-height:38px;border-radius:var(--ois-radius-control)!important;border:1px solid var(--ois-border-default)!important;background:var(--ois-surface-raised)!important;color:var(--ois-text-secondary)!important;box-shadow:none!important;transition:background 160ms ease,border-color 160ms ease,transform 160ms ease}
+      .primary,.filter-chip.active,.command-mini-btn:hover,.admin-tab.active,.office-nav-btn.active,.ai-command-pill:hover{border-color:rgba(125,211,252,.24)!important;background:var(--ois-primary-soft)!important;color:var(--ois-text-primary)!important}
+      .office-nav-btn{min-height:44px;border-radius:var(--ois-radius-control);color:var(--ois-text-secondary)}.office-nav-btn.active{background:var(--ois-primary-soft);border-color:rgba(125,211,252,.22)}
+      .workspace-top{border-bottom-color:var(--ois-border-subtle);background:rgba(11,15,20,.74)}
+      .office-operational-strip{gap:0;padding:10px 12px;border-radius:var(--ois-radius-card);border:1px solid var(--ois-border-default);background:var(--ois-surface);box-shadow:var(--ois-elevation-card);scrollbar-width:none}
+      .office-operational-strip::-webkit-scrollbar{display:none}.office-strip-item{min-width:128px;flex:1 0 128px;border:0;border-left:1px solid rgba(255,255,255,.05);border-radius:0;background:transparent;padding:2px 10px}.office-strip-item:first-child{border-left:0}.office-strip-item strong{color:var(--ois-text-primary);font-size:13px;line-height:1.15;font-weight:650}
+      .command-kpis,.mothership-kpi-grid,.admin-kpis,.settings-kpis,.ai-ops-kpis,.intelligence-kpis{display:flex!important;gap:0!important;overflow-x:auto;border:1px solid var(--ois-border-default);border-radius:var(--ois-radius-card);background:var(--ois-surface);padding:10px 12px;box-shadow:var(--ois-elevation-card);scrollbar-width:none}
+      .command-kpis::-webkit-scrollbar,.mothership-kpi-grid::-webkit-scrollbar{display:none}.command-kpi,.mothership-kpi,.metric-card,.overview-metric-card{min-width:128px!important;min-height:auto!important;flex:1 0 128px!important;border:0!important;border-left:1px solid rgba(255,255,255,.05)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding:2px 10px!important}.command-kpi:first-child,.mothership-kpi:first-child{border-left:0!important}.command-kpi strong,.mothership-kpi strong,.metric-card strong{font-size:13px!important;line-height:1.15!important;margin-top:3px!important}
+      .command-layout{grid-template-columns:minmax(0,1fr) minmax(260px,320px);gap:12px}.command-card{padding:16px!important}.command-card-head{margin-bottom:12px;padding-bottom:0}.command-card-head h4,.mission-card h3,.intelligence-card h3{color:var(--ois-text-primary);font-size:14px;line-height:1.25;font-weight:650}
+      .command-table{border-collapse:separate;border-spacing:0 8px}.command-table th{color:var(--ois-text-muted);font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:650}.command-table td{border-top:1px solid var(--ois-border-subtle);border-bottom:1px solid var(--ois-border-subtle);background:var(--ois-surface-evidence);color:var(--ois-text-secondary);padding:10px 12px}.command-table tr td:first-child{border-left:1px solid var(--ois-border-subtle);border-radius:var(--ois-radius-row) 0 0 var(--ois-radius-row)}.command-table tr td:last-child{border-right:1px solid var(--ois-border-subtle);border-radius:0 var(--ois-radius-row) var(--ois-radius-row) 0}
+      .lead-card,.command-list-row,.activity-row.compact,.device-category,.ai-agent-row,.ai-conversation-row,.staff-compact-card{border-radius:var(--ois-radius-row)!important;border-color:var(--ois-border-subtle)!important;background:var(--ois-surface-evidence)!important}
+      .office-system-badge,.pill,.priority-tag,.ai-state-badge,.accordion-badge{border-radius:var(--ois-radius-pill)!important;border:1px solid var(--ois-status-attention-border)!important;background:var(--ois-status-attention-surface)!important;color:var(--ois-status-attention)!important;font-size:10px!important;line-height:16px;font-weight:650}.office-system-badge.warning,.priority-tag.high{border-color:var(--ois-status-warning-border)!important;background:var(--ois-status-warning-surface)!important;color:var(--ois-status-warning)!important}.office-system-badge.alert,.priority-tag.critical{border-color:var(--ois-status-critical-border)!important;background:var(--ois-status-critical-surface)!important;color:var(--ois-status-critical)!important}
+      .office-detail-empty,.value.empty,.empty-state{border-radius:var(--ois-radius-card);border:1px dashed var(--ois-border-default);background:var(--ois-surface-evidence);color:var(--ois-text-muted);padding:16px}
+      .conversation-shell{min-height:0;background:var(--ois-canvas)}.terminal-card,.composer-card{border-radius:var(--ois-radius-card)!important;background:var(--ois-surface)!important}.terminal-bar{border-bottom-color:var(--ois-border-subtle)}.message{border-radius:var(--ois-radius-row)!important;background:var(--ois-surface-evidence)!important}.message.assistant{border-color:rgba(125,211,252,.20)!important;background:var(--ois-primary-soft)!important}
+      .office-mobile-footer{pointer-events:none;position:fixed;inset-inline:0;bottom:0;z-index:60;display:none;padding:0 0 calc(10px + env(safe-area-inset-bottom))}.office-mobile-footer-shell{pointer-events:auto;width:min(calc(100% - 24px),430px);max-width:calc(100vw - 24px);margin:0 auto;overflow:hidden;border-radius:28px;border:1px solid rgba(255,255,255,.08);background:rgba(9,9,11,.86);box-shadow:0 18px 60px rgba(0,0,0,.48);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}.office-mobile-footer-track{display:grid;gap:6px;padding:8px}.office-mobile-footer-page{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.office-mobile-nav-item{min-height:54px;border-radius:18px;color:var(--ois-text-muted)}.office-mobile-nav-item.active{background:var(--ois-primary-soft);color:var(--ois-text-primary)}.office-mobile-composer{width:100%;min-height:44px;border-radius:22px!important;border:1px solid rgba(125,211,252,.18)!important;background:rgba(37,99,235,.12)!important;box-shadow:none!important}.office-mobile-orb{background:radial-gradient(circle,#7dd3fc,#2563eb);box-shadow:0 0 18px rgba(37,99,235,.45)}
+      @media (max-width:980px){.command-layout,.overview-dashboard-grid,.ai-ops-grid{grid-template-columns:1fr!important}.context-rail{position:static}}
+      @media (max-width:760px){.topbar{padding-inline:12px}.header-search{display:none}.workspace-shell,.workspace-body,.tab-panel-scroll{max-width:100vw;overflow-x:hidden}.command-head{display:grid;gap:10px;padding:14px!important}.command-head h3{font-size:20px}.command-card,.office-overview-hero{padding:12px!important}.command-table{display:block;overflow-x:auto;white-space:nowrap}.office-mobile-footer{display:block}.workspace-body{padding-bottom:calc(112px + env(safe-area-inset-bottom))}}
+      @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
     </style>
     <script defer src="/_vercel/insights/script.js"></script>
 
@@ -6442,20 +6489,6 @@
               <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="12" rx="2"></rect><path d="M8 21h8"></path><path d="M12 17v4"></path></svg></span><span>Edge</span>
             </button>
           </div>
-          <div class="office-mobile-footer-page" aria-label="Tertiary office modules">
-            <button class="office-mobile-nav-item" data-office-target="digital_twin" data-office-focus="digital_twin" type="button" aria-label="Digital Twin">
-              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 7.5 12 12l9-4.5L12 3Z"></path><path d="M3 12.5 12 17l9-4.5"></path><path d="M3 17.5 12 22l9-4.5"></path></svg></span><span>Digital Twin</span>
-            </button>
-            <button class="office-mobile-nav-item" data-office-target="reports" data-office-focus="reports" type="button" aria-label="Reports">
-              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"></path><path d="M12 7v5l3 2"></path><path d="M19 3v5h-5"></path></svg></span><span>Reports</span>
-            </button>
-            <button class="office-mobile-nav-item" data-office-target="team" data-office-focus="team" type="button" aria-label="Team">
-              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path></svg></span><span>Team</span>
-            </button>
-            <button class="office-mobile-nav-item" data-office-target="settings" data-office-focus="settings" type="button" aria-label="Settings">
-              <span class="office-mobile-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path></svg></span><span>Settings</span>
-            </button>
-          </div>
           <button class="office-mobile-composer" data-office-target="intelligence" data-office-focus="intelligence" type="button" aria-label="Message Ochiga Office">
             <span class="office-mobile-orb" aria-hidden="true"></span>
             <span class="office-mobile-composer-copy"><strong>Message Ochiga Office</strong><span>Facilities, consumers, deployments, CRM, edge, or executive operations</span></span>
@@ -6464,6 +6497,6 @@
         </div>
       </div>
     </nav>
-    <script src="/dashboard.js?v=office-login-hotfix-20260702"></script>
+    <script src="/dashboard.js?v=office-ois-port-20260702"></script>
   </body>
   </html>
