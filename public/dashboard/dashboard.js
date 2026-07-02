@@ -932,6 +932,23 @@
     renderWorkspaceTabs();
   }
 
+  function officeMobileFooterPageForWorkspace(workspace) {
+    if (["overview", "facilities", "consumers", "crm", "projects"].includes(workspace)) return "0";
+    if (["deployments", "documents", "finance", "agents", "edge"].includes(workspace)) return "1";
+    if (["reports", "team", "settings", "digital_twin", "intelligence"].includes(workspace)) return "2";
+    return "0";
+  }
+
+  function syncOfficeMobileFooterPage() {
+    const page = officeMobileFooterPageForWorkspace(state.workspaceTab || "overview");
+    Array.from(document.querySelectorAll("[data-mobile-footer-page]")).forEach(function (node) {
+      node.classList.toggle("active", node.getAttribute("data-mobile-footer-page") === page);
+    });
+    Array.from(document.querySelectorAll("[data-mobile-footer-dot]")).forEach(function (node) {
+      node.classList.toggle("active", node.getAttribute("data-mobile-footer-dot") === page);
+    });
+  }
+
   function setModuleFacet(workspace, facet) {
     if (!workspace) return;
     if (!facet || facet === "dashboard") {
@@ -7271,6 +7288,7 @@
         (!facet || state.moduleFacet[state.workspaceTab] === facet);
       node.classList.toggle("active", isActive);
     });
+    syncOfficeMobileFooterPage();
     updateOfficeDomainActiveStates();
     Array.from(document.querySelectorAll("[data-panel]")).forEach(function (panel) {
       panel.classList.toggle("active", panel.getAttribute("data-panel") === state.workspaceTab);
