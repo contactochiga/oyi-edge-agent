@@ -106,15 +106,20 @@
 
   const OFFICE_MODULE_REGISTRY = [
     { key: "overview", focus: "summary", permissions: ["view_office", "view_reports"] },
-    { key: "facility", focus: "facility", permissions: ["view_estates", "view_reports"] },
-    { key: "devices", focus: "devices", permissions: ["view_devices", "view_reports"] },
-    { key: "crm_agents", focus: "crm_agents", permissions: ["manage_leads", "view_reports"] },
-    { key: "web_presence", focus: "web_presence", permissions: ["documents.generate", "manage_commercial", "view_reports"] },
+    { key: "facilities", focus: "facilities", permissions: ["view_estates", "view_reports"] },
+    { key: "consumers", focus: "consumers", permissions: ["view_reports"] },
+    { key: "crm", focus: "crm", permissions: ["manage_leads", "view_reports"] },
+    { key: "projects", focus: "projects", permissions: ["view_reports"] },
+    { key: "deployments", focus: "deployments", permissions: ["view_reports"] },
+    { key: "documents", focus: "documents", permissions: ["documents.generate", "manage_commercial", "view_reports"] },
+    { key: "finance", focus: "finance", permissions: ["view_reports"] },
+    { key: "agents", focus: "agents", permissions: ["manage_leads", "view_reports", "view_traces"] },
+    { key: "edge", focus: "edge", permissions: ["view_devices", "view_reports"] },
+    { key: "digital_twin", focus: "digital_twin", permissions: ["view_reports"] },
     { key: "reports", focus: "reports", permissions: ["view_reports"] },
-    { key: "ai_operations", focus: "ai_operations", permissions: ["manage_leads", "view_reports", "view_traces"] },
-    { key: "audit", focus: "governance", permissions: ["view_audit", "audit.read"] },
-    { key: "settings", focus: "platform_infrastructure", permissions: ["view_integrations", "view_users", "view_reports"] },
-    { key: "team", focus: "staff_roles", permissions: ["view_users", "manage_users", "change_password"] },
+    { key: "team", focus: "team", permissions: ["view_users", "manage_users", "change_password"] },
+    { key: "settings", focus: "settings", permissions: ["view_integrations", "view_users", "view_reports"] },
+    { key: "intelligence", focus: "intelligence", permissions: ["manage_leads", "view_reports", "view_traces"] },
   ];
 
   function invalidateDerivedData() {
@@ -399,12 +404,17 @@
     infrastructureIntelligencePanel: document.getElementById("infrastructureIntelligencePanel"),
     platformInfrastructurePanel: document.getElementById("platformInfrastructurePanel"),
     facilityPanel: document.getElementById("facilityPanel"),
+    consumersPanel: document.getElementById("consumersPanel"),
     smartBuildingsPanel: document.getElementById("smartBuildingsPanel"),
+    projectsPanel: document.getElementById("projectsPanel"),
+    deploymentsPanel: document.getElementById("deploymentsPanel"),
     devicePanel: document.getElementById("devicePanel"),
     webPresencePanel: document.getElementById("webPresencePanel"),
+    financePanel: document.getElementById("financePanel"),
     supportPanel: document.getElementById("supportPanel"),
     crmAgentsPanel: document.getElementById("crmAgentsPanel"),
     aiOperationsPanel: document.getElementById("aiOperationsPanel"),
+    digitalTwinPanel: document.getElementById("digitalTwinPanel"),
     adminMetricsPanel: document.getElementById("adminMetricsPanel"),
     adminMainTitle: document.getElementById("adminMainTitle"),
     adminMainSubtitle: document.getElementById("adminMainSubtitle"),
@@ -759,16 +769,31 @@
 
   function canAccessTab(tab) {
     if (isSuperAdmin()) return true;
-    if (tab === "facility" || tab === "smart_buildings" || tab === "devices" || tab === "web_presence") {
+    if (
+      tab === "facilities" ||
+      tab === "consumers" ||
+      tab === "projects" ||
+      tab === "deployments" ||
+      tab === "documents" ||
+      tab === "finance" ||
+      tab === "edge" ||
+      tab === "digital_twin" ||
+      tab === "facility" ||
+      tab === "smart_buildings" ||
+      tab === "devices" ||
+      tab === "web_presence"
+    ) {
       return hasPermission("view_reports");
     }
     if (tab === "support") {
       return hasPermission("manage_notifications");
     }
-    if (tab === "crm_agents") {
+    if (tab === "crm" || tab === "crm_agents") {
       return true;
     }
-    if (tab === "ai_operations") return hasPermission("view_reports") || hasPermission("view_traces");
+    if (tab === "agents" || tab === "ai_operations" || tab === "intelligence") {
+      return hasPermission("view_reports") || hasPermission("view_traces");
+    }
     if (tab === "channels") return hasPermission("view_reports");
     if (tab === "bookings") return hasPermission("view_reports");
     if (tab === "commercial") return hasPermission("manage_commercial") || hasPermission("view_reports");
@@ -787,22 +812,57 @@
 
   function normalizeOfficeWorkspace(target, focus) {
     const normalized = { target, focus, facet: "" };
-    if (target === "support" || target === "notifications") {
-      normalized.target = "crm_agents";
-      normalized.focus = "crm_agents";
+    if (target === "facility" || target === "smart_buildings") {
+      normalized.target = "facilities";
+      normalized.focus = "facilities";
+      normalized.facet = target === "smart_buildings" ? "buildings" : focus || "facilities";
+    } else if (target === "devices") {
+      normalized.target = "edge";
+      normalized.focus = "edge";
+      normalized.facet = focus || "registry";
+    } else if (target === "web_presence") {
+      normalized.target = "documents";
+      normalized.focus = "documents";
+      normalized.facet = focus || "documents";
+    } else if (target === "crm_agents") {
+      normalized.target = "crm";
+      normalized.focus = "crm";
+      normalized.facet = focus && focus !== "crm_agents" ? focus : "";
+    } else if (target === "ai_operations") {
+      normalized.target = "agents";
+      normalized.focus = "agents";
+      normalized.facet = focus && focus !== "ai_operations" ? focus : "";
+    } else if (target === "conversation") {
+      normalized.target = "intelligence";
+      normalized.focus = "intelligence";
+    } else if (target === "support" || target === "notifications") {
+      normalized.target = "crm";
+      normalized.focus = "crm";
       normalized.facet = "support_tickets";
     } else if (target === "founder") {
-      normalized.target = "crm_agents";
-      normalized.focus = "crm_agents";
+      normalized.target = "crm";
+      normalized.focus = "crm";
       normalized.facet = "escalations";
     } else if (target === "commercial" || target === "bookings") {
-      normalized.target = "crm_agents";
-      normalized.focus = "crm_agents";
+      normalized.target = target === "bookings" ? "deployments" : "crm";
+      normalized.focus = normalized.target;
       normalized.facet = target === "bookings" ? "deployment_pipeline" : "sales_pipeline";
     } else if (target === "channels") {
-      normalized.target = "crm_agents";
-      normalized.focus = "crm_agents";
+      normalized.target = "crm";
+      normalized.focus = "crm";
       normalized.facet = "conversations";
+    } else if (target === "audit" || target === "traces") {
+      normalized.target = "reports";
+      normalized.focus = "reports";
+      normalized.facet = target === "traces" ? "diagnostics" : "reports";
+    } else if (target === "team") {
+      normalized.target = "team";
+      normalized.focus = "team";
+      normalized.facet = focus && focus !== "team" ? focus : "";
+    } else if (target === "settings") {
+      normalized.target = "settings";
+      normalized.focus = "settings";
+      normalized.facet = focus && focus !== "settings" ? focus : "";
     }
     return normalized;
   }
@@ -814,10 +874,10 @@
     if (!target || !canAccessOfficeModule(target, focus)) return;
     if (destination.facet) setModuleFacet(target, destination.facet);
     state.workspaceTab = target;
-    if (target === "crm_agents") {
-      state.overviewFocus = "crm_agents";
-    } else if (target === "ai_operations") {
-      state.overviewFocus = "ai_operations";
+    if (target === "crm") {
+      state.overviewFocus = "crm";
+    } else if (target === "agents") {
+      state.overviewFocus = "agents";
     } else if (focus) {
       state.overviewFocus = focus;
     }
@@ -830,6 +890,9 @@
       delete state.moduleFacet[workspace];
     } else {
       state.moduleFacet[workspace] = facet;
+    }
+    if (workspace === "agents") {
+      state.aiOpsView = facet || "dashboard";
     }
     if (workspace === "ai_operations") {
       state.aiOpsView = facet || "dashboard";
@@ -1752,7 +1815,7 @@
     return `
       <aside class="command-side context-rail">
         <article class="command-card">
-          <div class="command-card-head"><h4>${escapeHtml(title)}</h4><button class="ghost compact" data-office-target="audit" type="button">View all</button></div>
+          <div class="command-card-head"><h4>${escapeHtml(title)}</h4><button class="ghost compact" data-office-target="reports" type="button">View all</button></div>
           <div class="mission-list">
             ${activity.length ? activity.map(function (item, index) {
               const tone = item.tone || ["healthy", "warning", "info", "critical", "healthy"][index % 5];
@@ -2057,21 +2120,21 @@
     }
     if (action === "run_ai_workflow") {
       setOfficeWorkspace("ai_operations", "ai_operations");
-      setModuleFacet("ai_operations", "execution");
+      setModuleFacet("agents", "execution");
       renderWorkspaceTabs();
       setBulkStatus("AI Execution workspace opened. Select an execution profile or review pending workflow activity.");
       return;
     }
     if (action === "create_new_agent") {
       setOfficeWorkspace("ai_operations", "ai_operations");
-      setModuleFacet("ai_operations", "agent_console");
+      setModuleFacet("agents", "agent_console");
       renderWorkspaceTabs();
       setBulkStatus("Agent Console opened. Agent creation is governed from the permissioned AI Operations workspace.");
       return;
     }
     if (action === "add_new_tool") {
       setOfficeWorkspace("ai_operations", "ai_operations");
-      setModuleFacet("ai_operations", "tool_registry");
+      setModuleFacet("agents", "tool_registry");
       renderWorkspaceTabs();
       setBulkStatus("Tool Registry opened. Add or review available Oyi tools from the AI Operations workspace.");
       return;
@@ -2701,7 +2764,7 @@
 	          });
 	          marker.addListener("dblclick", function () {
 	            state.selectedOfficeEstateId = record.estate.id || "";
-	            setOfficeWorkspace("facility", "facility");
+	            setOfficeWorkspace("facilities", "facilities");
 	          });
 	          bounds.extend(record.position);
 	        });
@@ -2986,11 +3049,11 @@
         <div class="layer-row"><span>Hardware devices</span><small>${escapeHtml(String(estateDevices.length))}</small></div>
         <div class="layer-row"><span>Active alerts</span><small>${escapeHtml(String(estateSupport.length))}</small></div>
         <div class="layer-row"><span>Health state</span><small>${escapeHtml(estate.health_status || estate.status || "healthy")}</small></div>
-        <button class="ghost compact" data-office-target="facility" type="button">Open estate detail</button>`;
+        <button class="ghost compact" data-office-target="facilities" type="button">Open estate detail</button>`;
       const openButton = el.liveInfraPanel.querySelector("[data-office-target]");
       if (openButton) {
         openButton.addEventListener("click", function () {
-          setOfficeWorkspace("facility", "facility");
+          setOfficeWorkspace("facilities", "facilities");
         });
       }
     }
@@ -3069,7 +3132,7 @@
 	    }).join("");
 	    const selectedStatus = selectedEstate ? String(selectedEstate.subscription_status || selectedEstate.status || "pending") : "pending";
 	    const estatePortfolioView = state.estatePortfolioView || "map";
-	    const activeFacet = state.moduleFacet.facility || "dashboard";
+	    const activeFacet = state.moduleFacet.facilities || "dashboard";
 	    const estateCards = estates.map(function (estate) {
 	      const stats = estateStats(estate);
 	      const status = String(estate.subscription_status || estate.status || "pending");
@@ -3331,7 +3394,7 @@
   function renderDeviceWorkspace() {
     if (!el.devicePanel) return;
     const collections = officeCollections();
-    const activeFacet = state.moduleFacet.devices || "dashboard";
+    const activeFacet = state.moduleFacet.edge || "dashboard";
     const estates = asList(collections.estates);
     const buildings = asList(collections.buildings);
     const homes = asList(collections.homes);
@@ -3860,19 +3923,19 @@
       el.mothershipRevenueMetric.textContent = formatCompactMoney(revenueValue);
     }
     if (el.officeMobileProjectsMetric) {
-      el.officeMobileProjectsMetric.textContent = String(state.allProposals.length || totals.proposals || 0);
+      el.officeMobileProjectsMetric.textContent = String(connectedEstates || estates.length || 0);
     }
     if (el.officeMobileClientsMetric) {
-      el.officeMobileClientsMetric.textContent = String(totals.leads || state.leads.length || 0);
+      el.officeMobileClientsMetric.textContent = String(buildingCount || homes.length || 0);
     }
     if (el.officeMobileTasksMetric) {
-      el.officeMobileTasksMetric.textContent = String(state.notifications.length || openSupport || 0);
+      el.officeMobileTasksMetric.textContent = String(totals.leads || state.leads.length || 0);
     }
     if (el.officeMobileDeploymentsMetric) {
       el.officeMobileDeploymentsMetric.textContent = String(state.allDemos.length || totals.demos || 0);
     }
     if (el.officeMobileFinanceMetric) {
-      el.officeMobileFinanceMetric.textContent = formatCompactMoney(revenueValue || walletFloat || 0);
+      el.officeMobileFinanceMetric.textContent = String(healthyCount ? `${healthPct}%` : offlineCount || 0);
     }
     const integrations = state.integrations || {};
     const apiChecks = [
@@ -3901,16 +3964,16 @@
         : String(domains.platform_infrastructure?.metrics?.[0]?.value || state.channelOverview?.channels?.length || 0);
     }
     if (el.officeMobileStorageMetric) {
-      el.officeMobileStorageMetric.textContent = String(state.officeStats?.office_files || state.officeStats?.documents || 0);
+      el.officeMobileStorageMetric.textContent = String(state.allDemos.length || totals.demos || 0);
     }
     if (el.officeMobileApiMetric) {
       el.officeMobileApiMetric.textContent = apiChecks.length ? `${readyApiChecks}/${apiChecks.length}` : "0/0";
     }
     if (el.officeMobileSyncMetric) {
-      el.officeMobileSyncMetric.textContent = String(syncMetric);
+      el.officeMobileSyncMetric.textContent = String(totals.leads || state.leads.length || 0);
     }
     if (el.officeMobileChecksMetric) {
-      el.officeMobileChecksMetric.textContent = String(checksPending);
+      el.officeMobileChecksMetric.textContent = String(state.traces.length || state.officeStats?.traces || 0);
     }
     if (el.officeWelcomeTitle) {
       const accountName =
@@ -3969,13 +4032,13 @@
           const pos = positions[index % positions.length];
           const lat = estate.lat || estate.latitude || "";
           const lng = estate.lng || estate.longitude || "";
-          return `<button class="city-label ${tone}" data-office-target="facility" data-estate-id="${escapeHtml(estate.id || "")}" data-lat="${escapeHtml(String(lat))}" data-lng="${escapeHtml(String(lng))}" type="button" style="--x:${pos[0]};--y:${pos[1]};">${escapeHtml(estate.name || `Estate ${index + 1}`)}<small>${escapeHtml(tone)}</small></button>`;
+          return `<button class="city-label ${tone}" data-office-target="facilities" data-estate-id="${escapeHtml(estate.id || "")}" data-lat="${escapeHtml(String(lat))}" data-lng="${escapeHtml(String(lng))}" type="button" style="--x:${pos[0]};--y:${pos[1]};">${escapeHtml(estate.name || `Estate ${index + 1}`)}<small>${escapeHtml(tone)}</small></button>`;
         })
 	        .join("") || '<div class="subtext" style="position:absolute;left:16px;top:16px;">Estate map labels will appear when facility sync publishes estates.</div>';
       Array.from(el.officeMapLabels.querySelectorAll("[data-office-target]")).forEach(function (node) {
         node.addEventListener("click", function () {
           state.selectedOfficeEstateId = node.getAttribute("data-estate-id") || state.selectedOfficeEstateId || "";
-          setOfficeWorkspace("facility", "facility");
+          setOfficeWorkspace("facilities", "facilities");
         });
       });
     }
@@ -4107,15 +4170,15 @@
     }
 
     const overviewCards = [
-      ["facility", domains.facility],
-      ["devices", domains.devices || domains.smart_buildings],
-      ["crm_agents", domains.crm_agents],
-      ["web_presence", domains.web_presence],
-      ["infrastructure_intelligence", domains.infrastructure_intelligence],
-      ["ai_operations", domains.ai_operations],
-      ["governance", domains.governance],
-      ["platform_infrastructure", domains.platform_infrastructure],
-      ["administration", domains.administration],
+      ["facilities", domains.facility],
+      ["consumers", domains.smart_buildings],
+      ["crm", domains.crm_agents],
+      ["documents", domains.web_presence],
+      ["reports", domains.infrastructure_intelligence],
+      ["agents", domains.ai_operations],
+      ["team", domains.administration],
+      ["settings", domains.platform_infrastructure],
+      ["digital_twin", domains.governance],
     ];
 
     el.overviewDomainGrid.innerHTML = overviewCards
@@ -4125,32 +4188,8 @@
       .map(function (entry) {
         const key = entry[0];
         const domain = entry[1];
-        const cardTarget =
-          key === "summary"
-            ? "overview"
-            : key === "staff_roles"
-              ? "team"
-              : key === "governance"
-                ? "audit"
-                : key === "infrastructure_intelligence"
-                  ? "reports"
-                  : key === "platform_infrastructure"
-                    ? "settings"
-                    : key === "administration"
-                      ? "team"
-                : key === "ai_operations"
-                  ? "ai_operations"
-                : key;
-        const cardFocus =
-          key === "infrastructure_intelligence"
-            ? "reports"
-            : key === "platform_infrastructure"
-              ? "platform_infrastructure"
-              : key === "administration"
-                ? "staff_roles"
-                : key === "ai_operations"
-                  ? "ai_operations"
-                  : key;
+        const cardTarget = key === "summary" ? "overview" : key;
+        const cardFocus = key;
         return `
           <article class="office-system-card" data-overview-domain="${escapeHtml(cardTarget)}" data-overview-focus="${escapeHtml(cardFocus)}">
             <div class="office-system-top">
@@ -4179,12 +4218,17 @@
     const safeDomains = domains || buildOverviewDomains().domains;
     const renderers = [
       [el.facilityPanel, function () { renderEstateFacilitiesWorkspace(safeDomains.facility); }],
+      [el.consumersPanel, function () { renderConsumersWorkspace(safeDomains.smart_buildings); }],
       [el.smartBuildingsPanel, function () { renderSmartBuildingsWorkspace(safeDomains.smart_buildings); }],
+      [el.projectsPanel, function () { renderProjectsWorkspace(safeDomains.summary); }],
+      [el.deploymentsPanel, function () { renderDeploymentsWorkspace(safeDomains.crm_agents); }],
       [el.devicePanel, renderDeviceWorkspace],
       [el.webPresencePanel, function () { renderDocumentsWorkspace(safeDomains.web_presence); }],
+      [el.financePanel, function () { renderFinanceWorkspace(safeDomains.web_presence); }],
       [el.supportPanel, function () { renderSupportWorkspace(safeDomains.support); }],
       [el.crmAgentsPanel, function () { renderCrmAgentsPanel(safeDomains.crm_agents); }],
       [el.aiOperationsPanel, function () { renderAiOperationsDashboard(safeDomains.ai_operations); }],
+      [el.digitalTwinPanel, function () { renderDigitalTwinWorkspace(safeDomains.infrastructure_intelligence); }],
     ];
     renderers.forEach(function (entry) {
       try {
@@ -4198,6 +4242,202 @@
     });
     bindOfficeAssetActions(el.facilityPanel);
     bindOfficeAssetActions(el.smartBuildingsPanel);
+  }
+
+  function renderConsumersWorkspace(domain) {
+    if (!el.consumersPanel || !domain) return;
+    const collections = officeCollections();
+    const estates = asList(collections.estates);
+    const homes = asList(collections.homes);
+    const wallets = asList(collections.wallets);
+    const consumers = homes.slice(0, 10).map(function (home, index) {
+      const estate = findById(estates, home.estate_id);
+      return {
+        title: home.name || home.unit_name || home.unit_number || `Home ${index + 1}`,
+        meta: displayValue(home.estate_name || (estate ? estate.name : ""), "Estate pending"),
+        status: displayValue(home.status || home.occupancy_status || "active", "active"),
+      };
+    });
+    el.consumersPanel.innerHTML = `
+      <div class="command-page">
+        <div class="command-head">
+          <div>
+            <p class="eyebrow">Consumers</p>
+            <h3>Resident-facing oversight across homes, wallet posture, and support continuity.</h3>
+            <p class="subtext" style="margin:8px 0 0;">Transitional Office view backed by facility and smart-building records until consumer-native oversight is expanded.</p>
+          </div>
+          <button class="ghost" data-office-target="facilities" type="button">Open Facilities</button>
+        </div>
+        <div class="command-kpis">
+          ${[
+            ["Homes", homes.length],
+            ["Wallets", wallets.length],
+            ["Estates", estates.length],
+            ["Active Residents", consumers.length],
+          ].map(function (item) {
+            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Existing Office data</div></div>`;
+          }).join("")}
+        </div>
+        <div class="command-layout">
+          <div class="command-main">
+            <article class="command-card">
+              <div class="command-card-head"><h4>Consumer Oversight Registry</h4><span class="office-system-badge">${consumers.length ? "Live Data" : "Pending"}</span></div>
+              <div class="mission-list">
+                ${consumers.length ? consumers.map(function (item) {
+                  return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(item.title)}</strong><small class="subtext">${escapeHtml(item.meta)}</small></span><strong>${escapeHtml(item.status)}</strong></div>`;
+                }).join("") : '<div class="office-detail-empty">Consumer oversight will populate from home, wallet, and facility-linked resident data.</div>'}
+              </div>
+            </article>
+          </div>
+          ${commandActivityRail({
+            title: "Consumer Oversight",
+            activity: consumers.slice(0, 5).map(function (item) {
+              return { title: item.title, meta: `${item.meta} · ${item.status}`, tone: "info" };
+            }),
+            insights: [
+              { title: `${homes.length} homes in current Office inventory`, meta: "Consumer context is currently sourced from existing facility-linked records.", icon: "estate" },
+              { title: `${wallets.length} wallet records available`, meta: "Financial posture stays visible without duplicating backend intelligence.", icon: "wallet" },
+            ],
+            actions: [
+              { label: "Open Facilities", icon: "estate", action: "view_reports" },
+              { label: "View Wallets", icon: "wallet", action: "view_wallets" },
+            ],
+          })}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProjectsWorkspace(domain) {
+    if (!el.projectsPanel || !domain) return;
+    const proposals = asList(state.allProposals);
+    const demos = asList(state.allDemos);
+    el.projectsPanel.innerHTML = `
+      <div class="command-page">
+        <div class="command-head">
+          <div>
+            <p class="eyebrow">Projects</p>
+            <h3>Commercial and delivery projects staged from existing Office records.</h3>
+            <p class="subtext" style="margin:8px 0 0;">This module groups proposal, review, and rollout work without interrupting current CRM and deployment workflows.</p>
+          </div>
+          <button class="ghost" data-office-target="deployments" type="button">Open Deployments</button>
+        </div>
+        <div class="command-kpis">
+          ${[
+            ["Proposals", proposals.length],
+            ["Reviews", demos.length],
+            ["Active Leads", state.leads.length],
+            ["Office Tasks", state.notifications.length],
+          ].map(function (item) {
+            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Existing Office data</div></div>`;
+          }).join("")}
+        </div>
+        <article class="command-card">
+          <div class="command-card-head"><h4>Project Pipeline</h4><span class="office-system-badge">${proposals.length || demos.length ? "Live Data" : "Pending"}</span></div>
+          <div class="mission-list">
+            ${proposals.slice(0, 5).map(function (proposal) {
+              return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(displayValue(proposal.title || proposal.company, "Commercial project"))}</strong><small class="subtext">${escapeHtml(displayValue(proposal.owner, "Office"))}</small></span><strong>${escapeHtml(displayValue(proposal.status, "draft"))}</strong></div>`;
+            }).join("") || '<div class="office-detail-empty">Projects will populate from proposal, deployment, and delivery workflows already present in Office.</div>'}
+          </div>
+        </article>
+      </div>
+    `;
+  }
+
+  function renderDeploymentsWorkspace(domain) {
+    if (!el.deploymentsPanel || !domain) return;
+    const demos = asList(state.allDemos);
+    el.deploymentsPanel.innerHTML = `
+      <div class="command-page">
+        <div class="command-head">
+          <div>
+            <p class="eyebrow">Deployments</p>
+            <h3>Deployment reviews, facility workspace provisioning, and rollout readiness.</h3>
+            <p class="subtext" style="margin:8px 0 0;">Existing building-review and workspace provisioning flows are preserved and regrouped under Office Deployments.</p>
+          </div>
+          <button class="ghost" data-office-target="crm" data-office-focus="crm" type="button">Open CRM</button>
+        </div>
+        <div class="command-kpis">
+          ${[
+            ["Reviews", demos.length],
+            ["Pending", demos.filter(function (item) { return /pending|scheduled/i.test(String(item.status || "")); }).length],
+            ["Provisioning", demos.filter(function (item) { return /workspace|facility/i.test(String(item.title || item.notes || "")); }).length],
+            ["Escalations", state.notifications.filter(function (item) { return /deploy|review|visit/i.test(String(item.type || "") + String(item.title || "")); }).length],
+          ].map(function (item) {
+            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Deployment workflow</div></div>`;
+          }).join("")}
+        </div>
+        <div class="trace-list">
+          ${demos.length ? demos.slice(0, 8).map(function (demo) {
+            return `<div class="trace-row"><div><strong>${escapeHtml(displayValue(demo.title || demo.lead_name, "Deployment review"))}</strong><div class="subtext">${escapeHtml(displayValue(demo.review_type || demo.type, "Review"))} · ${escapeHtml(formatDate(demo.scheduled_at || demo.created_at))}</div></div><span class="office-system-badge">${escapeHtml(displayValue(demo.status, "pending"))}</span></div>`;
+          }).join("") : '<div class="office-detail-empty">Deployment reviews will appear here as existing Office demo and workspace data syncs.</div>'}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderFinanceWorkspace(domain) {
+    if (!el.financePanel || !domain) return;
+    const wallets = asList(officeCollections().wallets);
+    const proposals = asList(state.allProposals);
+    const walletTotal = wallets.reduce(function (sum, wallet) {
+      return sum + Number(wallet.balance || 0);
+    }, 0);
+    el.financePanel.innerHTML = `
+      <div class="command-page">
+        <div class="command-head">
+          <div>
+            <p class="eyebrow">Finance</p>
+            <h3>Wallet float, proposal values, and Office financial posture.</h3>
+            <p class="subtext" style="margin:8px 0 0;">This remains a transitional finance surface using current wallet and proposal records until backend-owned financial intelligence expands.</p>
+          </div>
+          <button class="ghost" data-command-action="view_wallets" type="button">View wallet float</button>
+        </div>
+        <div class="command-kpis">
+          ${[
+            ["Wallet Float", formatCompactMoney(walletTotal)],
+            ["Wallets", wallets.length],
+            ["Proposals", proposals.length],
+            ["Pipeline Value", formatCompactMoney(state.report?.pipeline_value || 0)],
+          ].map(function (item) {
+            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Existing Office data</div></div>`;
+          }).join("")}
+        </div>
+        <article class="command-card">
+          <div class="command-card-head"><h4>Financial Posture</h4><span class="office-system-badge">${wallets.length ? "Live Data" : "Pending"}</span></div>
+          <div class="mission-list">
+            ${wallets.slice(0, 8).map(function (wallet) {
+              return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(displayValue(wallet.scope_name || wallet.scope_id, "Wallet"))}</strong><small class="subtext">${escapeHtml(displayValue(wallet.scope_type, "scope"))}</small></span><strong>${escapeHtml(formatCompactMoney(wallet.balance || 0))}</strong></div>`;
+            }).join("") || '<div class="office-detail-empty">Finance will populate from wallet, proposal, and future backend financial posture outputs.</div>'}
+          </div>
+        </article>
+      </div>
+    `;
+  }
+
+  function renderDigitalTwinWorkspace(domain) {
+    if (!el.digitalTwinPanel || !domain) return;
+    el.digitalTwinPanel.innerHTML = `
+      <div class="command-page">
+        <div class="command-head">
+          <div>
+            <p class="eyebrow">Digital Twin</p>
+            <h3>Future operational twin surface for facilities, consumers, devices, and runtime state.</h3>
+            <p class="subtext" style="margin:8px 0 0;">The shell is now ready for Digital Twin oversight. Live twin rendering remains pending while Office continues consuming Ochiga backend intelligence instead of duplicating it.</p>
+          </div>
+          <button class="ghost" data-office-target="reports" type="button">Open Reports</button>
+        </div>
+        <article class="command-card">
+          <div class="command-card-head"><h4>Twin Readiness</h4><span class="office-system-badge warning">Transitional</span></div>
+          <div class="mission-list">
+            <div class="device-category"><span>Facility state</span><strong>Available</strong></div>
+            <div class="device-category"><span>Consumer context</span><strong>Available</strong></div>
+            <div class="device-category"><span>Edge device graph</span><strong>Partial</strong></div>
+            <div class="device-category"><span>Backend intelligence feed</span><strong>Consume only</strong></div>
+          </div>
+        </article>
+      </div>
+    `;
   }
 
   function renderCrmAgentsPanel(domain) {
@@ -4241,7 +4481,7 @@
       ["Closed Won", derived.statusCounts.closed || 0],
     ];
     const maxStage = Math.max(1, ...stages.map(function (stage) { return stage[1]; }));
-    const activeFacet = state.moduleFacet.crm_agents || "dashboard";
+    const activeFacet = state.moduleFacet.crm || "dashboard";
     const customers = state.leads.filter(function (lead) {
       return /customer|closed|won|active/i.test(`${lead.status || ""} ${lead.stage || lead.commercial_stage || ""}`);
     });
@@ -4641,7 +4881,7 @@
                 </div>
               </article>
               <article class="command-card">
-                <div class="command-card-head"><h4>Recent AI Conversations</h4><button class="ghost compact" data-office-target="conversation" type="button">View all</button></div>
+                <div class="command-card-head"><h4>Recent AI Conversations</h4><button class="ghost compact" data-office-target="intelligence" type="button">View all</button></div>
                 <div class="ai-conversation-list">
                   ${conversationRows.length ? conversationRows.map(function (row) {
                     return `<div class="ai-conversation-row"><div style="display:flex;align-items:center;gap:10px;"><span class="avatar-dot">${escapeHtml(row.initial)}</span><div><strong>${escapeHtml(row.title)}</strong><div class="subtext">${escapeHtml(row.agent)}</div></div></div><span class="subtext">${escapeHtml(row.time)}</span></div>`;
@@ -4679,7 +4919,7 @@
             <article class="command-card">
               <div class="command-card-head"><h4>Quick Actions</h4></div>
               <div class="shortcut-grid ai-quick-actions">
-                <button class="shortcut-btn" data-office-target="conversation" type="button"><span>${officeIcon("messenger")}</span>Chat with Oyi AI</button>
+                <button class="shortcut-btn" data-office-target="intelligence" type="button"><span>${officeIcon("messenger")}</span>Open Oyi Intelligence</button>
                 <button class="shortcut-btn" data-command-action="run_ai_workflow" type="button"><span>${officeIcon("trend")}</span>Run AI Workflow</button>
                 <button class="shortcut-btn" data-command-action="create_new_agent" type="button"><span>${officeIcon("lead")}</span>Create New Agent</button>
                 <button class="shortcut-btn" data-command-action="add_new_tool" type="button"><span>${officeIcon("estate")}</span>Add New Tool</button>
@@ -4699,7 +4939,7 @@
     `;
     Array.from(el.aiOperationsPanel.querySelectorAll("[data-ai-ops-tab]")).forEach(function (node) {
       node.addEventListener("click", function () {
-        setModuleFacet("ai_operations", node.getAttribute("data-ai-ops-tab") || "dashboard");
+        setModuleFacet("agents", node.getAttribute("data-ai-ops-tab") || "dashboard");
         renderAiOperationsDashboard(domain);
         renderSectionNav();
       });
@@ -4711,92 +4951,80 @@
 
     const navByTab = {
       overview: [],
-      facility: [
-        { label: "Dashboard", type: "tab", value: "facility", active: true },
+      facilities: [
+        { label: "Overview", type: "tab", value: "facilities", active: true },
         { label: "Estates", type: "facet", value: "estates" },
-        { label: "Buildings", type: "tab", value: "smart_buildings" },
-        { label: "Facility Accounts", type: "facet", value: "accounts" },
-        { label: "Deployments", type: "facet", value: "deployments" },
-        { label: "Performance", type: "tab", value: "reports" },
+        { label: "Buildings", type: "facet", value: "buildings" },
+        { label: "Accounts", type: "facet", value: "accounts" },
+        { label: "Deployments", type: "tab", value: "deployments" },
         { label: "Monitoring", type: "facet", value: "monitoring" },
       ],
-      smart_buildings: [],
-      devices: [
-        { label: "Dashboard", type: "tab", value: "devices", active: true },
-        { label: "Registry", type: "facet", value: "registry" },
-        { label: "Discovery", type: "facet", value: "discovery" },
-        { label: "Control", type: "facet", value: "control" },
-        { label: "Telemetry", type: "facet", value: "telemetry" },
-        { label: "Edge Agents", type: "facet", value: "edge_agents" },
-        { label: "Reports", type: "tab", value: "reports" },
-        { label: "Integrations", type: "tab", value: "settings" },
+      consumers: [
+        { label: "Overview", type: "tab", value: "consumers", active: true },
+        { label: "Residents", type: "facet", value: "residents" },
+        { label: "Wallets", type: "facet", value: "wallets" },
+        { label: "Support", type: "tab", value: "crm", facet: "support_tickets" },
       ],
-	      web_presence: [
-	        { label: "Dashboard", type: "tab", value: "web_presence", active: true },
-	        { label: "Proposals", type: "facet", value: "proposals" },
-	        { label: "Contracts", type: "facet", value: "contracts" },
-	        { label: "Invoices", type: "facet", value: "invoices" },
-	        { label: "Reports", type: "tab", value: "reports" },
-	        { label: "Drawings", type: "facet", value: "drawings" },
-	        { label: "Estate Plans", type: "facet", value: "estate_plans" },
-	        { label: "Asset Files", type: "facet", value: "asset_files" },
-	        { label: "Generated PDFs", type: "facet", value: "generated_pdfs" },
-	        { label: "Studio", type: "facet", value: "studio" },
-      ],
-      support: [
-        { label: "Open cases", type: "tab", value: "notifications" },
-        { label: "Founder escalations", type: "tab", value: "founder" },
-        { label: "Assigned teams", type: "facet", value: "teams" },
-      ],
-      crm_agents: [
-        { label: "Dashboard", type: "tab", value: "crm_agents", active: true },
+      crm: [
+        { label: "Overview", type: "tab", value: "crm", active: true },
         { label: "Leads", type: "facet", value: "leads" },
         { label: "Customers", type: "facet", value: "customers" },
         { label: "Organizations", type: "facet", value: "organizations" },
         { label: "Conversations", type: "facet", value: "conversations" },
         { label: "Support Tickets", type: "facet", value: "support_tickets" },
         { label: "Escalations", type: "facet", value: "escalations" },
-        { label: "Account Managers", type: "facet", value: "account_managers" },
         { label: "Sales Pipeline", type: "facet", value: "sales_pipeline" },
         { label: "Deployment Pipeline", type: "facet", value: "deployment_pipeline" },
       ],
-      ai_operations: [
-        { label: "Dashboard", type: "tab", value: "ai_operations", active: true },
+      projects: [
+        { label: "Overview", type: "tab", value: "projects", active: true },
+        { label: "Active Projects", type: "facet", value: "active_projects" },
+        { label: "Pipeline", type: "facet", value: "project_pipeline" },
+        { label: "Documents", type: "tab", value: "documents" },
+      ],
+      deployments: [
+        { label: "Overview", type: "tab", value: "deployments", active: true },
+        { label: "Reviews", type: "facet", value: "deployment_pipeline" },
+        { label: "Workspaces", type: "facet", value: "workspaces" },
+        { label: "Facilities", type: "tab", value: "facilities" },
+      ],
+      documents: [
+        { label: "Overview", type: "tab", value: "documents", active: true },
+        { label: "Proposals", type: "facet", value: "proposals" },
+        { label: "Contracts", type: "facet", value: "contracts" },
+        { label: "Invoices", type: "facet", value: "invoices" },
+        { label: "Asset Files", type: "facet", value: "asset_files" },
+        { label: "Generated PDFs", type: "facet", value: "generated_pdfs" },
+      ],
+      finance: [
+        { label: "Overview", type: "tab", value: "finance", active: true },
+        { label: "Wallet Float", type: "facet", value: "wallet_float" },
+        { label: "Collections", type: "facet", value: "collections" },
+        { label: "Documents", type: "tab", value: "documents", facet: "invoices" },
+      ],
+      agents: [
+        { label: "Overview", type: "tab", value: "agents", active: true },
         { label: "Agent Console", type: "facet", value: "agent_console" },
         { label: "Voice Command", type: "facet", value: "voice_command" },
         { label: "Tool Registry", type: "facet", value: "tool_registry" },
         { label: "Execution", type: "facet", value: "execution" },
         { label: "Activity", type: "facet", value: "activity" },
       ],
-      conversation: [
-        { label: "Open", type: "crm_view", value: "open" },
-        { label: "All", type: "crm_view", value: "all" },
-        { label: "Support", type: "tab", value: "notifications" },
-        { label: "Commercial", type: "tab", value: "commercial" },
-        { label: "Trace", type: "tab", value: "traces" },
+      edge: [
+        { label: "Overview", type: "tab", value: "edge", active: true },
+        { label: "Registry", type: "facet", value: "registry" },
+        { label: "Discovery", type: "facet", value: "discovery" },
+        { label: "Control", type: "facet", value: "control" },
+        { label: "Telemetry", type: "facet", value: "telemetry" },
+        { label: "Edge Agents", type: "facet", value: "edge_agents" },
       ],
-      timeline: [
-        { label: "Back to CRM", type: "tab", value: "conversation" },
-        { label: "Bookings", type: "tab", value: "bookings" },
-        { label: "Commercial", type: "tab", value: "commercial" },
-      ],
-      channels: [
-        { label: "Live channels", type: "tab", value: "channels", active: true },
-        { label: "Support inbox", type: "tab", value: "notifications" },
-        { label: "Trace", type: "tab", value: "traces" },
-      ],
-      bookings: [
-        { label: "Demo flow", type: "tab", value: "bookings", active: true },
-        { label: "Commercial", type: "tab", value: "commercial" },
-        { label: "CRM", type: "tab", value: "conversation" },
-      ],
-      commercial: [
-        { label: "Pipeline", type: "tab", value: "commercial", active: true },
-        { label: "CRM", type: "tab", value: "conversation" },
-        { label: "Reports", type: "tab", value: "reports" },
+      digital_twin: [
+        { label: "Overview", type: "tab", value: "digital_twin", active: true },
+        { label: "Twin Surfaces", type: "facet", value: "twin_surfaces" },
+        { label: "Runtime Links", type: "tab", value: "reports", facet: "ai_insights" },
       ],
       reports: [
-        { label: "Dashboard", type: "tab", value: "reports", active: true },
+        { label: "Overview", type: "tab", value: "reports", active: true },
         { label: "Analytics", type: "facet", value: "analytics" },
         { label: "AI Insights", type: "facet", value: "ai_insights" },
         { label: "Reports", type: "facet", value: "reports" },
@@ -4804,7 +5032,7 @@
         { label: "Diagnostics", type: "facet", value: "diagnostics" },
       ],
       team: [
-        { label: "Dashboard", type: "tab", value: "team", active: true },
+        { label: "Overview", type: "tab", value: "team", active: true },
         { label: "Staff & Roles", type: "facet", value: "staff_roles" },
         { label: "Permissions", type: "facet", value: "permissions" },
         { label: "System Settings", type: "facet", value: "settings" },
@@ -4812,38 +5040,20 @@
         { label: "Accounts", type: "facet", value: "accounts" },
         { label: "Super Admin", type: "facet", value: "super_admin" },
       ],
-      notifications: [
-        { label: "Open inbox", type: "tab", value: "notifications", active: true },
-        { label: "Founder escalations", type: "tab", value: "founder" },
-        { label: "CRM", type: "tab", value: "conversation" },
-      ],
-      founder: [
-        { label: "Executive review", type: "tab", value: "founder", active: true },
-        { label: "Open inbox", type: "tab", value: "notifications" },
-        { label: "CRM", type: "tab", value: "conversation" },
-      ],
-      audit: [
-        { label: "Dashboard", type: "tab", value: "audit", active: true },
-        { label: "Audit Logs", type: "facet", value: "audit_logs" },
-        { label: "Trace Explorer", type: "tab", value: "traces" },
-        { label: "Knowledge Base", type: "facet", value: "knowledge_base" },
-        { label: "AI Memory", type: "facet", value: "ai_memory" },
-        { label: "Activity History", type: "facet", value: "activity_history" },
-        { label: "Governance Logs", type: "facet", value: "governance_logs" },
-      ],
-      traces: [
-        { label: "Trace explorer", type: "tab", value: "traces", active: true },
-        { label: "Knowledge & Audit", type: "tab", value: "audit" },
-        { label: "CRM", type: "tab", value: "crm_agents" },
-      ],
       settings: [
-        { label: "Dashboard", type: "tab", value: "settings", active: true },
+        { label: "Overview", type: "tab", value: "settings", active: true },
         { label: "Realtime", type: "facet", value: "realtime" },
         { label: "Storage", type: "facet", value: "storage" },
         { label: "API Health", type: "facet", value: "api_health" },
         { label: "Webhooks", type: "facet", value: "webhooks" },
         { label: "Sync", type: "facet", value: "sync" },
         { label: "Provider Status", type: "facet", value: "provider_status" },
+      ],
+      intelligence: [
+        { label: "Workspace", type: "tab", value: "intelligence", active: true },
+        { label: "CRM Context", type: "tab", value: "crm", facet: "conversations" },
+        { label: "Agents", type: "tab", value: "agents" },
+        { label: "Reports", type: "tab", value: "reports", facet: "ai_insights" },
       ],
     };
 
@@ -4878,7 +5088,7 @@
             item.value === (el.agentSelect ? el.agentSelect.value : "marketing"));
         return `<button class="section-nav-btn ${active ? "active" : ""}" type="button" data-section-nav-type="${escapeHtml(
           item.type
-        )}" data-section-nav-value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</button>`;
+        )}" data-section-nav-value="${escapeHtml(item.value)}" data-section-nav-facet="${escapeHtml(item.facet || "")}">${escapeHtml(item.label)}</button>`;
       })
       .join("");
 
@@ -4886,9 +5096,14 @@
       node.addEventListener("click", function () {
         const type = node.getAttribute("data-section-nav-type");
         const value = node.getAttribute("data-section-nav-value");
+        const facet = node.getAttribute("data-section-nav-facet");
         if (type === "tab" && value && canAccessTab(value)) {
           setModuleFacet(state.workspaceTab, "dashboard");
+          if (facet) {
+            setModuleFacet(value, facet);
+          }
           state.workspaceTab = value;
+          state.overviewFocus = value;
           renderWorkspaceTabs();
           return;
         }
@@ -4914,11 +5129,11 @@
           return;
         }
         if (type === "action" && value === "add_agent") {
-          state.workspaceTab = "ai_operations";
-          state.overviewFocus = "ai_operations";
+          state.workspaceTab = "agents";
+          state.overviewFocus = "agents";
           state.aiOpsView = "agent_console";
           renderWorkspaceTabs();
-          setBulkStatus("Agent Console opened. AI agent profile work now routes through AI Operations.");
+          setBulkStatus("Agent Console opened. AI agent profile work now routes through Office Agents.");
         }
         if (type === "staff_action" && value) {
           const panel = document.getElementById(value);
@@ -5048,7 +5263,7 @@
       if (kind === "report_totals") return `<div class="mission-list">${Object.entries(totals).slice(0, 8).map(function (entry) { return `<div class="device-category"><span>${escapeHtml(entry[0].replace(/_/g, " "))}</span><strong>${escapeHtml(String(entry[1] || 0))}</strong></div>`; }).join("") || '<div class="office-detail-empty">No report totals synced yet.</div>'}</div>`;
       if (kind === "source_breakdown") return `<div class="intel-bar-list">${barRows(rankEntries((state.report && state.report.by_source) || {}, 8), "No source data synced yet.")}</div>`;
       if (kind === "status_breakdown") return `<div class="intel-bar-list">${barRows(rankEntries((state.report && state.report.by_status) || {}, 8), "No status data synced yet.")}</div>`;
-      if (kind === "report_actions") return `<div class="shortcut-grid compact-action-grid"><button class="shortcut-btn" data-office-target="facility" type="button"><span>${officeIcon("estate")}</span>Estate Report</button><button class="shortcut-btn" data-office-target="devices" type="button"><span>${officeIcon("camera")}</span>Device Report</button><button class="shortcut-btn" data-office-target="audit" type="button"><span>${officeIcon("trend")}</span>Audit Report</button><button class="shortcut-btn" data-command-action="view_reports" type="button"><span>${officeIcon("settings")}</span>Export Summary</button></div>`;
+      if (kind === "report_actions") return `<div class="shortcut-grid compact-action-grid"><button class="shortcut-btn" data-office-target="facilities" type="button"><span>${officeIcon("estate")}</span>Facility Report</button><button class="shortcut-btn" data-office-target="edge" type="button"><span>${officeIcon("camera")}</span>Edge Report</button><button class="shortcut-btn" data-office-target="reports" type="button"><span>${officeIcon("trend")}</span>Analytics</button><button class="shortcut-btn" data-command-action="view_reports" type="button"><span>${officeIcon("settings")}</span>Export Summary</button></div>`;
       if (kind === "predictive" || kind === "maintenance" || kind === "capacity" || kind === "next_actions") return `<div class="mission-list">${[
         ["Incident risk", incidents > 5 ? "Elevated" : "Normal"],
         ["Maintenance pressure", notifications.length ? `${notifications.length} live signals` : "No live pressure"],
@@ -5143,7 +5358,7 @@
           </div>
           <aside class="command-side context-rail">
             <article class="command-card">
-              <div class="command-card-head"><h4>Real-time Activity</h4><button class="ghost compact" data-office-target="audit" type="button">View all</button></div>
+              <div class="command-card-head"><h4>Real-time Activity</h4><button class="ghost compact" data-office-target="reports" type="button">View all</button></div>
               <div class="mission-list">
                 ${activityRows.length ? activityRows.map(function (item, index) {
                   const tone = item.tone || ["healthy", "warning", "info", "critical", "healthy"][index % 5];
@@ -5162,10 +5377,10 @@
             <article class="command-card">
               <div class="command-card-head"><h4>Quick Actions</h4></div>
               <div class="shortcut-grid compact-action-grid">
-                <button class="shortcut-btn" data-office-target="facility" type="button"><span>${officeIcon("estate")}</span>Compare Estates</button>
-                <button class="shortcut-btn" data-office-target="devices" type="button"><span>${officeIcon("camera")}</span>Device Intelligence</button>
+                <button class="shortcut-btn" data-office-target="facilities" type="button"><span>${officeIcon("estate")}</span>Compare Facilities</button>
+                <button class="shortcut-btn" data-office-target="edge" type="button"><span>${officeIcon("camera")}</span>Edge Intelligence</button>
                 <button class="shortcut-btn" data-office-target="support" type="button"><span>${officeIcon("support")}</span>Support Intelligence</button>
-                <button class="shortcut-btn" data-office-target="audit" type="button"><span>${officeIcon("trend")}</span>Trace Diagnostics</button>
+                <button class="shortcut-btn" data-office-target="reports" type="button"><span>${officeIcon("trend")}</span>Trace Diagnostics</button>
               </div>
             </article>
           </aside>
@@ -5686,7 +5901,7 @@
 
     Array.from(el.commercialPanel.querySelectorAll("[data-commercial-open]")).forEach(function (node) {
       node.addEventListener("click", function () {
-        state.workspaceTab = "conversation";
+        state.workspaceTab = "intelligence";
         renderWorkspaceTabs();
         selectLead(node.getAttribute("data-commercial-open"));
       });
@@ -6434,31 +6649,31 @@
   }
 
   function renderWorkspaceTabs() {
-    if (state.workspaceTab === "crm_agents" && state.overviewFocus !== "crm_agents") {
-      state.overviewFocus = "crm_agents";
+    if (state.workspaceTab === "crm" && state.overviewFocus !== "crm") {
+      state.overviewFocus = "crm";
     }
     if (!canAccessTab(state.workspaceTab)) {
       state.workspaceTab = "overview";
     }
     document.body.classList.toggle("workspace-overview", state.workspaceTab === "overview");
-	    document.body.classList.toggle(
-	      "workspace-command",
+    document.body.classList.toggle(
+      "workspace-command",
       [
-        "facility",
-        "smart_buildings",
-        "devices",
-        "crm_agents",
-        "ai_operations",
-        "conversation",
-        "support",
-        "web_presence",
+        "facilities",
+        "consumers",
+        "crm",
+        "projects",
+        "deployments",
+        "documents",
+        "finance",
+        "agents",
+        "edge",
+        "digital_twin",
         "team",
-        "audit",
-        "notifications",
-        "founder",
         "settings",
+        "intelligence",
       ].includes(state.workspaceTab)
-	    );
+    );
     Array.from(el.officeNavButtons || []).forEach(function (node) {
       const target = node.getAttribute("data-office-target");
       const focus = node.getAttribute("data-office-focus");
@@ -6481,122 +6696,97 @@
     const overviewHeadings = {
       summary: {
         title: "Welcome back",
-        subtitle: "Here is what is happening across your ecosystem today.",
+        subtitle: "Here is what is happening across Office OS today.",
       },
       live_infrastructure: {
         title: "Live Infrastructure",
         subtitle: "Realtime map, twin, heat, health, alerts, devices, and estate infrastructure command view.",
       },
-      facility: {
-        title: "Building Portfolio",
-        subtitle:
-          "Portfolio workspace for subscribed buildings, estates, community activity, package posture, wallets, and support from one office.",
+      facilities: {
+        title: "Facilities",
+        subtitle: "Estate, building, account, and deployment oversight from one Office command surface.",
       },
-      smart_buildings: {
-        title: "Smart Building Supervision",
-        subtitle:
-          "Track connected buildings, units, permissions, and automation-linked operating posture.",
+      consumers: {
+        title: "Consumers",
+        subtitle: "Resident-facing oversight using current home, wallet, and facility-linked data.",
       },
-      devices: {
-        title: "Hardware Devices",
-        subtitle:
-          "Supervise cumulative hardware devices across estates, homes, buildings, security, utilities, access, and automation.",
+      crm: {
+        title: "CRM",
+        subtitle: "Lead, relationship, support, and commercial pipeline supervision.",
       },
-	      web_presence: {
-	        title: "Documents",
-	        subtitle:
-	          "Control proposals, invoices, contracts, PDFs, and shared operational documents from Office.",
+      projects: {
+        title: "Projects",
+        subtitle: "Commercial and delivery work regrouped from existing Office workflows.",
       },
-      support: {
-        title: "Customer Support Supervision",
-        subtitle:
-          "Watch support load, estate complaints, customer requests, and escalation pressure in real time.",
+      deployments: {
+        title: "Deployments",
+        subtitle: "Building reviews, workspace rollout, and provisioning readiness.",
       },
-      crm_agents: {
-        title: "CRM & Support",
-        subtitle:
-          "Manage leads, customers, organizations, conversations, support tickets, escalations, account managers, sales pipeline, and deployment pipeline.",
+      documents: {
+        title: "Documents",
+        subtitle: "Proposals, contracts, invoices, PDFs, and operational files.",
+      },
+      finance: {
+        title: "Finance",
+        subtitle: "Wallet float, proposal value, and financial posture from current Office records.",
+      },
+      agents: {
+        title: "Agents",
+        subtitle: "Agent console, tool registry, voice command, and execution supervision.",
+      },
+      edge: {
+        title: "Edge",
+        subtitle: "Registry, discovery, telemetry, and edge-agent health without removing local runtime ownership.",
+      },
+      digital_twin: {
+        title: "Digital Twin",
+        subtitle: "Twin-ready surface for future facilities, consumers, and device state supervision.",
       },
       staff_roles: {
-        title: "Staff and Role Supervision",
-        subtitle:
-          "Manage accounts, permissions, assignment posture, and operator readiness from one authority layer.",
+        title: "Team",
+        subtitle: "Manage accounts, permissions, assignment posture, and operator readiness.",
       },
       governance: {
-        title: "Knowledge & Audit",
-        subtitle:
-          "Control audit logs, trace evidence, human authority actions, and accountable operational oversight.",
+        title: "Reports",
+        subtitle: "Audit, trace, analytics, diagnostics, and accountable operational oversight.",
       },
     };
 
     const workspaceCopy = {
       overview: overviewHeadings[state.overviewFocus] || overviewHeadings.summary,
-      facility: overviewHeadings.facility,
-      smart_buildings: overviewHeadings.smart_buildings,
-      devices: overviewHeadings.devices,
-      web_presence: overviewHeadings.web_presence,
-      support: overviewHeadings.support,
-      crm_agents: overviewHeadings.crm_agents,
-      ai_operations: {
-        title: "AI Operations",
-        subtitle:
-          "Monitor Oyi AI, agent console activity, voice command, tool registry, execution, and AI operational activity.",
-      },
-      conversation: {
-        title: state.selectedLead ? leadTitle(state.selectedLead) : "CRM Conversations",
-        subtitle: state.selectedLead
-          ? leadMetaLine(state.selectedLead)
-          : "Review customer conversations, support context, commercial handoffs, and relationship history.",
-      },
-      timeline: {
-        title: "Operational Timeline",
-        subtitle: "Track movement, ownership changes, and record history through Office.",
-      },
-      channels: {
-        title: "Smart Systems",
-        subtitle: "Supervise live channels, support flow, and automation-linked operating surfaces.",
-      },
-      bookings: {
-        title: "Building Reviews",
-        subtitle: "Review discovery calls, building reviews, site visits, technical inspections, and commercial timing.",
-      },
-      commercial: {
-        title: "Commercial Command",
-        subtitle: "Manage deal stages, proposals, conversion movement, and commercial posture.",
-      },
+      facilities: overviewHeadings.facilities,
+      consumers: overviewHeadings.consumers,
+      crm: overviewHeadings.crm,
+      projects: overviewHeadings.projects,
+      deployments: overviewHeadings.deployments,
+      documents: overviewHeadings.documents,
+      finance: overviewHeadings.finance,
+      agents: overviewHeadings.agents,
+      edge: overviewHeadings.edge,
+      digital_twin: overviewHeadings.digital_twin,
       reports: {
-        title: "Infrastructure Intelligence",
-        subtitle: "Analytics, AI insights, predictive operations, diagnostics, trends, and infrastructure reports.",
+        title: "Reports",
+        subtitle: "Analytics, AI insights, predictive operations, diagnostics, and operational reporting.",
       },
       team: {
-        title: "Administration",
-        subtitle: "Manage staff, roles, permissions, accounts, super admin controls, and system settings.",
+        title: "Team",
+        subtitle: "Manage staff, roles, permissions, accounts, and super-admin controls.",
       },
       settings: {
-        title: "Platform Infrastructure",
-        subtitle: "Monitor realtime events, storage, API health, webhooks, sync, provider status, and environment health.",
+        title: "Settings",
+        subtitle: "Realtime, storage, API health, sync, providers, and environment posture.",
       },
-      notifications: {
-        title: "Customer Support",
-        subtitle: "Handle open inbox events, service pressure, and customer-facing escalations.",
-      },
-      founder: {
-        title: "Executive Review",
-        subtitle: "Review escalations that require direct human authority and intervention.",
-      },
-      audit: {
-        title: "Knowledge & Audit",
-        subtitle: "Review audit logs, trace activity, AI memory, governance logs, system events, and compliance history.",
-      },
-      traces: {
-        title: "Knowledge and Trace",
-        subtitle: "Inspect reasoning logs, operational evidence, and system activity trails.",
+      intelligence: {
+        title: state.selectedLead ? `Oyi Intelligence · ${leadTitle(state.selectedLead)}` : "Oyi Intelligence",
+        subtitle: state.selectedLead
+          ? leadMetaLine(state.selectedLead)
+          : "Ask about facilities, consumers, deployments, CRM, edge, documents, or executive operations.",
       },
     };
     const activeCopy = workspaceCopy[state.workspaceTab] || workspaceCopy.overview;
     el.threadTitle.textContent = activeCopy.title;
     el.threadSubtitle.textContent = activeCopy.subtitle;
-    if (state.workspaceTab === "conversation") {
+    if (state.workspaceTab === "intelligence") {
       renderConversation();
     }
     renderFounderInbox();
@@ -7841,7 +8031,7 @@
     if (openNode) {
       const leadId = openNode.getAttribute("data-notification-open");
       if (leadId) {
-        state.workspaceTab = "conversation";
+        state.workspaceTab = "intelligence";
         renderWorkspaceTabs();
         selectLead(leadId);
       }
@@ -7860,7 +8050,7 @@
   el.founderInbox.addEventListener("click", function (event) {
     const openNode = event.target.closest("[data-founder-open]");
     if (openNode) {
-      state.workspaceTab = "conversation";
+      state.workspaceTab = "intelligence";
       renderWorkspaceTabs();
       selectLead(openNode.getAttribute("data-founder-open"));
       return;
