@@ -13,12 +13,16 @@ class MemoryRateLimiter {
   }
 
   check(req) {
-    const key = this.keyFromRequest(req);
+    return this.checkKey(this.keyFromRequest(req));
+  }
+
+  checkKey(key) {
+    const safeKey = String(key || "unknown");
     const now = Date.now();
-    const current = this.buckets.get(key);
+    const current = this.buckets.get(safeKey);
 
     if (!current || current.resetAt <= now) {
-      this.buckets.set(key, {
+      this.buckets.set(safeKey, {
         count: 1,
         resetAt: now + this.windowMs,
       });
@@ -43,6 +47,10 @@ class MemoryRateLimiter {
       remaining: this.maxRequests - current.count,
       resetAt: current.resetAt,
     };
+  }
+
+  resetKey(key) {
+    this.buckets.delete(String(key || "unknown"));
   }
 }
 

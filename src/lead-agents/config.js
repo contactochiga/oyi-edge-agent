@@ -77,6 +77,14 @@ function createConfig() {
       process.env.LEAD_AGENTS_RATE_LIMIT_MAX_REQUESTS,
       60
     ),
+    loginRateLimitWindowMs: numberFromEnv(
+      process.env.LEAD_AGENTS_LOGIN_RATE_LIMIT_WINDOW_MS,
+      15 * 60 * 1000
+    ),
+    loginRateLimitMaxAttempts: numberFromEnv(
+      process.env.LEAD_AGENTS_LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+      10
+    ),
     publicWidgetRateLimitWindowMs: numberFromEnv(
       process.env.PUBLIC_WIDGET_RATE_LIMIT_WINDOW_MS,
       numberFromEnv(process.env.LEAD_AGENTS_RATE_LIMIT_WINDOW_MS, 60_000)

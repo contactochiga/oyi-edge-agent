@@ -2398,7 +2398,7 @@
           source: "proposals",
 	      };
 	    }));
-	    const activeFacet = state.moduleFacet.web_presence || "dashboard";
+	    const activeFacet = state.moduleFacet.documents || "dashboard";
 	    const facetDocs = docs.filter(function (doc) {
 	      const type = String(doc.type || "").toLowerCase();
 	      if (activeFacet === "proposals") return type.includes("proposal");
@@ -2417,33 +2417,54 @@
 	          return [doc.title, doc.type, doc.owner, doc.status].join(" ").toLowerCase().includes(documentQuery);
 	        })
 	      : facetDocs;
+	    const typeCount = function (pattern) {
+	      return docs.filter(function (doc) { return pattern.test(String(doc.type || "") + " " + String(doc.title || "")); }).length;
+	    };
+	    const uploadedFiles = docs.filter(function (doc) { return doc.source === "office_documents" || documentUrl(doc); }).length;
+	    const timelineRows = audit.slice(0, 4).map(function (event) {
+	      return {
+	        title: displayValue(event.action, "Document activity"),
+	        meta: `${displayValue(event.actor_email, "system")} · ${formatDate(event.created_at || event.ts)}`,
+	        status: displayValue(event.status, "recorded"),
+	      };
+	    }).concat(proposals.slice(0, 3).map(function (proposal) {
+	      return {
+	        title: displayValue(proposal.title || proposal.company, "Proposal activity"),
+	        meta: `${displayValue(proposal.owner, "Commercial")} · ${formatDate(proposal.updated_at || proposal.created_at)}`,
+	        status: displayValue(proposal.status, "draft"),
+	      };
+	    })).slice(0, 6);
 	    el.webPresencePanel.innerHTML = `
 	      <div class="command-page">
 	        <div class="command-head">
 	          <div>
 	            <p class="eyebrow">Documents</p>
-	            <h3>Control proposals, invoices, contracts, PDFs, and shared office records.</h3>
-	            <p class="subtext" style="margin:8px 0 0;">A production-ready document surface for generated files, signed agreements, operational reports, plans, and shared data. ${activeFacet === "dashboard" ? "" : `Current section: ${escapeHtml(activeFacet.replace(/_/g, " "))}.`}</p>
+	            <h3>Supervise proposals, contracts, invoices, plans, drawings, generated PDFs, and uploaded files.</h3>
+	            <p class="subtext" style="margin:8px 0 0;">Office visualizes the document registry and handoff state. Source records remain in existing Office data and backend-owned services.</p>
 	          </div>
 	          <div class="toolbar">
 	            <button class="primary" data-command-action="document_actions" type="button">+ Create / Upload</button>
 	          </div>
 	        </div>
-	        <div class="command-kpis">
-	          ${[
-	            ["Proposals", proposals.length],
-	            ["Invoices", state.officeStats?.invoices || 0],
-	            ["Contracts", state.officeStats?.contracts || 0],
-	            ["Shared Files", docs.length],
-	            ["Pipeline Value", formatCompactMoney(state.report?.pipeline_value || 0)],
-	            ["Audit Events", audit.length],
-	          ].map(function (item) {
-	            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Office document sync</div></div>`;
-	          }).join("")}
-	        </div>
+	        ${operationalStrip([
+	          { label: "Proposals", value: proposals.length, meta: "Commercial packs" },
+	          { label: "Contracts", value: typeCount(/contract/i) || state.officeStats?.contracts || 0, meta: "Agreement records" },
+	          { label: "Invoices", value: typeCount(/invoice/i) || state.officeStats?.invoices || 0, meta: "Billing records" },
+	          { label: "Estate Plans", value: typeCount(/plan/i), meta: "Plan handoff" },
+	          { label: "Drawings", value: typeCount(/drawing|blueprint/i), meta: "Technical files" },
+	          { label: "Generated PDFs", value: typeCount(/pdf/i), meta: "Generated outputs" },
+	          { label: "Uploads", value: uploadedFiles, meta: "Registered files" },
+	          { label: "Plan Studio", value: state.planStudio?.projects?.length || "Ready", meta: "Handoff surface" },
+	        ])}
 	        <div class="command-layout">
 	          <section class="command-card">
-	            <div class="command-card-head"><h4>Document Registry</h4><input class="command-search-input" data-document-search type="search" placeholder="Search documents, owners, status..." value="${escapeHtml(state.documentQuery)}" /></div>
+	            <div class="command-card-head">
+	              <h4>Document Registry</h4>
+	              <div class="toolbar">
+	                <input class="command-search-input" data-document-search type="search" placeholder="Search documents, owners, status..." value="${escapeHtml(state.documentQuery)}" />
+	                <button class="ghost compact" data-office-target="intelligence" type="button">Ask Oyi</button>
+	              </div>
+	            </div>
 	            <table class="command-table">
 	              <thead><tr><th>Document</th><th>Type</th><th>Owner</th><th>Status</th><th>Value</th><th>Updated</th><th>Action</th></tr></thead>
 	              <tbody>${visibleDocs.length ? visibleDocs.slice(0, 12).map(function (doc) {
@@ -2453,7 +2474,7 @@
 	          </section>
 	          <aside class="command-side">
               <article class="command-card">
-                <div class="command-card-head"><h4>Selected Document</h4><span class="office-system-badge">Registry</span></div>
+                <div class="command-card-head"><h4>Document Detail</h4><span class="office-system-badge">Drawer-ready</span></div>
                 <div class="mission-list">
                   ${visibleDocs[0] ? [
                     ["Latest", visibleDocs[0].title],
@@ -2466,30 +2487,30 @@
                 </div>
               </article>
 	            <article class="command-card">
-	              <div class="command-card-head"><h4>Document Studio</h4></div>
+	              <div class="command-card-head"><h4>Plan Studio Handoff</h4><button class="ghost compact" data-office-target="documents" data-office-focus="estate_plans" type="button">Plans</button></div>
 	              <div class="document-template-grid">
 	                <div class="document-template-card"><strong>Invoice</strong><div class="subtext">Letterhead billing template</div></div>
 	                <div class="document-template-card"><strong>Contract</strong><div class="subtext">Estate/service agreement</div></div>
 	                <div class="document-template-card"><strong>Proposal</strong><div class="subtext">Magazine-style sales pack</div></div>
 	                <div class="document-template-card"><strong>Letter</strong><div class="subtext">Formal Office correspondence</div></div>
 	              </div>
-	              <div class="subtext" style="margin-top:10px;">Agent-assisted generation, document analysis, email send/receive, and templates are staged here as the Office document engine.</div>
+	              <div class="subtext" style="margin-top:10px;">Plan Studio handoff stays here as a document workflow surface. Runtime intelligence remains backend-owned.</div>
 	            </article>
 	            <article class="command-card">
-	              <div class="command-card-head"><h4>Document Workflow</h4></div>
+	              <div class="command-card-head"><h4>Document Timeline</h4></div>
 	              <div class="mission-list">
-	                ${["Draft", "Review", "Sent", "Signed", "Archived"].map(function (stage, index) {
-	                  return `<div class="device-category"><span>${escapeHtml(stage)}</span><strong>${escapeHtml(String(index === 0 ? proposals.length : 0))}</strong></div>`;
-	                }).join("")}
+	                ${timelineRows.length ? timelineRows.map(function (row) {
+	                  return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(row.title)}</strong><small class="subtext">${escapeHtml(row.meta)}</small></span><strong>${escapeHtml(row.status)}</strong></div>`;
+	                }).join("") : '<div class="office-detail-empty">Document timeline will appear as proposals, files, and audit activity sync.</div>'}
 	              </div>
 	            </article>
 	            <article class="command-card">
-	              <div class="command-card-head"><h4>Quick Actions</h4></div>
+	              <div class="command-card-head"><h4>Conversation-ready Actions</h4></div>
 	              <div class="shortcut-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
 	                <button class="shortcut-btn" data-command-action="create_invoice" type="button"><span>${officeIcon("wallet")}</span>Invoice</button>
 	                <button class="shortcut-btn" data-command-action="create_contract" type="button"><span>${officeIcon("estate")}</span>Contract</button>
 	                <button class="shortcut-btn" data-command-action="document_actions" type="button"><span>${officeIcon("trend")}</span>Proposal</button>
-	                <button class="shortcut-btn" data-command-action="document_actions" type="button"><span>${officeIcon("website")}</span>Email</button>
+	                <button class="shortcut-btn" data-office-target="intelligence" type="button"><span>${officeIcon("messenger")}</span>Ask Oyi</button>
 	              </div>
 	            </article>
 	          </aside>
@@ -3441,6 +3462,24 @@
     const activeAlerts = offlineDevices + normalizedDevices.filter(function (device) {
       return Number(device.battery_level || device.battery || 100) < 30;
     }).length;
+	    const edgeAgentSignals = state.traces.filter(function (trace) {
+	      return /edge|agent|camera|stream|outbox|device/i.test(`${trace.agent || ""} ${trace.type || ""} ${trace.tool_name || ""} ${trace.summary || ""}`);
+	    });
+	    const discoverySignals = state.notifications.filter(function (note) {
+	      return /discover|device|edge|camera|stream/i.test(`${note.type || ""} ${note.title || ""} ${note.summary || ""}`);
+	    }).length;
+	    const cameraDevices = normalizedDevices.filter(function (device) {
+	      return /camera|cctv|stream|onvif/i.test(`${device.category || ""} ${device.type || ""} ${device.name || ""}`);
+	    });
+	    const streamHealthy = cameraDevices.filter(function (device) {
+	      return !/offline|fault|down/i.test(String(device.status || ""));
+	    }).length;
+	    const localOutbox = state.traces.filter(function (trace) {
+	      return /queued|pending|outbox|retry/i.test(`${trace.status || ""} ${trace.type || ""} ${trace.summary || ""}`);
+	    }).length;
+	    const deploymentLinks = state.allDemos.filter(function (demo) {
+	      return /edge|device|camera|stream|site|deploy/i.test(`${demo.title || ""} ${demo.notes || ""} ${demo.review_type || ""}`);
+	    }).length;
 	    const batteryDevices = normalizedDevices.filter(function (device) {
 	      const battery = device.battery_level ?? device.battery;
 	      return battery !== undefined && battery !== null && battery !== "";
@@ -3515,36 +3554,35 @@
       <div class="command-page">
         <div class="command-head">
           <div>
-            <p class="eyebrow">Devices</p>
-            <h3>Monitor and manage all hardware devices across your estate.</h3>
-            <p class="subtext" style="margin:8px 0 0;">Live hardware inventory, health, fault, category, and location supervision.</p>
+            <p class="eyebrow">Edge</p>
+            <h3>Supervise edge agents, device registry, discovery, telemetry, camera streams, and site readiness.</h3>
+            <p class="subtext" style="margin:8px 0 0;">Office visualizes Edge runtime posture. Protocol execution, camera streaming, and local outbox ownership remain with the Edge runtime.</p>
           </div>
           <div class="toolbar">
-            <button class="primary" data-command-action="add_device" type="button">+ Add Device</button>
-            <button class="ghost" data-command-action="import_devices" type="button">Import Devices</button>
+            <button class="ghost" data-office-target="settings" type="button">Provider Health</button>
+            <button class="ghost" data-office-target="deployments" type="button">Deployments</button>
           </div>
         </div>
-        <div class="command-kpis">
-          ${[
-            ["Total Devices", totalDevices],
-            ["Online Devices", onlineDevices],
-            ["Offline Devices", offlineDevices],
-            ["Active Alerts", activeAlerts],
-	            ["Avg. Battery Level", avgBattery === null ? "Pending" : `${avgBattery}%`],
-          ].map(function (item) {
-            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Synced from Office data</div></div>`;
-          }).join("")}
-        </div>
+        ${operationalStrip([
+          { label: "Edge Agents", value: edgeAgentSignals.length || (state.officeEventSource ? "Live" : "Pending"), meta: "Runtime signals" },
+          { label: "Device Registry", value: totalDevices, meta: `${onlineDevices} online` },
+          { label: "Discovery", value: discoverySignals, meta: "New signals" },
+          { label: "Telemetry", value: state.traces.length || "Pending", meta: "Trace feed" },
+          { label: "Camera Streams", value: `${streamHealthy}/${cameraDevices.length}`, meta: "Stream health" },
+          { label: "Local Outbox", value: localOutbox, meta: "Queued edge events" },
+          { label: "Site Readiness", value: activeAlerts ? "Review" : "Stable", meta: `${activeAlerts} attention` },
+          { label: "Deployment Link", value: deploymentLinks, meta: "Rollout relation" },
+        ])}
         ${activeFacet !== "dashboard" ? `<article class="command-card module-section-banner">
           <div class="command-card-head">
             <h4>${escapeHtml(activeFacet.replace(/_/g, " "))}</h4>
             <span class="office-system-badge">${totalDevices ? "Live Data" : "Pending Integration"}</span>
           </div>
-          <div class="subtext">This Hardware Devices section is scoped to the current Office hardware registry. Available records remain permission-aware and estate-linked.</div>
+          <div class="subtext">This Edge section supervises the current Office device registry, telemetry, and runtime posture. Device protocol ownership remains with the Edge runtime.</div>
         </article>` : ""}
         <div class="device-layout">
           <aside class="command-card">
-            <div class="command-card-head"><h4>Device Categories</h4></div>
+            <div class="command-card-head"><h4>Edge Domains</h4></div>
             <div class="mission-list">
 	              ${Object.entries(categories).map(function (entry) {
 	                return `<div class="device-category"><span class="device-category-main"><span class="device-category-icon">${deviceCategoryIcon(entry[0])}</span>${escapeHtml(entry[0])}</span><strong>${escapeHtml(String(entry[1]))}</strong></div>`;
@@ -3553,8 +3591,11 @@
           </aside>
           <section class="command-card">
             <div class="command-card-head">
-              <h4>All Devices (${escapeHtml(String(totalDevices))})</h4>
-              <input class="search-input" type="search" placeholder="Search devices..." style="max-width:220px;padding:9px 11px;border-radius:10px;" />
+              <h4>Device Registry (${escapeHtml(String(totalDevices))})</h4>
+              <div class="toolbar">
+                <input class="search-input" type="search" placeholder="Search devices..." style="max-width:220px;padding:9px 11px;border-radius:10px;" />
+                <button class="ghost compact" data-office-target="intelligence" type="button">Ask Oyi</button>
+              </div>
             </div>
             <table class="command-table">
               <thead><tr><th>Device</th><th>Category</th><th>Location</th><th>Status</th><th>Battery</th><th>Last Seen</th><th>Actions</th></tr></thead>
@@ -3563,7 +3604,7 @@
           </section>
           <aside class="command-side">
             <article class="command-card">
-              <div class="command-card-head"><h4>System Health</h4></div>
+              <div class="command-card-head"><h4>Runtime Health</h4></div>
               <div class="health-score"><strong>${escapeHtml(String(healthPct))}%</strong><span class="subtext">Device health</span></div>
               <div class="mission-list">
                 <div class="device-category"><span>Online</span><strong>${escapeHtml(String(onlineDevices))}</strong></div>
@@ -3572,18 +3613,20 @@
               </div>
             </article>
             <article class="command-card">
-              <div class="command-card-head"><h4>Camera Edge Preview</h4></div>
-              <div class="device-camera-preview">Camera edge stream ready</div>
-              <div class="subtext" style="margin-top:10px;">Live camera tiles will mount here when the Edge camera stream adapter is enabled.</div>
+              <div class="command-card-head"><h4>Camera / Stream Health</h4><span class="office-system-badge">${cameraDevices.length ? "Observed" : "Pending"}</span></div>
+              <div class="device-camera-preview">${escapeHtml(cameraDevices.length ? `${streamHealthy}/${cameraDevices.length} streams healthy` : "No camera stream records")}</div>
+              <div class="subtext" style="margin-top:10px;">Office shows stream posture only. Stream protocol and relay control remain in the Edge runtime.</div>
             </article>
             <article class="command-card">
-              <div class="command-card-head"><h4>Device History</h4></div>
+              <div class="command-card-head"><h4>Telemetry / Outbox</h4></div>
               <div class="mission-list">
-                ${normalizedDevices.filter(function (device) {
+                ${edgeAgentSignals.slice(0, 5).map(function (trace) {
+	                  return `<div class="command-list-row device-alert-row"><strong>${escapeHtml(displayValue(trace.agent || trace.type, "Edge event"))}</strong><div class="subtext">${escapeHtml(displayValue(trace.status || trace.tool_name || trace.summary, "telemetry"))} · ${escapeHtml(displayValue(formatDate(trace.created_at || trace.ts), "time pending"))}</div></div>`;
+                }).join("") || normalizedDevices.filter(function (device) {
                   return String(device.status || "").toLowerCase() !== "online" || Number((device.battery_level ?? device.battery) || 100) < 30 || device.last_seen_at;
                 }).slice(0, 5).map(function (device) {
-	                  return `<div class="command-list-row device-alert-row"><strong>${escapeHtml(device.name || "Device alert")}</strong><div class="subtext">${escapeHtml(device.status || "attention required")} · ${escapeHtml(displayValue(formatDate(device.last_seen_at || device.updated_at), "history pending"))}</div></div>`;
-                }).join("") || '<div class="subtext">No device history has synced yet.</div>'}
+                  return `<div class="command-list-row device-alert-row"><strong>${escapeHtml(device.name || "Device alert")}</strong><div class="subtext">${escapeHtml(device.status || "attention required")} · ${escapeHtml(displayValue(formatDate(device.last_seen_at || device.updated_at), "history pending"))}</div></div>`;
+                }).join("") || '<div class="subtext">No edge telemetry has synced yet.</div>'}
               </div>
             </article>
           </aside>

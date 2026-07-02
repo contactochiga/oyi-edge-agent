@@ -94,6 +94,14 @@ function tryEdgeAuth(req, config) {
   };
 }
 
+function loginAttemptKey(req, email) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "")
+    .split(",")[0]
+    .trim();
+  const ip = forwarded || req.socket.remoteAddress || "unknown";
+  return `${normalizeEmail(email) || "unknown"}:${ip}`;
+}
+
 function requireObject(body, name) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     const error = new Error(`${name} must be an object`);
@@ -1552,9 +1560,15 @@ async function enrichAuthContext(authContext, store) {
   };
 }
 
-function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, whatsappAdapter, openaiClient }) {
+function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, loginRateLimiter, whatsappAdapter, openaiClient }) {
   const startedAt = Date.now();
   const widgetRateLimiter = publicRateLimiter || rateLimiter;
+  const adminLoginRateLimiter =
+    loginRateLimiter ||
+    new MemoryRateLimiter({
+      windowMs: config.loginRateLimitWindowMs || 15 * 60 * 1000,
+      maxRequests: config.loginRateLimitMaxAttempts || 10,
+    });
   const eventBus = createRealtimeHub();
   const storageService = createStorageService(config);
   const digitalTwinRuntime = createDigitalTwinRuntime();
@@ -1767,6 +1781,28 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
           return;
         }
         const body = await readJsonBody(req);
+        const attemptKey = loginAttemptKey(req, body.email);
+        try {
+          const loginLimit = adminLoginRateLimiter.checkKey(attemptKey);
+          res.setHeader("x-login-ratelimit-remaining", String(loginLimit.remaining));
+          res.setHeader("x-login-ratelimit-reset", new Date(loginLimit.resetAt).toISOString());
+        } catch (error) {
+          json(
+            res,
+            429,
+            {
+              error: "login_rate_limit_exceeded",
+              message: "Too many sign-in attempts. Please wait a few minutes and try again.",
+            },
+            {
+              "x-request-id": ctx.requestId,
+              "x-login-ratelimit-reset": error.rateLimit?.resetAt
+                ? new Date(error.rateLimit.resetAt).toISOString()
+                : "",
+            }
+          );
+          return;
+        }
         const adminUser = await store.getAdminUserByEmail(body.email);
         const fallbackAllowed =
           !adminUser &&
@@ -1774,11 +1810,11 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
           config.apiKeys.includes(String(body.password || ""));
 
         if (adminUser && adminUser.status !== "active") {
-          json(res, 403, { error: "account_inactive" });
+          json(res, 403, { error: "account_inactive", message: "This Office account is inactive." });
           return;
         }
         if ((!adminUser || !verifyPassword(body.password, adminUser.password_hash)) && !fallbackAllowed) {
-          json(res, 401, { error: "unauthorized" });
+          json(res, 401, { error: "unauthorized", message: "Email or password is incorrect." });
           return;
         }
 
@@ -1795,6 +1831,7 @@ function buildServer({ config, store, runtime, rateLimiter, publicRateLimiter, w
         await store.updateAdminUser(sessionUser.id, {
           last_login_at: new Date().toISOString(),
         });
+        adminLoginRateLimiter.resetKey(attemptKey);
         await appendAudit(
           store,
           {
@@ -4079,6 +4116,10 @@ async function start() {
     windowMs: config.publicWidgetRateLimitWindowMs,
     maxRequests: config.publicWidgetRateLimitMaxRequests,
   });
+  const loginRateLimiter = new MemoryRateLimiter({
+    windowMs: config.loginRateLimitWindowMs,
+    maxRequests: config.loginRateLimitMaxAttempts,
+  });
 
   const server = buildServer({
     config,
@@ -4086,6 +4127,7 @@ async function start() {
     runtime,
     rateLimiter,
     publicRateLimiter,
+    loginRateLimiter,
     whatsappAdapter,
     openaiClient,
   });
