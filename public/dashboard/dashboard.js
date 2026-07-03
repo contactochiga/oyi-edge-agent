@@ -427,6 +427,12 @@
     officeFooterComposerWave: document.getElementById("officeFooterComposerWave"),
     officeFooterComposerTimer: document.getElementById("officeFooterComposerTimer"),
     officeMobileFooterTrack: document.querySelector(".office-mobile-footer-track"),
+    messagesInboundMetric: document.getElementById("messagesInboundMetric"),
+    messagesOpenMetric: document.getElementById("messagesOpenMetric"),
+    messagesEscalatedMetric: document.getElementById("messagesEscalatedMetric"),
+    founderEscalatedMetric: document.getElementById("founderEscalatedMetric"),
+    founderUrgentMetric: document.getElementById("founderUrgentMetric"),
+    founderOpenMetric: document.getElementById("founderOpenMetric"),
     overviewFocusPanel: document.getElementById("overviewFocusPanel"),
     settingsIntegrationHub: document.getElementById("settingsIntegrationHub"),
     infrastructureIntelligencePanel: document.getElementById("infrastructureIntelligencePanel"),
@@ -2157,7 +2163,7 @@
     return `
       <div class="ois-action-row">
         ${rows.map(function (item) {
-          if (item.kind === "button") {
+          if (item.kind === "button" || item.action || item.target || item.focus || item.className) {
             return `<button class="${escapeHtml(item.className || "ghost compact")}" ${item.action ? `data-command-action="${escapeHtml(item.action)}"` : ""} ${item.target ? `data-office-target="${escapeHtml(item.target)}"` : ""} ${item.focus ? `data-office-focus="${escapeHtml(item.focus)}"` : ""} type="button">${escapeHtml(item.label || "Action")}</button>`;
           }
           return `<span class="office-batch">${escapeHtml(item.label || "")} <strong>${escapeHtml(item.value || "")}</strong></span>`;
@@ -4133,7 +4139,6 @@
     const missing = rows.reduce(function (sum, row) {
       return sum + (Array.isArray(row.missing) ? row.missing.length : row.configured ? 0 : 1);
     }, 0);
-    const activeFacet = state.moduleFacet.settings || "dashboard";
     const integrationStatusText = function (row) {
       const status = String(row.status || "");
       if (row.production_ready || status === "production_ready" || status === "connected") return "Production Ready";
@@ -4154,16 +4159,21 @@
 
     el.platformInfrastructurePanel.innerHTML = `
       <div class="command-page ois-module-page">
-        ${oisPageHeader("Settings", "Monitor providers, sync and environment posture.")}
+        ${oisPageHeader("Settings", "Configure integrations, storage, realtime, and provider health.")}
         ${operationalStrip([
-          { label: "Realtime", value: state.channelOverview?.channels?.length || 0, meta: "Office events" },
           { label: "Storage", value: state.officeStats?.office_files || state.officeStats?.documents || 0, meta: "Metadata" },
-          { label: "Checks", value: `${productionReady}/${rows.length}`, meta: `${readiness?.readiness_pct || 0}% ready` },
+          { label: "Providers", value: connected, meta: `${rows.length} tracked` },
           { label: "Webhooks", value: integrations.webhooks?.production_ready ? "Ready" : "Pending", meta: "Inbound security" },
+          { label: "Checks", value: `${productionReady}/${rows.length}`, meta: `${readiness?.readiness_pct || 0}% ready` },
+        ])}
+        ${oisActionRow([
+          { label: "Sync", action: "refresh", className: "ghost compact" },
+          { label: "Import", target: "documents", className: "ghost compact" },
+          { label: "Check health", target: "reports", className: "ghost compact" },
         ])}
         ${oisModuleLayout(
           oisRegistryCard(
-            activeFacet === "dashboard" ? "Provider Status" : activeFacet.replace(/_/g, " "),
+            "Provider Registry",
             `<div class="mission-list">
               ${readinessGroups.map(function (group) {
                 return `<div class="platform-readiness-group"><div class="subtext" style="margin:8px 0 6px;text-transform:uppercase;letter-spacing:.08em;">${escapeHtml(group.title)}</div>${group.rows.map(function (row) {
@@ -4971,26 +4981,49 @@
 
   function renderDigitalTwinWorkspace(domain) {
     if (!el.digitalTwinPanel || !domain) return;
+    const collections = officeCollections();
+    const scenes = asList(collections.scenes || collections.digital_twin_scenes || []);
+    const overlays = asList(collections.overlays || collections.twin_overlays || []);
+    const devices = asList(collections.devices);
+    const twinRows = [
+      {
+        title: scenes[0]?.name || scenes[0]?.title || "Primary scene",
+        description: "Spatial scene and estate topology",
+        meta: `${scenes.length || 0} scenes · ${overlays.length || 0} overlays`,
+        status: scenes.length ? "Synced" : "Pending",
+        icon: "building",
+      },
+      {
+        title: "Connected devices",
+        description: "Device graph available to the twin layer",
+        meta: `${devices.length} mirrored devices`,
+        status: devices.length ? "Available" : "Pending",
+        icon: "camera",
+      },
+      {
+        title: "Runtime overlays",
+        description: "Awareness and execution overlays",
+        meta: `${state.audit.length || 0} audit records · ${state.traces.length || 0} traces`,
+        status: "Consume",
+        icon: "trend",
+      },
+    ];
     el.digitalTwinPanel.innerHTML = `
       <div class="command-page ois-module-page">
-        ${oisPageHeader("Digital Twin", "Review twin readiness across facilities and edge state.")}
+        ${oisPageHeader("Digital Twin", "Monitor spatial scenes, devices, and runtime overlays.")}
         ${operationalStrip([
-          { label: "Facility state", value: "Available", meta: "Registry linked" },
-          { label: "Consumer context", value: "Available", meta: "Population linked" },
-          { label: "Edge graph", value: "Partial", meta: "Runtime mirror" },
+          { label: "Scenes", value: scenes.length || 0, meta: "Spatial" },
+          { label: "Devices", value: devices.length || 0, meta: "Mirrored" },
+          { label: "Overlays", value: overlays.length || state.audit.length || 0, meta: "Runtime" },
           { label: "Intelligence", value: "Consume", meta: "Backend-owned" },
         ])}
-        ${oisActionRow([{ label: "Open Reports", target: "reports", className: "ghost compact" }])}
+        ${oisActionRow([
+          { label: "Open Viewer", target: "facilities", className: "ghost compact" },
+          { label: "Sync Edge", target: "edge", className: "ghost compact" },
+          { label: "Review Scene", target: "reports", className: "ghost compact" },
+        ])}
         ${oisModuleLayout(
-          oisRegistryCard(
-            "Twin Readiness",
-            `<div class="mission-list">
-              <div class="device-category"><span>Facility state</span><strong>Available</strong></div>
-              <div class="device-category"><span>Consumer context</span><strong>Available</strong></div>
-              <div class="device-category"><span>Edge device graph</span><strong>Partial</strong></div>
-              <div class="device-category"><span>Backend intelligence feed</span><strong>Consume only</strong></div>
-            </div>`
-          )
+          oisRegistryCard("Twin Registry", `<div class="ois-registry-list">${oisRegistryRows(twinRows, "Digital twin records will appear when edge and facility scenes sync into Office.")}</div>`)
         )}
       </div>
     `;
@@ -6110,9 +6143,14 @@
 
     const totals = state.report.totals || {};
     const reportRows = [
-      { title: "Executive summary", description: "Office-wide record posture", meta: `${totals.leads || 0} total records · ${totals.demos || 0} reviews`, status: `${totals.sales_handoff_conversion_pct || 0}%`, icon: "trend" },
-      { title: "Escalation pressure", description: "Founder and operational review", meta: `${totals.escalations || 0} escalations · ${totals.hot_leads || 0} priority records`, status: "Review", icon: "alert" },
-      { title: "Average score", description: "Commercial health", meta: `${totals.average_score || 0} average score`, status: "Live", icon: "lead" },
+      { title: "Executive summary", description: "Office-wide record posture", meta: `${totals.leads || 0} tracked · ${totals.demos || 0} reviews`, status: `${totals.sales_handoff_conversion_pct || 0}%`, icon: "trend" },
+      { title: "Operational reports", description: "Commercial, deployment and runtime reporting", meta: `${totals.escalations || 0} escalations · ${totals.hot_leads || 0} priority records`, status: "Live", icon: "alert" },
+      { title: "Diagnostics", description: "Audit, traces and evidence review", meta: `${state.audit.length || 0} audit records · ${state.traces.length || 0} traces`, status: "Ready", icon: "settings" },
+    ];
+    const reportSupportRows = [
+      { title: "Commercial reports", description: "Pipeline and proposal posture", meta: `${state.allProposals.length} proposals`, status: formatCompactMoney(state.report?.pipeline_value || 0), icon: "wallet" },
+      { title: "Deployment reports", description: "Workspace readiness and blockers", meta: `${state.allDemos.length} reviews booked`, status: `${totals.demos || 0} live`, icon: "building" },
+      { title: "Executive exports", description: "Snapshots and reporting packs", meta: `${(state.report.upcoming_demos || []).length} upcoming reviews`, status: "Export ready", icon: "support" },
     ];
     el.reportsPanel.innerHTML = `
       <div class="command-page ois-module-page">
@@ -6125,7 +6163,15 @@
           { label: "Priority", value: totals.hot_leads || 0, meta: "Needs action" },
           { label: "Score", value: totals.average_score || 0, meta: "Average" },
         ])}
-        ${oisRegistryCard("Executive Reports", `<div class="ois-registry-list">${oisRegistryRows(reportRows, "No report summary is available yet.")}</div>`)}
+        ${oisActionRow([
+          { label: "View activity", target: "notifications", className: "ghost compact" },
+          { label: "Open traces", target: "audit", className: "ghost compact" },
+          { label: "Review deployments", target: "deployments", className: "ghost compact" },
+        ])}
+        ${oisModuleLayout(
+          oisRegistryCard("Report Registry", `<div class="ois-registry-list">${oisRegistryRows(reportRows, "No report summary is available yet.")}</div>`),
+          oisRegistryCard("Report Actions", `<div class="ois-registry-list">${oisRegistryRows(reportSupportRows, "Reporting actions will appear as Office data syncs.")}</div>`)
+        )}
       </div>
     `;
     el.sourcesPanel.innerHTML = keyValueLines(
@@ -6299,6 +6345,15 @@
     const items = state.notifications.filter(function (notification) {
       return notification.type === "founder_escalation";
     });
+    const urgentItems = items.filter(function (notification) {
+      return /urgent|critical/i.test(String(notification.urgency || notification.priority || ""));
+    });
+    const openItems = items.filter(function (notification) {
+      return String(notification.status || "open").toLowerCase() === "open";
+    });
+    if (el.founderEscalatedMetric) el.founderEscalatedMetric.textContent = String(items.length);
+    if (el.founderUrgentMetric) el.founderUrgentMetric.textContent = String(urgentItems.length);
+    if (el.founderOpenMetric) el.founderOpenMetric.textContent = String(openItems.length);
 
     if (!items.length) {
       el.founderInbox.innerHTML = '<div class="office-detail-empty">No founder escalations right now.</div>';
@@ -6797,6 +6852,15 @@
     );
 
     const items = state.notifications.filter(notificationMatchesFilter);
+    const escalatedCount = state.notifications.filter(function (notification) {
+      return notification.type === "founder_escalation";
+    }).length;
+    const openCount = state.notifications.filter(function (notification) {
+      return String(notification.status || "open").toLowerCase() === "open";
+    }).length;
+    if (el.messagesInboundMetric) el.messagesInboundMetric.textContent = String(items.length);
+    if (el.messagesOpenMetric) el.messagesOpenMetric.textContent = String(openCount);
+    if (el.messagesEscalatedMetric) el.messagesEscalatedMetric.textContent = String(escalatedCount);
     if (!items.length) {
       el.notificationsPanel.innerHTML =
         '<div class="office-detail-empty">No notifications match this view right now.</div>';
@@ -7024,32 +7088,26 @@
     }).length;
 
     if (el.adminMetricsPanel) {
-      el.adminMetricsPanel.innerHTML = [
-        ["Staff Accounts", state.adminUsers.length, `${activeUsers} active operators`],
-        ["Admin Roles", adminUsers, "Admin/founder authority"],
-        ["Pending Setup", pendingLogins, "No login recorded"],
-        ["Security", hasPermission("manage_security") ? "Ready" : "Restricted", "Invite/reset controls"],
-      ].map(function (item) {
-        return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
-      }).join("");
+      el.adminMetricsPanel.innerHTML = operationalStrip([
+        { label: "Staff", value: state.adminUsers.length, meta: `${activeUsers} active` },
+        { label: "Roles", value: Object.keys(roleCounts).length, meta: "Available" },
+        { label: "Pending", value: pendingLogins, meta: "No login yet" },
+        { label: "Security", value: hasPermission("manage_security") ? "Ready" : "Restricted", meta: "Access posture" },
+      ]);
     }
 
-    const activeAdminSection = state.adminSection || "dashboard";
+    const activeAdminSection = state.adminSection || "staff";
     Array.from(document.querySelectorAll("[data-admin-section]")).forEach(function (node) {
       node.classList.toggle("active", node.getAttribute("data-admin-section") === activeAdminSection);
     });
-    if (activeAdminSection === "dashboard") {
-      renderAdministrationDashboard(roleCounts, activeUsers, adminUsers, pendingLogins);
-      return;
-    }
-    if (!["staff"].includes(activeAdminSection)) {
+    if (!["staff", "dashboard"].includes(activeAdminSection)) {
       renderAdminModuleSection(activeAdminSection);
       return;
     }
 
-    if (el.adminMainTitle) el.adminMainTitle.textContent = "Office staff registry";
+    if (el.adminMainTitle) el.adminMainTitle.textContent = "Staff Registry";
     if (el.adminMainSubtitle) {
-      el.adminMainSubtitle.textContent = "Name, email, phone, QR credential, access state, permissions, and last login";
+      el.adminMainSubtitle.textContent = "Manage staff, roles, permissions, and account readiness.";
     }
 
     if (!state.adminUsers.length) {
@@ -7058,32 +7116,26 @@
         el.staffActivityPanel.innerHTML = '<div class="office-detail-empty">Staff activity appears when accounts sync.</div>';
       }
     } else {
-      el.teamPanel.innerHTML = state.adminUsers
+      const staffSummaryRows = state.adminUsers.map(function (user) {
+        const role = user.role || "viewer";
+        const status = user.status || "active";
+        const displayName = user.display_name || user.name || user.email || "Office staff";
+        return {
+          title: displayName,
+          description: displayValue(user.email || user.phone || user.mobile, "Contact pending"),
+          meta: `${roleLabel(role)} · ${displayValue(user.department || user.unit, "Office operations")} · ${user.last_login_at ? formatDate(user.last_login_at) : "No login yet"}`,
+          status: status,
+          icon: "user",
+        };
+      });
+      const staffControls = state.adminUsers
         .map(function (user) {
           const canManageUsers = hasPermission("manage_users");
           const role = user.role || "viewer";
           const status = user.status || "active";
           const displayName = user.display_name || user.name || user.email || "Office staff";
-          const permissionLevel =
-            role === "admin"
-              ? "Full office control"
-              : role === "founder"
-                ? "Founder governance"
-                : role === "operator"
-                  ? "Operations control"
-                  : role === "sales"
-                    ? "Commercial access"
-                    : "Read-only access";
-          const officeCredential = String(user.qr_code || user.badge_id || user.id || "staff").toUpperCase();
-          const credentialPayload = JSON.stringify({
-            system: "ochiga-office",
-            type: "staff-credential",
-            id: user.id || "",
-            email: user.email || "",
-            role,
-          });
 	          return `
-	            <details class="team-card staff-profile-card staff-compact-card">
+	            <details class="staff-compact-card">
 	              <summary class="staff-identity-row">
 	                <div class="staff-photo" aria-label="Staff passport placeholder">${escapeHtml(initialsFromEmail(user.email || displayName))}</div>
 	                <div>
@@ -7092,40 +7144,10 @@
 	                    <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(roleLabel(role))}</span>
 	                  </div>
 	                  <div class="subtext">${escapeHtml(user.email || "Email pending")}</div>
-	                  <div class="subtext" style="margin-top:5px;">${escapeHtml(displayValue(user.phone || user.mobile, "Phone pending"))}</div>
+	                  <div class="subtext" style="margin-top:5px;">${escapeHtml(displayValue(user.phone || user.mobile, "Phone pending"))} · ${escapeHtml(displayValue(user.department || user.unit, "Office operations"))}</div>
 	                </div>
-	                <img class="staff-qr" src="${escapeHtml(qrImageUrl(credentialPayload))}" alt="QR credential for ${escapeHtml(displayName)}" loading="lazy" />
 	                <span class="office-system-badge ${status === "active" ? "" : "warning"}">${escapeHtml(status)}</span>
 	              </summary>
-	              <div class="staff-identity-row">
-                <div class="staff-photo" aria-label="Staff passport placeholder">${escapeHtml(initialsFromEmail(user.email || displayName))}</div>
-                <div>
-                  <div class="team-head" style="margin-bottom:4px;">
-                    <strong>${escapeHtml(displayName)}</strong>
-                    <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(roleLabel(role))}</span>
-                  </div>
-                  <div class="subtext">${escapeHtml(user.email || "Email pending")}</div>
-                  <div class="subtext" style="margin-top:5px;">${escapeHtml(displayValue(user.phone || user.mobile, "Phone pending"))} · ${escapeHtml(displayValue(user.department || user.unit, "Office operations"))}</div>
-                </div>
-                <img class="staff-qr" src="${escapeHtml(qrImageUrl(credentialPayload))}" alt="QR credential for ${escapeHtml(displayName)}" loading="lazy" />
-              </div>
-              <div class="staff-meta-grid">
-                <div class="staff-meta-pill">
-                  <div class="key" style="margin:0;">Permission</div>
-                  <strong>${escapeHtml(permissionLevel)}</strong>
-                </div>
-                <div class="staff-meta-pill">
-                  <div class="key" style="margin:0;">Access state</div>
-                  <strong>${escapeHtml(status)}</strong>
-                </div>
-                <div class="staff-meta-pill">
-                  <div class="key" style="margin:0;">Last login</div>
-                  <strong>${escapeHtml(user.last_login_at ? formatDate(user.last_login_at) : "Never")}</strong>
-                </div>
-              </div>
-	              <div class="staff-access-strip">
-	                Credential: <span class="mono">${escapeHtml(officeCredential)}</span> · QR/NFC office check-in ready · Passport photo slot ready for staff profile upload.
-	              </div>
               <div class="staff-control-panel">
                 <div class="staff-control-row">
                   <label class="staff-select-wrap">
@@ -7167,6 +7189,18 @@
 	          `;
         })
         .join("");
+      el.teamPanel.innerHTML = `
+        ${oisPageHeader("Team", "Manage staff, roles, permissions, and invites.")}
+        ${oisActionRow([
+          { label: "Invite Staff", className: "ghost compact" },
+          { label: "Open Permissions", className: "ghost compact" },
+          { label: "View Audit", target: "audit", className: "ghost compact" },
+        ])}
+        <div class="ois-module-grid">
+          ${oisRegistryCard("Staff Registry", `<div class="ois-registry-list">${oisRegistryRows(staffSummaryRows, "No staff accounts loaded yet.")}</div>`)}
+          ${oisRegistryCard("Access Controls", staffControls || '<div class="office-detail-empty">Staff controls will appear when accounts sync into Office.</div>')}
+        </div>
+      `;
       if (el.staffActivityPanel) {
         el.staffActivityPanel.innerHTML = state.adminUsers.slice(0, 6).map(function (user) {
           const status = user.status || "active";

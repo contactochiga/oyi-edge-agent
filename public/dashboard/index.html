@@ -6413,6 +6413,195 @@
           display: none !important;
         }
       }
+      .tab-panel[data-panel="notifications"] .command-card,
+      .tab-panel[data-panel="founder"] .founder-list,
+      .tab-panel[data-panel="team"] .command-card,
+      .tab-panel[data-panel="reports"] .command-card,
+      .tab-panel[data-panel="settings"] .command-card,
+      .tab-panel[data-panel="digital_twin"] .command-card {
+        width: 100%;
+        max-width: 100%;
+      }
+      .tab-panel[data-panel="team"] .staff-workspace > .command-page,
+      .tab-panel[data-panel="notifications"] .inbox-workspace,
+      .tab-panel[data-panel="founder"] .inbox-workspace {
+        width: 100%;
+        max-width: 100%;
+      }
+      .tab-panel[data-panel="team"] .command-kpis {
+        display: none !important;
+      }
+      .tab-panel[data-panel="team"] .admin-tabs {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .tab-panel[data-panel="team"] .admin-tabs::-webkit-scrollbar {
+        display: none;
+      }
+      .tab-panel[data-panel="team"] .staff-command-layout {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+      .tab-panel[data-panel="team"] .context-rail {
+        width: 100%;
+        max-width: 100%;
+      }
+      .tab-panel[data-panel="team"] .staff-command-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .tab-panel[data-panel="notifications"] .notification-list,
+      .tab-panel[data-panel="founder"] .founder-list {
+        display: grid;
+        gap: 8px;
+      }
+      .tab-panel[data-panel="notifications"] .inbox-row,
+      .tab-panel[data-panel="founder"] .inbox-row {
+        border-radius: 14px !important;
+        padding: 12px !important;
+      }
+      .tab-panel[data-panel="notifications"] .inbox-row-top,
+      .tab-panel[data-panel="founder"] .inbox-row-top {
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .tab-panel[data-panel="notifications"] .inbox-row-title,
+      .tab-panel[data-panel="founder"] .inbox-row-title {
+        min-width: 0;
+        gap: 10px;
+      }
+      .tab-panel[data-panel="notifications"] .inbox-action-row,
+      .tab-panel[data-panel="founder"] .inbox-action-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .office-mobile-footer-shell {
+        width: min(calc(100% - 22px), 404px) !important;
+        max-width: calc(100vw - 22px) !important;
+        border-radius: 24px !important;
+      }
+      .office-mobile-footer-track {
+        gap: 6px !important;
+        padding: 6px !important;
+      }
+      .office-mobile-footer-page {
+        gap: 4px !important;
+      }
+      .office-mobile-nav-item {
+        min-height: 54px !important;
+        border-radius: 18px !important;
+        padding: 6px 3px !important;
+        gap: 3px !important;
+      }
+      .office-mobile-nav-item.active {
+        background: rgba(255,255,255,0.06) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+      }
+      .office-mobile-nav-icon {
+        width: 28px !important;
+        height: 28px !important;
+      }
+      .office-mobile-nav-icon svg {
+        width: 18px !important;
+        height: 18px !important;
+      }
+      .office-mobile-nav-item > span:last-child {
+        font-size: 10px !important;
+      }
+      .office-mobile-page-dots {
+        gap: 4px !important;
+        padding-left: 2px !important;
+      }
+      .office-mobile-page-dots button {
+        width: 6px !important;
+        height: 6px !important;
+      }
+      .office-mobile-page-dots button.active {
+        width: 14px !important;
+      }
+      .office-mobile-composer {
+        min-width: 96px !important;
+        width: auto !important;
+        min-height: 34px !important;
+        padding: 0 11px !important;
+        gap: 6px !important;
+        border-radius: 999px !important;
+      }
+      .office-mobile-composer-copy {
+        flex: 0 0 auto !important;
+      }
+      .office-mobile-composer-copy strong {
+        font-size: 10px !important;
+        letter-spacing: -0.01em !important;
+      }
+      .office-mobile-orb {
+        width: 12px !important;
+        height: 12px !important;
+      }
+      .office-mobile-orb::after {
+        width: 12px !important;
+        height: 12px !important;
+        background-size: 12px 12px !important;
+      }
+      .office-mobile-composer-expanded {
+        min-height: 40px !important;
+        padding: 0 8px !important;
+        gap: 6px !important;
+      }
+      .office-mobile-composer-close,
+      .office-mobile-composer-voice,
+      .office-mobile-composer-send {
+        width: 24px !important;
+        height: 24px !important;
+      }
+      .office-mobile-composer-input {
+        font-size: 13px !important;
+        height: 36px !important;
+      }
+      .office-mobile-composer-wave {
+        min-width: 32px !important;
+      }
+      .office-mobile-composer-wave span {
+        height: 10px !important;
+      }
+      .office-mobile-composer-timer {
+        font-size: 10px !important;
+        color: rgba(255,255,255,0.56) !important;
+      }
+      .workspace-body,
+      .tab-panel-scroll,
+      .command-page,
+      .ois-module-page,
+      .command-layout,
+      .command-main,
+      .command-side {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      @media (max-width: 860px) {
+        .tab-panel[data-panel="team"] .staff-command-row {
+          grid-template-columns: 1fr;
+        }
+        .tab-panel[data-panel="reports"] .command-card-head,
+        .tab-panel[data-panel="settings"] .command-card-head,
+        .tab-panel[data-panel="team"] .command-card-head,
+        .tab-panel[data-panel="notifications"] .command-card-head {
+          flex-wrap: wrap;
+        }
+        .tab-panel[data-panel="reports"] .trace-head,
+        .tab-panel[data-panel="settings"] .device-category,
+        .tab-panel[data-panel="team"] .device-category,
+        .tab-panel[data-panel="digital_twin"] .device-category {
+          min-width: 0;
+          width: 100%;
+        }
+      }
     </style>
     <script defer src="/_vercel/insights/script.js"></script>
 
@@ -7052,26 +7241,27 @@
             </div>
             <div class="tab-panel" data-panel="notifications">
               <div class="tab-panel-scroll">
-                <div class="command-page inbox-workspace">
-                  <div class="command-head">
-                    <div>
-                      <p class="eyebrow">Office Inbox</p>
-                      <h3>Notification command center</h3>
-                      <p class="subtext" style="margin:8px 0 0;">Route founder alerts, sales handoffs, building review requests, and inbound messages from one operations queue.</p>
-                    </div>
-                    <span class="office-system-badge">Live routing</span>
+                <div class="command-page ois-module-page inbox-workspace">
+                  <div class="ois-page-header">
+                    <h3>Messages</h3>
+                    <p>Review inbound messages and support conversations.</p>
                   </div>
-                  <div class="command-filter-row notification-filters" id="notificationFilters">
-                    <button class="filter-chip active" data-notification-filter="open" type="button">Open</button>
-                    <button class="filter-chip" data-notification-filter="all" type="button">All</button>
-                    <button class="filter-chip" data-notification-filter="founder" type="button">Founder</button>
-                    <button class="filter-chip" data-notification-filter="sales" type="button">Sales</button>
-                    <button class="filter-chip" data-notification-filter="demo" type="button">Reviews</button>
+                  <div class="office-operational-strip">
+                    <div class="office-strip-item"><span>Inbound</span><strong id="messagesInboundMetric">0</strong><small>Queue</small></div>
+                    <div class="office-strip-item"><span>Open</span><strong id="messagesOpenMetric">0</strong><small>Active</small></div>
+                    <div class="office-strip-item"><span>Escalated</span><strong id="messagesEscalatedMetric">0</strong><small>Founder</small></div>
+                  </div>
+                  <div class="ois-segment-tabs notification-filters" id="notificationFilters">
+                    <button class="ois-segment-tab active" data-notification-filter="open" type="button">Open</button>
+                    <button class="ois-segment-tab" data-notification-filter="all" type="button">All</button>
+                    <button class="ois-segment-tab" data-notification-filter="founder" type="button">Founder</button>
+                    <button class="ois-segment-tab" data-notification-filter="sales" type="button">Sales</button>
+                    <button class="ois-segment-tab" data-notification-filter="demo" type="button">Reviews</button>
                   </div>
                   <div class="command-card">
                     <div class="command-card-head">
-                      <h4>Priority queue</h4>
-                      <span class="subtext">Status, owner, record and action trail</span>
+                      <h4>Message Registry</h4>
+                      <span class="subtext">Source, record, time and response state</span>
                     </div>
                     <div class="notification-list" id="notificationsPanel"></div>
                   </div>
@@ -7080,14 +7270,18 @@
             </div>
             <div class="tab-panel" data-panel="founder">
               <div class="tab-panel-scroll">
-                <div class="command-page inbox-workspace">
-                  <div class="command-head">
-                    <div>
-                      <p class="eyebrow">Founder Inbox</p>
-                      <h3>Executive escalation queue</h3>
-                      <p class="subtext" style="margin:8px 0 0;">High-priority records that need founder, governance, or human command review.</p>
-                    </div>
-                    <button class="command-mini-btn" id="openFounderQueueBtn" type="button">Filter founder queue</button>
+                <div class="command-page ois-module-page inbox-workspace">
+                  <div class="ois-page-header">
+                    <h3>Executive Queue</h3>
+                    <p>Review escalations that require human command or governance approval.</p>
+                  </div>
+                  <div class="office-operational-strip">
+                    <div class="office-strip-item"><span>Escalated</span><strong id="founderEscalatedMetric">0</strong><small>Queue</small></div>
+                    <div class="office-strip-item"><span>Urgent</span><strong id="founderUrgentMetric">0</strong><small>Immediate</small></div>
+                    <div class="office-strip-item"><span>Open</span><strong id="founderOpenMetric">0</strong><small>Review</small></div>
+                  </div>
+                  <div class="ois-action-row">
+                    <button class="ghost compact" id="openFounderQueueBtn" type="button">Filter founder queue</button>
                   </div>
                   <div class="founder-list" id="founderInbox"></div>
                 </div>
@@ -7636,11 +7830,10 @@
             </div>
             <button class="office-mobile-composer" id="officeFooterAskOyi" type="button" aria-label="Ask Oyi" title="Message Ochiga Office">
               <span class="office-mobile-orb" aria-hidden="true"></span>
-              <span class="office-mobile-composer-copy"><strong>Ask Oyi</strong><span>Office intelligence</span></span>
+              <span class="office-mobile-composer-copy"><strong>Ask Oyi</strong></span>
             </button>
             <form class="office-mobile-composer-expanded hidden" id="officeFooterComposerExpanded" aria-label="Ask Oyi composer">
               <button class="office-mobile-composer-close" id="officeFooterComposerClose" type="button" aria-label="Close Ask Oyi">×</button>
-              <span class="office-mobile-composer-expanded-icon" aria-hidden="true"></span>
               <input id="officeFooterComposerInput" class="office-mobile-composer-input" type="text" autocomplete="off" placeholder="Ask Oyi..." />
               <div class="office-mobile-composer-wave" id="officeFooterComposerWave" aria-hidden="true">
                 <span></span><span></span><span></span><span></span><span></span>
@@ -7657,6 +7850,6 @@
         </div>
       </div>
     </nav>
-    <script src="/dashboard.js?v=office-ois-port-v2-20260702"></script>
+    <script src="/dashboard.js?v=office-ois-secondary-cleanup-20260703"></script>
   </body>
   </html>
