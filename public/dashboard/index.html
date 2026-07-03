@@ -5514,6 +5514,73 @@
           grid-row: span 2;
         }
       }
+      .ois-module-page {
+        gap: 10px;
+      }
+      .ois-page-header {
+        display: grid;
+        gap: 4px;
+      }
+      .ois-page-header h3 {
+        margin: 0;
+        color: var(--ois-text-primary);
+        font-size: 20px;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+        font-weight: 650;
+      }
+      .ois-page-header p {
+        margin: 0;
+        color: var(--ois-text-muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .ois-action-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .ois-segment-tabs {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .ois-segment-tabs::-webkit-scrollbar {
+        display: none;
+      }
+      .ois-segment-tab,
+      .estate-tab {
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid var(--ois-border-default);
+        background: var(--ois-surface);
+        color: var(--ois-text-muted);
+      }
+      .ois-segment-tab.active,
+      .estate-tab.active {
+        background: var(--ois-primary-soft);
+        color: var(--ois-text-primary);
+        border-color: rgba(125,211,252,.24);
+      }
+      .ois-module-grid {
+        display: grid;
+        gap: 10px;
+      }
+      .ois-module-grid.with-side {
+        grid-template-columns: minmax(0,1fr) minmax(250px,320px);
+      }
+      .ois-module-main,
+      .ois-module-side {
+        display: grid;
+        gap: 10px;
+        min-width: 0;
+      }
+      .ois-registry-list {
+        display: grid;
+        gap: 8px;
+      }
       @media (max-width: 760px) {
         .topbar {
           min-height: calc(56px + env(safe-area-inset-top));
@@ -5962,6 +6029,15 @@
         .workspace-body {
           padding-bottom: calc(114px + env(safe-area-inset-bottom)) !important;
         }
+        .ois-page-header h3 {
+          font-size: 17px !important;
+        }
+        .ois-page-header p {
+          font-size: 11px !important;
+        }
+        .ois-module-grid.with-side {
+          grid-template-columns: 1fr !important;
+        }
         .command-page {
           gap: 10px !important;
         }
@@ -6234,9 +6310,9 @@
           padding: 0 0 calc(8px + env(safe-area-inset-bottom)) !important;
         }
         .office-mobile-footer-shell {
-          width: min(calc(100% - 20px), 404px) !important;
+          width: min(calc(100% - 20px), 396px) !important;
           max-width: calc(100vw - 20px) !important;
-          border-radius: 24px !important;
+          border-radius: 22px !important;
         }
         .office-mobile-footer-track {
           gap: 6px !important;
@@ -6246,8 +6322,8 @@
           gap: 2px !important;
         }
         .office-mobile-nav-item {
-          min-height: 48px !important;
-          border-radius: 18px !important;
+          min-height: 50px !important;
+          border-radius: 16px !important;
           padding: 4px 2px !important;
           gap: 1px !important;
           color: rgba(255,255,255,0.52) !important;
@@ -6279,9 +6355,9 @@
           width: 16px !important;
         }
         .office-mobile-composer {
-          min-width: 96px !important;
+          min-width: 84px !important;
           min-height: 32px !important;
-          padding: 0 12px !important;
+          padding: 0 10px !important;
           gap: 6px !important;
           border-radius: 999px !important;
         }
@@ -6294,9 +6370,9 @@
           height: 12px !important;
         }
         .office-mobile-composer-expanded {
-          min-height: 36px !important;
+          min-height: 38px !important;
           gap: 6px !important;
-          padding: 0 8px !important;
+          padding: 0 10px !important;
           border-radius: 999px !important;
         }
         .office-mobile-composer-close,
@@ -6309,7 +6385,7 @@
           font-size: 15px !important;
         }
         .office-mobile-composer-input {
-          height: 30px !important;
+          height: 32px !important;
           font-size: 13px !important;
         }
         .office-mobile-composer-wave {
@@ -6330,6 +6406,11 @@
         }
         .office-mobile-composer-expanded.unsupported .office-mobile-composer-timer {
           min-width: 54px;
+        }
+      }
+      @media (min-width: 761px) {
+        .office-mobile-footer {
+          display: none !important;
         }
       }
     </style>
@@ -7555,7 +7636,7 @@
             </div>
             <button class="office-mobile-composer" id="officeFooterAskOyi" type="button" aria-label="Ask Oyi" title="Message Ochiga Office">
               <span class="office-mobile-orb" aria-hidden="true"></span>
-              <span class="office-mobile-composer-copy"><strong>Ask Oyi</strong><span>Facilities, consumers, deployments, CRM, finance…</span></span>
+              <span class="office-mobile-composer-copy"><strong>Ask Oyi</strong><span>Office intelligence</span></span>
             </button>
             <form class="office-mobile-composer-expanded hidden" id="officeFooterComposerExpanded" aria-label="Ask Oyi composer">
               <button class="office-mobile-composer-close" id="officeFooterComposerClose" type="button" aria-label="Close Ask Oyi">×</button>

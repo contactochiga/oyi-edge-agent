@@ -2142,6 +2142,76 @@
     `;
   }
 
+  function oisPageHeader(title, subtitle) {
+    return `
+      <header class="ois-page-header">
+        <h3>${escapeHtml(title || "Office module")}</h3>
+        <p>${escapeHtml(subtitle || "Operational context is available.")}</p>
+      </header>
+    `;
+  }
+
+  function oisActionRow(actions) {
+    const rows = asList(actions).filter(Boolean);
+    if (!rows.length) return "";
+    return `
+      <div class="ois-action-row">
+        ${rows.map(function (item) {
+          if (item.kind === "button") {
+            return `<button class="${escapeHtml(item.className || "ghost compact")}" ${item.action ? `data-command-action="${escapeHtml(item.action)}"` : ""} ${item.target ? `data-office-target="${escapeHtml(item.target)}"` : ""} ${item.focus ? `data-office-focus="${escapeHtml(item.focus)}"` : ""} type="button">${escapeHtml(item.label || "Action")}</button>`;
+          }
+          return `<span class="office-batch">${escapeHtml(item.label || "")} <strong>${escapeHtml(item.value || "")}</strong></span>`;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function oisSegmentTabs(config) {
+    const options = config || {};
+    const rows = asList(options.items).filter(Boolean);
+    if (!rows.length) return "";
+    const attrName = options.attrName || "data-oi-tab";
+    return `
+      <div class="ois-segment-tabs">
+        ${rows.map(function (item) {
+          const active = options.active === item.value;
+          return `<button class="ois-segment-tab ${active ? "active" : ""}" ${attrName}="${escapeHtml(item.value || "")}" type="button">${escapeHtml(item.label || item.value || "Tab")}</button>`;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function oisRegistryRows(rows, emptyText) {
+    const items = asList(rows).filter(Boolean);
+    if (!items.length) {
+      return `<div class="office-detail-empty">${escapeHtml(emptyText || "No registry records are available yet.")}</div>`;
+    }
+    return items.map(function (item) {
+      return oisOfficeRow(item);
+    }).join("");
+  }
+
+  function oisRegistryCard(title, body, toolbar) {
+    return `
+      <section class="command-card ois-registry-card">
+        <div class="command-card-head">
+          <h4>${escapeHtml(title || "Registry")}</h4>
+          ${toolbar || ""}
+        </div>
+        ${body || '<div class="office-detail-empty">No registry records are available yet.</div>'}
+      </section>
+    `;
+  }
+
+  function oisModuleLayout(main, side) {
+    return `
+      <div class="ois-module-grid ${side ? "with-side" : ""}">
+        <div class="ois-module-main">${main || ""}</div>
+        ${side ? `<aside class="ois-module-side">${side}</aside>` : ""}
+      </div>
+    `;
+  }
+
   function slugId(prefix, value) {
     return `${prefix}_${String(value || "item")
       .trim()
@@ -2723,45 +2793,48 @@
 	        status: displayValue(proposal.status, "draft"),
 	      };
 	    })).slice(0, 6);
+      const documentRows = visibleDocs.slice(0, 12).map(function (doc) {
+        return {
+          title: doc.title,
+          description: `${displayValue(doc.type, "Document")} · ${displayValue(doc.owner, "Office")}`,
+          meta: `${displayValue(doc.status, "draft")} · ${formatCompactMoney(doc.value)} · ${displayValue(formatDate(doc.created_at), "Pending")}`,
+          status: displayValue(doc.status, "draft"),
+          icon: "website",
+        };
+      });
 	    el.webPresencePanel.innerHTML = `
-	      <div class="command-page">
-	        <div class="command-head">
-	          <div>
-	            <p class="eyebrow">Documents</p>
-	            <h3>Supervise proposals, contracts, invoices, plans, drawings, generated PDFs, and uploaded files.</h3>
-	            <p class="subtext" style="margin:8px 0 0;">Office visualizes the document registry and handoff state. Source records remain in existing Office data and backend-owned services.</p>
-	          </div>
-	          <div class="toolbar">
-	            <button class="primary" data-command-action="document_actions" type="button">+ Create / Upload</button>
-	          </div>
-	        </div>
+	      <div class="command-page ois-module-page">
+          ${oisPageHeader("Documents", "Contracts, proposals and operational files.")}
 	        ${operationalStrip([
 	          { label: "Proposals", value: proposals.length, meta: "Commercial packs" },
-	          { label: "Contracts", value: typeCount(/contract/i) || state.officeStats?.contracts || 0, meta: "Agreement records" },
-	          { label: "Invoices", value: typeCount(/invoice/i) || state.officeStats?.invoices || 0, meta: "Billing records" },
-	          { label: "Estate Plans", value: typeCount(/plan/i), meta: "Plan handoff" },
-	          { label: "Drawings", value: typeCount(/drawing|blueprint/i), meta: "Technical files" },
-	          { label: "Generated PDFs", value: typeCount(/pdf/i), meta: "Generated outputs" },
-	          { label: "Uploads", value: uploadedFiles, meta: "Registered files" },
-	          { label: "Plan Studio", value: state.planStudio?.projects?.length || "Ready", meta: "Handoff surface" },
+	          { label: "Contracts", value: typeCount(/contract/i) || state.officeStats?.contracts || 0, meta: "Agreements" },
+	          { label: "Invoices", value: typeCount(/invoice/i) || state.officeStats?.invoices || 0, meta: "Billing" },
+	          { label: "Plans", value: typeCount(/plan/i), meta: "Plan Studio" },
+	          { label: "Drawings", value: typeCount(/drawing|blueprint/i), meta: "Technical" },
+	          { label: "PDFs", value: typeCount(/pdf/i), meta: "Generated" },
+	          { label: "Uploads", value: uploadedFiles, meta: "Registered" },
 	        ])}
-	        <div class="command-layout">
-	          <section class="command-card">
-	            <div class="command-card-head">
-	              <h4>Document Registry</h4>
-	              <div class="toolbar">
-	                <input class="command-search-input" data-document-search type="search" placeholder="Search documents, owners, status..." value="${escapeHtml(state.documentQuery)}" />
-	                <button class="ghost compact" data-office-target="intelligence" type="button">Ask Oyi</button>
-	              </div>
-	            </div>
-	            <table class="command-table">
-	              <thead><tr><th>Document</th><th>Type</th><th>Owner</th><th>Status</th><th>Value</th><th>Updated</th><th>Action</th></tr></thead>
-	              <tbody>${visibleDocs.length ? visibleDocs.slice(0, 12).map(function (doc) {
-	                return `<tr class="document-registry-row" data-document-id="${escapeHtml(doc.id)}"><td><button class="document-link-button" data-document-open="${escapeHtml(doc.id)}" type="button"><strong>${escapeHtml(doc.title)}</strong><span>${escapeHtml(documentUrl(doc) ? "Preview ready" : "Metadata only")}</span></button></td><td>${escapeHtml(doc.type)}</td><td>${escapeHtml(doc.owner)}</td><td><span class="office-system-badge">${escapeHtml(doc.status)}</span></td><td>${escapeHtml(formatCompactMoney(doc.value))}</td><td>${escapeHtml(displayValue(formatDate(doc.created_at), "Pending"))}</td><td><button class="ghost compact" data-document-open="${escapeHtml(doc.id)}" type="button">Open</button></td></tr>`;
-	              }).join("") : '<tr><td colspan="7"><div class="office-detail-empty">No office documents have synced yet.</div></td></tr>'}</tbody>
-	            </table>
-	          </section>
-	          <aside class="command-side">
+          ${oisActionRow([{ label: "+ Create / Upload", action: "document_actions", className: "primary compact" }])}
+          ${oisSegmentTabs({
+            active: activeFacet,
+            attrName: "data-document-facet",
+            items: [
+              { value: "dashboard", label: "All" },
+              { value: "proposals", label: "Proposals" },
+              { value: "contracts", label: "Contracts" },
+              { value: "invoices", label: "Invoices" },
+              { value: "drawings", label: "Drawings" },
+              { value: "estate_plans", label: "Plans" },
+              { value: "generated_pdfs", label: "PDFs" },
+            ],
+          })}
+          ${oisModuleLayout(
+            oisRegistryCard(
+              "Document Registry",
+              `<div class="ois-registry-list">${oisRegistryRows(documentRows, "No office documents have synced yet.")}</div>`,
+              `<div class="toolbar"><input class="command-search-input" data-document-search type="search" placeholder="Search documents, owners, status..." value="${escapeHtml(state.documentQuery)}" /><button class="ghost compact" data-office-target="intelligence" type="button">Ask Oyi</button></div>`
+            ),
+            `
               <article class="command-card">
                 <div class="command-card-head"><h4>Document Detail</h4><span class="office-system-badge">Drawer-ready</span></div>
                 <div class="mission-list">
@@ -2775,35 +2848,16 @@
                   }).join("") : '<div class="office-detail-empty">Select a document to inspect metadata and preview links.</div>'}
                 </div>
               </article>
-	            <article class="command-card">
-	              <div class="command-card-head"><h4>Plan Studio Handoff</h4><button class="ghost compact" data-office-target="documents" data-office-focus="estate_plans" type="button">Plans</button></div>
-	              <div class="document-template-grid">
-	                <div class="document-template-card"><strong>Invoice</strong><div class="subtext">Letterhead billing template</div></div>
-	                <div class="document-template-card"><strong>Contract</strong><div class="subtext">Estate/service agreement</div></div>
-	                <div class="document-template-card"><strong>Proposal</strong><div class="subtext">Magazine-style sales pack</div></div>
-	                <div class="document-template-card"><strong>Letter</strong><div class="subtext">Formal Office correspondence</div></div>
-	              </div>
-	              <div class="subtext" style="margin-top:10px;">Plan Studio handoff stays here as a document workflow surface. Runtime intelligence remains backend-owned.</div>
-	            </article>
-	            <article class="command-card">
-	              <div class="command-card-head"><h4>Document Timeline</h4></div>
-	              <div class="mission-list">
-	                ${timelineRows.length ? timelineRows.map(function (row) {
-	                  return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(row.title)}</strong><small class="subtext">${escapeHtml(row.meta)}</small></span><strong>${escapeHtml(row.status)}</strong></div>`;
-	                }).join("") : '<div class="office-detail-empty">Document timeline will appear as proposals, files, and audit activity sync.</div>'}
-	              </div>
-	            </article>
-	            <article class="command-card">
-	              <div class="command-card-head"><h4>Conversation-ready Actions</h4></div>
-	              <div class="shortcut-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
-	                <button class="shortcut-btn" data-command-action="create_invoice" type="button"><span>${officeIcon("wallet")}</span>Invoice</button>
-	                <button class="shortcut-btn" data-command-action="create_contract" type="button"><span>${officeIcon("estate")}</span>Contract</button>
-	                <button class="shortcut-btn" data-command-action="document_actions" type="button"><span>${officeIcon("trend")}</span>Proposal</button>
-	                <button class="shortcut-btn" data-office-target="intelligence" type="button"><span>${officeIcon("messenger")}</span>Ask Oyi</button>
-	              </div>
-	            </article>
-	          </aside>
-	        </div>
+              <article class="command-card">
+                <div class="command-card-head"><h4>Document Timeline</h4></div>
+                <div class="mission-list">
+                  ${timelineRows.length ? timelineRows.map(function (row) {
+                    return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot"></i></span><div class="activity-copy"><strong>${escapeHtml(row.title)}</strong><span>${escapeHtml(row.meta)} · ${escapeHtml(row.status)}</span></div></div>`;
+                  }).join("") : '<div class="office-detail-empty">Document timeline will appear as proposals, files, and audit activity sync.</div>'}
+                </div>
+              </article>
+            `
+          )}
 	      </div>
 	    `;
 	  }
@@ -3451,7 +3505,6 @@
 	    }).join("");
 	    const selectedStatus = selectedEstate ? String(selectedEstate.subscription_status || selectedEstate.status || "pending") : "pending";
 	    const estatePortfolioView = state.estatePortfolioView || "map";
-	    const activeFacet = state.moduleFacet.facilities || "dashboard";
 	    const liveFacilities = estates.filter(function (estate) { return ["active", "live"].includes(String(estate.status || estate.subscription_status || "").toLowerCase()); }).length;
 	    const visitorSignals = supportMappings.filter(function (item) {
 	      return /visitor|access|gate/i.test(`${item.type || ""} ${item.title || ""} ${item.summary || ""}`);
@@ -3466,37 +3519,10 @@
 	      selectedEstate?.updated_at || selectedEstate?.last_sync_at || state.officeData?.updated_at || state.officeStats?.updated_at,
 	      "Pending"
 	    );
-	    const estateCards = estates.map(function (estate) {
-	      const stats = estateStats(estate);
-	      const status = String(estate.subscription_status || estate.status || "pending");
-	      return `<article class="command-card estate-portfolio-card" data-estate-select="${escapeHtml(estate.id || "")}">
-	        <div class="command-card-head">
-	          <div><h4>${escapeHtml(estate.name || "Unnamed estate")}</h4><div class="subtext">${escapeHtml(displayValue(estate.location, "Location pending"))}</div></div>
-	          <span class="office-system-badge ${estateToneFromStatus(status) === "healthy" ? "" : estateToneFromStatus(status)}">${escapeHtml(status)}</span>
-	        </div>
-	        <div class="office-detail-metrics">
-	          ${metricTile("Units", stats.estateHomes.length || estate.homes_count || 0)}
-	          ${metricTile("Buildings", stats.estateBuildings.length || estate.buildings_count || 0)}
-	          ${metricTile("Devices", stats.estateDevices.length || estate.devices_count || 0)}
-	        </div>
-	        <div class="subtext" style="margin-top:10px;">Wallet ${escapeHtml(formatCompactMoney(stats.walletBalance))} · Support ${escapeHtml(String(stats.estateSupport.length))}</div>
-	      </article>`;
-	    }).join("");
 
 	    el.facilityPanel.innerHTML = `
-	      <div class="command-page estate-view-${escapeHtml(estatePortfolioView)}">
-	        <div class="command-head">
-	          <div>
-	            <p class="eyebrow">Estate Facilities</p>
-	            <h3>Monitor and manage all estates, facilities, and connected infrastructure.</h3>
-	            <p class="subtext" style="margin:8px 0 0;">Mapbox-ready estate command layer, estate records, packages, wallets, support, devices, community, and utilities.</p>
-	          </div>
-	          <div class="toolbar">
-	            <button class="primary" data-command-action="add_estate" type="button">+ Add Estate</button>
-	            <button class="ghost" data-command-action="import_estates" type="button">Import Estates</button>
-	            <button class="ghost" data-command-action="geocode_estates" type="button">Geocode Map</button>
-	          </div>
-	        </div>
+	      <div class="command-page ois-module-page estate-view-${escapeHtml(estatePortfolioView)}">
+          ${oisPageHeader("Facilities", "Monitor estates and connected infrastructure.")}
 	        ${operationalStrip([
 	          { label: "Facilities", value: estates.length, meta: `${liveFacilities} active` },
 	          { label: "Buildings", value: buildings.length, meta: `${homes.length} homes` },
@@ -3507,21 +3533,19 @@
 	          { label: "Runtime", value: state.officeEventSource ? "Live" : "Standby", meta: "Office sync" },
 	          { label: "Last Sync", value: lastSync === "Pending" ? "Pending" : formatDate(lastSync), meta: "Facility data" },
 	        ])}
-	        <div class="estate-tabs">
+          ${oisActionRow([
+            { label: "+ Add Estate", action: "add_estate", className: "primary compact" },
+            { label: "Import Estates", action: "import_estates", className: "ghost compact" },
+            { label: "Geocode Map", action: "geocode_estates", className: "ghost compact" },
+          ])}
+	        <div class="estate-tabs ois-segment-tabs">
 	          <button class="estate-tab ${estatePortfolioView === "map" ? "active" : ""}" data-estate-view="map" type="button">Map View</button>
 	          <button class="estate-tab ${estatePortfolioView === "list" ? "active" : ""}" data-estate-view="list" type="button">List View</button>
 	          <button class="estate-tab ${estatePortfolioView === "all" ? "active" : ""}" data-estate-view="all" type="button">All Estates</button>
 	        </div>
-	        ${activeFacet !== "dashboard" ? `<article class="command-card module-section-banner">
-	          <div class="command-card-head">
-	            <h4>${escapeHtml(activeFacet.replace(/_/g, " "))}</h4>
-	            <span class="office-system-badge">${estates.length ? "Live Data" : "Pending Integration"}</span>
-	          </div>
-	          <div class="subtext">Building Portfolio section view is using the same estate, building, facility account, deployment, performance, and monitoring data stream.</div>
-	        </article>` : ""}
-	        <div class="command-layout">
-	          <div class="command-main">
-	            <section class="estate-command-map estate-map-with-detail">
+	        ${oisModuleLayout(
+            `
+	            <section class="command-card estate-command-map estate-map-with-detail">
 	              <div class="estate-google-map" id="estateGoogleMap" aria-label="Live estate Google map"></div>
 	              <div class="estate-map-placeholder" aria-hidden="true"></div>
 	              ${mapMarkup || '<div class="office-detail-empty" style="position:absolute;left:16px;top:16px;">Estate map will activate when facility sync publishes estate records.</div>'}
@@ -3554,10 +3578,6 @@
 	              </div>
 	            ` : '<div class="office-detail-empty">Select an estate marker to inspect its command dashboard.</div>'}
 	            </article>
-	            <section class="estate-all-grid">
-	              ${estateCards || '<div class="office-detail-empty">No estate facility records have synced into Office yet.</div>'}
-	            </section>
-	            <section class="estate-split-grid">
 	              <article class="command-card estate-list-panel estate-registry-wide">
 	                <div class="command-card-head">
 	                  <h4>Facility Registry</h4>
@@ -3571,28 +3591,26 @@
 	                  <tbody>${estateRows || '<tr><td colspan="5"><div class="office-detail-empty">No estate facility records have synced into Office yet.</div></td></tr>'}</tbody>
 	                </table>
 	              </article>
-	            </section>
-	          </div>
-	          ${commandActivityRail({
-	            title: "Estate Activity",
-	            activity: supportMappings.slice(0, 5).map(function (item) {
-	              return { title: item.title || item.summary || "Estate support activity", meta: `${displayValue(item.estate_name || item.scope_type, "Estate")} · ${displayValue(item.status, "open")}`, tone: item.status === "resolved" ? "healthy" : "warning" };
-	            }).concat(estates.slice(0, 2).map(function (estate) {
-	              return { title: `${estate.name || "Estate"} synced`, meta: displayValue(estate.location, "Location pending"), tone: estateToneFromStatus(estate.status || estate.subscription_status) };
-	            })),
-	            insights: [
-	              { title: `${estates.length} estates under command`, meta: `${hardwareDevices.length} hardware devices linked`, icon: "estate" },
-	              { title: `Wallet float ${formatCompactMoney(totalWallet)}`, meta: "Across estate wallets", icon: "wallet" },
-	              { title: `${supportMappings.length} support mappings`, meta: "Facility pressure signal", icon: "support" },
-	            ],
-	            actions: [
-	              { label: "Add Estate", icon: "estate", action: "add_estate" },
-	              { label: "Create Ticket", icon: "support", action: "create_ticket" },
-	              { label: "View Wallets", icon: "wallet", action: "view_wallets" },
-	              { label: "Reports", icon: "trend", action: "view_reports" },
-	            ],
-	          })}
-	        </div>
+            `,
+            `
+              <article class="command-card">
+                <div class="command-card-head"><h4>Estate Activity</h4></div>
+                <div class="mission-list">
+                  ${supportMappings.slice(0, 5).map(function (item) {
+                    return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot warning"></i></span><div class="activity-copy"><strong>${escapeHtml(item.title || item.summary || "Estate support activity")}</strong><span>${escapeHtml(displayValue(item.estate_name || item.scope_type, "Estate"))} · ${escapeHtml(displayValue(item.status, "open"))}</span></div></div>`;
+                  }).join("") || '<div class="office-detail-empty">No estate activity has synced yet.</div>'}
+                </div>
+              </article>
+              <article class="command-card">
+                <div class="command-card-head"><h4>Portfolio Notes</h4></div>
+                <div class="mission-list">
+                  <div class="device-category"><span>Wallet float</span><strong>${escapeHtml(formatCompactMoney(totalWallet))}</strong></div>
+                  <div class="device-category"><span>Support mappings</span><strong>${escapeHtml(String(supportMappings.length))}</strong></div>
+                  <div class="device-category"><span>Hardware devices</span><strong>${escapeHtml(String(hardwareDevices.length))}</strong></div>
+                </div>
+              </article>
+            `
+          )}
 	      </div>
 	    `;
 	    Array.from(el.facilityPanel.querySelectorAll("[data-estate-select]")).forEach(function (node) {
@@ -3839,19 +3857,20 @@
       </tr>`;
 	    }).join("") || '<tr><td colspan="7"><div class="office-detail-empty">No hardware devices have synced into Office yet.</div></td></tr>';
 
+    const deviceRegistryRows = normalizedDevices.slice(0, 12).map(function (device) {
+      const estate = findById(estates, device.estate_id);
+      const building = findById(buildings, device.building_id);
+      return {
+        title: displayValue(device.name || device.id, "Hardware device"),
+        description: displayValue(device.category || "General", "Device"),
+        meta: `${displayValue(estate?.name || building?.name || device.location, "Location pending")} · ${displayValue(device.status, "unknown")}`,
+        status: displayValue(device.status, "unknown"),
+        icon: /camera|cctv|stream|onvif/i.test(`${device.category || ""} ${device.type || ""} ${device.name || ""}`) ? "camera" : "estate",
+      };
+    });
     el.devicePanel.innerHTML = `
-      <div class="command-page">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">Edge</p>
-            <h3>Supervise edge agents, device registry, discovery, telemetry, camera streams, and site readiness.</h3>
-            <p class="subtext" style="margin:8px 0 0;">Office visualizes Edge runtime posture. Protocol execution, camera streaming, and local outbox ownership remain with the Edge runtime.</p>
-          </div>
-          <div class="toolbar">
-            <button class="ghost" data-office-target="settings" type="button">Provider Health</button>
-            <button class="ghost" data-office-target="deployments" type="button">Deployments</button>
-          </div>
-        </div>
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("Edge", "Monitor edge runtime, discovery and connectivity.")}
         ${operationalStrip([
           { label: "Edge Agents", value: edgeAgentSignals.length || (state.officeEventSource ? "Live" : "Pending"), meta: "Runtime signals" },
           { label: "Device Registry", value: totalDevices, meta: `${onlineDevices} online` },
@@ -3862,36 +3881,27 @@
           { label: "Site Readiness", value: activeAlerts ? "Review" : "Stable", meta: `${activeAlerts} attention` },
           { label: "Deployment Link", value: deploymentLinks, meta: "Rollout relation" },
         ])}
-        ${activeFacet !== "dashboard" ? `<article class="command-card module-section-banner">
-          <div class="command-card-head">
-            <h4>${escapeHtml(activeFacet.replace(/_/g, " "))}</h4>
-            <span class="office-system-badge">${totalDevices ? "Live Data" : "Pending Integration"}</span>
-          </div>
-          <div class="subtext">This Edge section supervises the current Office device registry, telemetry, and runtime posture. Device protocol ownership remains with the Edge runtime.</div>
-        </article>` : ""}
-        <div class="device-layout">
-          <aside class="command-card">
-            <div class="command-card-head"><h4>Edge Domains</h4></div>
-            <div class="mission-list">
-	              ${Object.entries(categories).map(function (entry) {
-	                return `<div class="device-category"><span class="device-category-main"><span class="device-category-icon">${deviceCategoryIcon(entry[0])}</span>${escapeHtml(entry[0])}</span><strong>${escapeHtml(String(entry[1]))}</strong></div>`;
-	              }).join("") || '<div class="subtext">No device categories synced yet.</div>'}
-            </div>
-          </aside>
-          <section class="command-card">
-            <div class="command-card-head">
-              <h4>Device Registry (${escapeHtml(String(totalDevices))})</h4>
-              <div class="toolbar">
-                <input class="search-input" type="search" placeholder="Search devices..." style="max-width:220px;padding:9px 11px;border-radius:10px;" />
-                <button class="ghost compact" data-office-target="intelligence" type="button">Ask Oyi</button>
+        ${oisActionRow([
+          { label: "Provider Health", target: "settings", className: "ghost compact" },
+          { label: "Deployments", target: "deployments", className: "ghost compact" },
+        ])}
+        ${oisModuleLayout(
+          `
+            ${oisRegistryCard(
+              "Device Registry",
+              `<div class="ois-registry-list">${oisRegistryRows(deviceRegistryRows, "No hardware devices have synced into Office yet.")}</div>`,
+              `<div class="toolbar"><input class="search-input" type="search" placeholder="Search devices..." /><button class="ghost compact" data-office-target="intelligence" type="button">Ask Oyi</button></div>`
+            )}
+            <section class="command-card">
+              <div class="command-card-head"><h4>Edge Domains</h4></div>
+              <div class="mission-list">
+                ${Object.entries(categories).map(function (entry) {
+                  return `<div class="device-category"><span class="device-category-main"><span class="device-category-icon">${deviceCategoryIcon(entry[0])}</span>${escapeHtml(entry[0])}</span><strong>${escapeHtml(String(entry[1]))}</strong></div>`;
+                }).join("") || '<div class="subtext">No device categories synced yet.</div>'}
               </div>
-            </div>
-            <table class="command-table">
-              <thead><tr><th>Device</th><th>Category</th><th>Location</th><th>Status</th><th>Battery</th><th>Last Seen</th><th>Actions</th></tr></thead>
-              <tbody>${deviceRows}</tbody>
-            </table>
-          </section>
-          <aside class="command-side">
+            </section>
+          `,
+          `
             <article class="command-card">
               <div class="command-card-head"><h4>Runtime Health</h4></div>
               <div class="health-score"><strong>${escapeHtml(String(healthPct))}%</strong><span class="subtext">Device health</span></div>
@@ -3906,20 +3916,8 @@
               <div class="device-camera-preview">${escapeHtml(cameraDevices.length ? `${streamHealthy}/${cameraDevices.length} streams healthy` : "No camera stream records")}</div>
               <div class="subtext" style="margin-top:10px;">Office shows stream posture only. Stream protocol and relay control remain in the Edge runtime.</div>
             </article>
-            <article class="command-card">
-              <div class="command-card-head"><h4>Telemetry / Outbox</h4></div>
-              <div class="mission-list">
-                ${edgeAgentSignals.slice(0, 5).map(function (trace) {
-	                  return `<div class="command-list-row device-alert-row"><strong>${escapeHtml(displayValue(trace.agent || trace.type, "Edge event"))}</strong><div class="subtext">${escapeHtml(displayValue(trace.status || trace.tool_name || trace.summary, "telemetry"))} · ${escapeHtml(displayValue(formatDate(trace.created_at || trace.ts), "time pending"))}</div></div>`;
-                }).join("") || normalizedDevices.filter(function (device) {
-                  return String(device.status || "").toLowerCase() !== "online" || Number((device.battery_level ?? device.battery) || 100) < 30 || device.last_seen_at;
-                }).slice(0, 5).map(function (device) {
-                  return `<div class="command-list-row device-alert-row"><strong>${escapeHtml(device.name || "Device alert")}</strong><div class="subtext">${escapeHtml(device.status || "attention required")} · ${escapeHtml(displayValue(formatDate(device.last_seen_at || device.updated_at), "history pending"))}</div></div>`;
-                }).join("") || '<div class="subtext">No edge telemetry has synced yet.</div>'}
-              </div>
-            </article>
-          </aside>
-        </div>
+          `
+        )}
       </div>
     `;
     bindOfficeAssetActions(el.devicePanel);
@@ -4136,13 +4134,6 @@
       return sum + (Array.isArray(row.missing) ? row.missing.length : row.configured ? 0 : 1);
     }, 0);
     const activeFacet = state.moduleFacet.settings || "dashboard";
-    const eventEntries = rankEntries(getDerivedData().auditActionCounts || {}, 6);
-    const providerEntries = rows.map(function (row) {
-      return { label: row.name || row.key || "Provider", value: row.production_ready ? 1 : 0 };
-    });
-    const blockerRows = readiness && Array.isArray(readiness.blockers)
-      ? readiness.blockers.slice(0, 6)
-      : rows.filter(function (row) { return !row.production_ready; }).slice(0, 6);
     const integrationStatusText = function (row) {
       const status = String(row.status || "");
       if (row.production_ready || status === "production_ready" || status === "connected") return "Production Ready";
@@ -4162,62 +4153,27 @@
     };
 
     el.platformInfrastructurePanel.innerHTML = `
-      <div class="command-page platform-workspace">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">Platform Infrastructure</p>
-            <h3>Realtime events, storage, API health, webhooks, sync, provider status, and environment health.</h3>
-            <p class="subtext" style="margin:8px 0 0;">System-level health for the Office operating layer. Identity and permissions now live under Administration.</p>
-          </div>
-          <span class="office-system-badge ${missing ? "warning" : ""}">${missing ? `${missing} checks pending` : "Operational"}</span>
-        </div>
-        <div class="command-kpis settings-kpis">
-          ${[
-            ["Realtime", state.channelOverview?.channels?.length || 0, "Office event channels", "activity"],
-            ["Storage", state.officeStats?.office_files || state.officeStats?.documents || 0, "Office file metadata", "website"],
-            ["Production checks", `${productionReady}/${rows.length}`, `${readiness?.readiness_pct || 0}% provider readiness`, "settings"],
-            ["Webhooks", integrations.webhooks?.production_ready ? "Ready" : "Pending", "Inbound callback security", "trend"],
-          ].map(function (item) {
-            return `<div class="command-kpi"><span class="command-icon">${officeIcon(item[3])}</span><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
-          }).join("")}
-        </div>
-        <div class="command-layout">
-          <div class="command-main">
-            <div class="settings-card-grid platform-grid">
-              <article class="command-card">
-                <div class="command-card-head"><h4>${activeFacet === "dashboard" ? "Provider Status" : activeFacet.replace(/_/g, " ")}</h4><span class="subtext">${connected}/${rows.length} connected</span></div>
-                <div class="mission-list">
-                  ${readinessGroups.map(function (group) {
-                    return `<div class="platform-readiness-group"><div class="subtext" style="margin:8px 0 6px;text-transform:uppercase;letter-spacing:.08em;">${escapeHtml(group.title)}</div>${group.rows.map(function (row) {
-                      return `<div class="device-category"><span>${escapeHtml(row.name || row.key || "Provider")}</span><strong style="color:${integrationStatusColor(row)}">${escapeHtml(integrationStatusText(row))}</strong></div>`;
-                    }).join("")}</div>`;
-                  }).join("")}
-                </div>
-              </article>
-              <article class="command-card">
-                <div class="command-card-head"><h4>Event Stream</h4><span class="subtext">Audit-backed events</span></div>
-                <div class="intel-bar-list">${barRows(eventEntries, "No event stream data synced yet.")}</div>
-              </article>
-              <article class="command-card">
-                <div class="command-card-head"><h4>Infrastructure Readiness</h4><span class="subtext">${readiness?.readiness_pct || 0}% checks ready</span></div>
-                <div class="intel-bar-list">${barRows(providerEntries, "No providers configured yet.")}</div>
-              </article>
-              <article class="command-card">
-                <div class="command-card-head"><h4>100% Readiness Blockers</h4><span class="subtext">Credentials + payloads</span></div>
-                <div class="mission-list">
-                  ${blockerRows.length ? blockerRows.map(function (row) {
-                    const missingList = Array.isArray(row.missing) && row.missing.length
-                      ? row.missing.slice(0, 3).join(", ")
-                      : Array.isArray(row.required_metrics) && row.required_metrics.length
-                        ? row.required_metrics.slice(0, 3).join(", ")
-                        : "Pending live validation";
-                    return `<div class="activity-item"><span class="activity-icon warning">${officeIcon("alert")}</span><div><strong>${escapeHtml(row.name || row.key || "Integration")}</strong><small>${escapeHtml(missingList)}</small></div></div>`;
-                  }).join("") : '<div class="empty-state">No readiness blockers reported.</div>'}
-                </div>
-              </article>
-            </div>
-          </div>
-          <aside class="command-side context-rail">
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("Settings", "Monitor providers, sync and environment posture.")}
+        ${operationalStrip([
+          { label: "Realtime", value: state.channelOverview?.channels?.length || 0, meta: "Office events" },
+          { label: "Storage", value: state.officeStats?.office_files || state.officeStats?.documents || 0, meta: "Metadata" },
+          { label: "Checks", value: `${productionReady}/${rows.length}`, meta: `${readiness?.readiness_pct || 0}% ready` },
+          { label: "Webhooks", value: integrations.webhooks?.production_ready ? "Ready" : "Pending", meta: "Inbound security" },
+        ])}
+        ${oisModuleLayout(
+          oisRegistryCard(
+            activeFacet === "dashboard" ? "Provider Status" : activeFacet.replace(/_/g, " "),
+            `<div class="mission-list">
+              ${readinessGroups.map(function (group) {
+                return `<div class="platform-readiness-group"><div class="subtext" style="margin:8px 0 6px;text-transform:uppercase;letter-spacing:.08em;">${escapeHtml(group.title)}</div>${group.rows.map(function (row) {
+                  return `<div class="device-category"><span>${escapeHtml(row.name || row.key || "Provider")}</span><strong style="color:${integrationStatusColor(row)}">${escapeHtml(integrationStatusText(row))}</strong></div>`;
+                }).join("")}</div>`;
+              }).join("")}
+            </div>`,
+            `<div class="toolbar"><span class="office-system-badge ${missing ? "warning" : ""}">${missing ? `${missing} checks pending` : "Operational"}</span></div>`
+          ),
+          `
             <article class="command-card">
               <div class="command-card-head"><h4>System Sync</h4></div>
               <div class="mission-list">
@@ -4225,15 +4181,10 @@
                 <div class="device-category"><span>Facility API</span><strong>${integrations.facility?.production_ready ? "Ready" : "Pending"}</strong></div>
                 <div class="device-category"><span>Consumer API</span><strong>${integrations.consumer?.production_ready ? "Ready" : "Pending"}</strong></div>
                 <div class="device-category"><span>Map Provider</span><strong>${state.mapConfig?.google_maps?.configured ? "Google" : "Static"}</strong></div>
-                <div class="device-category"><span>Digital Twin Binding</span><strong>${integrations.digital_twin?.production_ready ? "Ready" : "Pending"}</strong></div>
               </div>
             </article>
-            <article class="command-card">
-              <div class="command-card-head"><h4>Operational Boundary</h4></div>
-              <div class="subtext">Platform Infrastructure is now restricted to runtime health, provider status, storage, realtime, sync, and webhooks. Staff, identity, permissions, accounts, and super-admin controls live in Administration.</div>
-            </article>
-          </aside>
-        </div>
+          `
+        )}
       </div>
     `;
   }
@@ -4749,65 +4700,63 @@
     const walletTotal = wallets.reduce(function (sum, wallet) {
       return sum + Number(wallet.balance || 0);
     }, 0);
-    const consumers = homes.slice(0, 10).map(function (home, index) {
+    const consumers = homes.slice(0, 12).map(function (home, index) {
       const estate = findById(estates, home.estate_id);
+      const walletCount = wallets.filter(function (wallet) {
+        return String(wallet.scope_id || "") === String(home.id || "");
+      }).length;
       return {
         title: home.name || home.unit_name || home.unit_number || `Home ${index + 1}`,
-        meta: displayValue(home.estate_name || (estate ? estate.name : ""), "Estate pending"),
+        description: `${displayValue(home.occupancy_status || home.status, "occupancy pending")} · ${displayValue(home.member_count, "members pending")} residents`,
+        meta: `${displayValue(home.estate_name || (estate ? estate.name : ""), "Estate pending")} · ${walletCount} wallet mirrors`,
         status: displayValue(home.status || home.occupancy_status || "active", "active"),
+        icon: "lead",
       };
     });
     el.consumersPanel.innerHTML = `
-      <div class="command-page">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">Consumers</p>
-            <h3>Resident-facing oversight across homes, wallet posture, and support continuity.</h3>
-            <p class="subtext" style="margin:8px 0 0;">Transitional Office view backed by facility and smart-building records until consumer-native oversight is expanded.</p>
-          </div>
-          <button class="ghost" data-office-target="facilities" type="button">Open Facilities</button>
-        </div>
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("Consumers", "Monitor residents, homes, wallet posture and adoption.")}
         ${operationalStrip([
-          { label: "Population", value: homes.length, meta: `${activeHomes} active homes` },
+          { label: "Residents", value: homes.length, meta: `${activeHomes} active homes` },
           { label: "Wallets", value: wallets.length, meta: formatCompactMoney(walletTotal) },
-          { label: "Device Adoption", value: adoptedDevices, meta: `${devices.length} devices in inventory` },
-          { label: "Community", value: communityActivity, meta: "Activity signals" },
-          { label: "Service Requests", value: serviceRequests, meta: "Support workload" },
-          { label: "Support", value: supportMappings.length, meta: "Open signals" },
-          { label: "Consumer App", value: state.officeEventSource ? "Live" : "Pending", meta: "Runtime channel" },
+          { label: "Devices", value: adoptedDevices, meta: "Adoption linked" },
+          { label: "Community", value: communityActivity, meta: "Signals" },
+          { label: "Requests", value: serviceRequests, meta: "Service load" },
+          { label: "Runtime", value: state.officeEventSource ? "Live" : "Standby", meta: "Consumer sync" },
         ])}
-        <div class="command-layout">
-          <div class="command-main">
+        ${oisActionRow([
+          { label: "Open Facilities", target: "facilities", className: "ghost compact" },
+          { label: "View Wallets", action: "view_wallets", className: "ghost compact" },
+        ])}
+        ${oisModuleLayout(
+          oisRegistryCard(
+            "Consumer Registry",
+            `<div class="ois-registry-list">${oisRegistryRows(consumers, "Consumer oversight will populate from home, wallet, and facility-linked resident data.")}</div>`,
+            `<div class="toolbar"><input class="estate-search" type="search" placeholder="Search homes or residents..." /><span class="office-system-badge">${consumers.length ? "Live Data" : "Pending"}</span></div>`
+          ),
+          `
             <article class="command-card">
-              <div class="command-card-head">
-                <h4>Consumer Registry</h4>
-                <div class="toolbar">
-                  <input class="estate-search" type="search" placeholder="Search homes or residents..." />
-                  <span class="office-system-badge">${consumers.length ? "Live Data" : "Pending"}</span>
-                </div>
-              </div>
+              <div class="command-card-head"><h4>Consumer Activity</h4></div>
+              <div class="ois-registry-list">${oisRegistryRows(consumers.slice(0, 5).map(function (item) {
+                return {
+                  title: item.title,
+                  description: item.description,
+                  meta: item.meta,
+                  status: item.status,
+                  icon: "activity",
+                };
+              }), "No consumer activity is available yet.")}</div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Operational Notes</h4></div>
               <div class="mission-list">
-                ${consumers.length ? consumers.map(function (item) {
-                  return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(item.title)}</strong><small class="subtext">${escapeHtml(item.meta)}</small></span><strong>${escapeHtml(item.status)}</strong></div>`;
-                }).join("") : '<div class="office-detail-empty">Consumer oversight will populate from home, wallet, and facility-linked resident data.</div>'}
+                <div class="device-category"><span>Facility-linked records</span><strong>${escapeHtml(String(homes.length))}</strong></div>
+                <div class="device-category"><span>Wallet mirrors</span><strong>${escapeHtml(String(wallets.length))}</strong></div>
+                <div class="device-category"><span>Support continuity</span><strong>${escapeHtml(String(supportMappings.length))}</strong></div>
               </div>
             </article>
-          </div>
-          ${commandActivityRail({
-            title: "Consumer Oversight",
-            activity: consumers.slice(0, 5).map(function (item) {
-              return { title: item.title, meta: `${item.meta} · ${item.status}`, tone: "info" };
-            }),
-            insights: [
-              { title: `${homes.length} homes in current Office inventory`, meta: "Consumer context is currently sourced from existing facility-linked records.", icon: "estate" },
-              { title: `${wallets.length} wallet records available`, meta: "Financial posture stays visible without duplicating backend intelligence.", icon: "wallet" },
-            ],
-            actions: [
-              { label: "Open Facilities", icon: "estate", action: "view_reports" },
-              { label: "View Wallets", icon: "wallet", action: "view_wallets" },
-            ],
-          })}
-        </div>
+          `
+        )}
       </div>
     `;
   }
@@ -4816,34 +4765,42 @@
     if (!el.projectsPanel || !domain) return;
     const proposals = asList(state.allProposals);
     const demos = asList(state.allDemos);
+    const projectRows = proposals.slice(0, 10).map(function (proposal) {
+      return {
+        title: displayValue(proposal.title || proposal.company, "Commercial project"),
+        description: displayValue(proposal.owner, "Office owner"),
+        meta: `${displayValue(proposal.status, "draft")} · ${formatCompactMoney(proposal.value || proposal.amount || 0)}`,
+        status: displayValue(proposal.status, "draft"),
+        icon: "estate",
+      };
+    });
     el.projectsPanel.innerHTML = `
-      <div class="command-page">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">Projects</p>
-            <h3>Commercial and delivery projects staged from existing Office records.</h3>
-            <p class="subtext" style="margin:8px 0 0;">This module groups proposal, review, and rollout work without interrupting current CRM and deployment workflows.</p>
-          </div>
-          <button class="ghost" data-office-target="deployments" type="button">Open Deployments</button>
-        </div>
-        <div class="command-kpis">
-          ${[
-            ["Proposals", proposals.length],
-            ["Reviews", demos.length],
-            ["Active Leads", state.leads.length],
-            ["Office Tasks", state.notifications.length],
-          ].map(function (item) {
-            return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(String(item[1]))}</strong><div class="subtext">Existing Office data</div></div>`;
-          }).join("")}
-        </div>
-        <article class="command-card">
-          <div class="command-card-head"><h4>Project Pipeline</h4><span class="office-system-badge">${proposals.length || demos.length ? "Live Data" : "Pending"}</span></div>
-          <div class="mission-list">
-            ${proposals.slice(0, 5).map(function (proposal) {
-              return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(displayValue(proposal.title || proposal.company, "Commercial project"))}</strong><small class="subtext">${escapeHtml(displayValue(proposal.owner, "Office"))}</small></span><strong>${escapeHtml(displayValue(proposal.status, "draft"))}</strong></div>`;
-            }).join("") || '<div class="office-detail-empty">Projects will populate from proposal, deployment, and delivery workflows already present in Office.</div>'}
-          </div>
-        </article>
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("Projects", "Supervise commercial and delivery workspaces.")}
+        ${operationalStrip([
+          { label: "Projects", value: proposals.length, meta: "Commercial pipeline" },
+          { label: "Reviews", value: demos.length, meta: "Scheduled" },
+          { label: "Leads", value: state.leads.length, meta: "CRM linked" },
+          { label: "Tasks", value: state.notifications.length, meta: "Open work" },
+        ])}
+        ${oisActionRow([{ label: "Open Deployments", target: "deployments", className: "ghost compact" }])}
+        ${oisModuleLayout(
+          oisRegistryCard(
+            "Project Registry",
+            `<div class="ois-registry-list">${oisRegistryRows(projectRows, "Projects will populate from proposal, deployment, and delivery workflows already present in Office.")}</div>`,
+            `<div class="toolbar"><span class="office-system-badge">${proposals.length || demos.length ? "Live Data" : "Pending"}</span></div>`
+          ),
+          `
+            <article class="command-card">
+              <div class="command-card-head"><h4>Delivery Notes</h4></div>
+              <div class="mission-list">
+                <div class="device-category"><span>Proposals</span><strong>${escapeHtml(String(proposals.length))}</strong></div>
+                <div class="device-category"><span>Deployment reviews</span><strong>${escapeHtml(String(demos.length))}</strong></div>
+                <div class="device-category"><span>Open actions</span><strong>${escapeHtml(String(state.notifications.length))}</strong></div>
+              </div>
+            </article>
+          `
+        )}
       </div>
     `;
   }
@@ -4863,16 +4820,18 @@
     const workspaceProjects = demos.filter(function (item) {
       return /workspace|facility|onboard|deploy/i.test(`${item.title || ""} ${item.notes || ""} ${item.review_type || ""}`);
     }).length;
+    const deploymentRegistry = demos.slice(0, 10).map(function (demo) {
+      return {
+        title: displayValue(demo.title || demo.lead_name, "Deployment review"),
+        description: displayValue(demo.review_type || demo.type, "Workspace review"),
+        meta: `${displayValue(demo.status, "pending")} · ${formatDate(demo.scheduled_at || demo.created_at)}`,
+        status: displayValue(demo.status, "pending"),
+        icon: "estate",
+      };
+    });
     el.deploymentsPanel.innerHTML = `
-      <div class="command-page">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">Deployments</p>
-            <h3>Deployment reviews, facility workspace provisioning, and rollout readiness.</h3>
-            <p class="subtext" style="margin:8px 0 0;">Existing building-review and workspace provisioning flows are preserved and regrouped under Office Deployments.</p>
-          </div>
-          <button class="ghost" data-office-target="crm" data-office-focus="crm" type="button">Open CRM</button>
-        </div>
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("Deployments", "Supervise rollout readiness across all workspaces.")}
         ${operationalStrip([
           { label: "Projects", value: demos.length, meta: "Deployment records" },
           { label: "Workspaces", value: workspaceProjects, meta: "Facility rollout" },
@@ -4882,20 +4841,27 @@
           { label: "Documents", value: documents.length, meta: "Required files" },
           { label: "Timeline", value: demos.length ? formatDate(demos[0].scheduled_at || demos[0].created_at) : "Pending", meta: "Next rollout" },
         ])}
-        <article class="command-card">
-          <div class="command-card-head">
-            <h4>Deployment Registry</h4>
-            <div class="toolbar">
-              <input class="estate-search" type="search" placeholder="Search deployments..." />
-              <button class="ghost compact" data-office-target="documents" type="button">Documents</button>
-            </div>
-          </div>
-          <div class="trace-list">
-            ${demos.length ? demos.slice(0, 8).map(function (demo) {
-              return `<div class="trace-row"><div><strong>${escapeHtml(displayValue(demo.title || demo.lead_name, "Deployment review"))}</strong><div class="subtext">${escapeHtml(displayValue(demo.review_type || demo.type, "Review"))} · ${escapeHtml(formatDate(demo.scheduled_at || demo.created_at))}</div></div><span class="office-system-badge">${escapeHtml(displayValue(demo.status, "pending"))}</span></div>`;
-            }).join("") : '<div class="office-detail-empty">Deployment reviews will appear here as existing Office demo and workspace data syncs.</div>'}
-          </div>
-        </article>
+        ${oisActionRow([
+          { label: "Open CRM", target: "crm", focus: "crm", className: "ghost compact" },
+          { label: "Documents", target: "documents", className: "ghost compact" },
+        ])}
+        ${oisModuleLayout(
+          oisRegistryCard(
+            "Deployment Registry",
+            `<div class="ois-registry-list">${oisRegistryRows(deploymentRegistry, "Deployment reviews will appear here as existing Office demo and workspace data sync.")}</div>`,
+            `<div class="toolbar"><input class="estate-search" type="search" placeholder="Search deployments..." /></div>`
+          ),
+          `
+            <article class="command-card">
+              <div class="command-card-head"><h4>Deployment Notes</h4></div>
+              <div class="mission-list">
+                <div class="device-category"><span>Readiness blockers</span><strong>${escapeHtml(String(blockers.length))}</strong></div>
+                <div class="device-category"><span>Edge ready devices</span><strong>${escapeHtml(`${edgeReady}/${devices.length}`)}</strong></div>
+                <div class="device-category"><span>Required files</span><strong>${escapeHtml(String(documents.length))}</strong></div>
+              </div>
+            </article>
+          `
+        )}
       </div>
     `;
   }
@@ -4949,19 +4915,18 @@
         time: formatDate(event.created_at || event.ts),
       };
     })).slice(0, 6);
+    const registryRows = financeRows.map(function (doc) {
+      return {
+        title: doc.title,
+        description: `${displayValue(doc.type, "document")} · ${displayValue(doc.owner, "Office")}`,
+        meta: `${displayValue(doc.status, "pending")} · ${formatCompactMoney(doc.value || 0)} · ${formatDate(doc.updated_at || doc.created_at)}`,
+        status: displayValue(doc.status, "pending"),
+        icon: "wallet",
+      };
+    });
     el.financePanel.innerHTML = `
-      <div class="command-page">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">Finance</p>
-            <h3>Supervise commercial value, invoices, wallet posture, deployment readiness, and revenue pipeline.</h3>
-            <p class="subtext" style="margin:8px 0 0;">Office visualizes financial posture from existing Office records and mirrored wallet/accounting data. Facility wallet ownership remains backend-owned.</p>
-          </div>
-          <div class="toolbar">
-            <button class="ghost" data-command-action="view_wallets" type="button">Wallet mirrors</button>
-            <button class="ghost" data-office-target="intelligence" type="button">Ask Oyi</button>
-          </div>
-        </div>
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("Finance", "Monitor commercial finance and platform financial posture.")}
         ${operationalStrip([
           { label: "Proposal Value", value: formatCompactMoney(proposalValue || state.report?.pipeline_value || 0), meta: "Commercial pipeline" },
           { label: "Invoices", value: invoiceDocs.length || state.officeStats?.invoices || 0, meta: "Commercial documents" },
@@ -4970,28 +4935,22 @@
           { label: "Revenue Pipeline", value: formatCompactMoney(state.report?.pipeline_value || proposalValue || 0), meta: "Report summary" },
           { label: "Actions", value: outstandingActions.length, meta: "Outstanding commercial work" },
         ])}
-        <div class="command-layout">
-          <section class="command-card">
-            <div class="command-card-head">
-              <h4>Finance Registry</h4>
-              <div class="toolbar">
-                <button class="ghost compact" data-office-target="documents" type="button">Documents</button>
-                <button class="ghost compact" data-office-target="deployments" type="button">Deployments</button>
-              </div>
-            </div>
-            <table class="command-table">
-              <thead><tr><th>Record</th><th>Type</th><th>Owner</th><th>Status</th><th>Value</th><th>Updated</th><th>Action</th></tr></thead>
-              <tbody>${financeRows.length ? financeRows.map(function (doc) {
-                return `<tr><td><strong>${escapeHtml(doc.title)}</strong><div class="subtext">${escapeHtml(doc.source || "Office record")}</div></td><td>${escapeHtml(displayValue(doc.type, "document"))}</td><td>${escapeHtml(displayValue(doc.owner, "Office"))}</td><td><span class="office-system-badge">${escapeHtml(displayValue(doc.status, "pending"))}</span></td><td>${escapeHtml(formatCompactMoney(doc.value || 0))}</td><td>${escapeHtml(formatDate(doc.updated_at || doc.created_at))}</td><td><button class="ghost compact" data-office-target="documents" type="button">Review</button></td></tr>`;
-              }).join("") : '<tr><td colspan="7"><div class="office-detail-empty">Finance registry will populate from proposals, invoices, contracts, wallet mirrors, and deployment records.</div></td></tr>'}</tbody>
-            </table>
-          </section>
-          <aside class="command-side">
+        ${oisActionRow([
+          { label: "Wallet mirrors", action: "view_wallets", className: "ghost compact" },
+          { label: "Documents", target: "documents", className: "ghost compact" },
+          { label: "Deployments", target: "deployments", className: "ghost compact" },
+        ])}
+        ${oisModuleLayout(
+          oisRegistryCard(
+            "Finance Registry",
+            `<div class="ois-registry-list">${oisRegistryRows(registryRows, "Finance registry will populate from proposals, invoices, contracts, wallet mirrors, and deployment records.")}</div>`
+          ),
+          `
             <article class="command-card">
               <div class="command-card-head"><h4>Financial Detail</h4><span class="office-system-badge">${wallets.length || proposals.length ? "Mirrored" : "Pending"}</span></div>
               <div class="mission-list">
                 <div class="device-category"><span>Contracts</span><strong>${escapeHtml(String(contractDocs.length || state.officeStats?.contracts || 0))}</strong></div>
-                <div class="device-category"><span>Wallet/accounting source</span><strong>Backend-owned</strong></div>
+                <div class="device-category"><span>Wallet source</span><strong>Backend-owned</strong></div>
                 <div class="device-category"><span>Deployment readiness</span><strong>${escapeHtml(deploymentFinance.length ? "Review" : "Pending")}</strong></div>
                 <div class="device-category"><span>Outstanding actions</span><strong>${escapeHtml(String(outstandingActions.length))}</strong></div>
               </div>
@@ -5004,17 +4963,8 @@
                 }).join("") : '<div class="office-detail-empty">Commercial and wallet activity will appear as Office records sync.</div>'}
               </div>
             </article>
-            <article class="command-card">
-              <div class="command-card-head"><h4>Conversation-ready Actions</h4></div>
-              <div class="shortcut-grid compact-action-grid">
-                <button class="shortcut-btn" data-office-target="intelligence" type="button"><span>${officeIcon("messenger")}</span>Ask about revenue</button>
-                <button class="shortcut-btn" data-office-target="crm" type="button"><span>${officeIcon("lead")}</span>Open pipeline</button>
-                <button class="shortcut-btn" data-office-target="documents" type="button"><span>${officeIcon("website")}</span>Review invoices</button>
-                <button class="shortcut-btn" data-office-target="reports" type="button"><span>${officeIcon("trend")}</span>Open reports</button>
-              </div>
-            </article>
-          </aside>
-        </div>
+          `
+        )}
       </div>
     `;
   }
@@ -5022,24 +4972,26 @@
   function renderDigitalTwinWorkspace(domain) {
     if (!el.digitalTwinPanel || !domain) return;
     el.digitalTwinPanel.innerHTML = `
-      <div class="command-page">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">Digital Twin</p>
-            <h3>Future operational twin surface for facilities, consumers, devices, and runtime state.</h3>
-            <p class="subtext" style="margin:8px 0 0;">The shell is now ready for Digital Twin oversight. Live twin rendering remains pending while Office continues consuming Ochiga backend intelligence instead of duplicating it.</p>
-          </div>
-          <button class="ghost" data-office-target="reports" type="button">Open Reports</button>
-        </div>
-        <article class="command-card">
-          <div class="command-card-head"><h4>Twin Readiness</h4><span class="office-system-badge warning">Transitional</span></div>
-          <div class="mission-list">
-            <div class="device-category"><span>Facility state</span><strong>Available</strong></div>
-            <div class="device-category"><span>Consumer context</span><strong>Available</strong></div>
-            <div class="device-category"><span>Edge device graph</span><strong>Partial</strong></div>
-            <div class="device-category"><span>Backend intelligence feed</span><strong>Consume only</strong></div>
-          </div>
-        </article>
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("Digital Twin", "Review twin readiness across facilities and edge state.")}
+        ${operationalStrip([
+          { label: "Facility state", value: "Available", meta: "Registry linked" },
+          { label: "Consumer context", value: "Available", meta: "Population linked" },
+          { label: "Edge graph", value: "Partial", meta: "Runtime mirror" },
+          { label: "Intelligence", value: "Consume", meta: "Backend-owned" },
+        ])}
+        ${oisActionRow([{ label: "Open Reports", target: "reports", className: "ghost compact" }])}
+        ${oisModuleLayout(
+          oisRegistryCard(
+            "Twin Readiness",
+            `<div class="mission-list">
+              <div class="device-category"><span>Facility state</span><strong>Available</strong></div>
+              <div class="device-category"><span>Consumer context</span><strong>Available</strong></div>
+              <div class="device-category"><span>Edge device graph</span><strong>Partial</strong></div>
+              <div class="device-category"><span>Backend intelligence feed</span><strong>Consume only</strong></div>
+            </div>`
+          )
+        )}
       </div>
     `;
   }
@@ -5056,24 +5008,6 @@
       ["Resolved", derived.resolvedNotifications || 0],
       ["Human Owned", derived.humanOwned.length || 0],
     ];
-	    const channelOverviewRows = asList(state.channelOverview?.channels);
-	    const channelLiveCount = function (name, fallback) {
-	      const match = channelOverviewRows.find(function (channel) {
-	        return String(channel.name || channel.key || "").toLowerCase().includes(String(name || "").toLowerCase());
-	      });
-	      return Number(match?.lead_count || match?.message_count || match?.open_notifications || fallback || 0);
-	    };
-	    const channelRows = [
-	      ["Website", channelLiveCount("web", derived.channelCounts.website), "website"],
-	      ["WhatsApp", channelLiveCount("whatsapp", derived.channelCounts.whatsapp), "whatsapp"],
-	      ["Instagram", channelLiveCount("instagram", derived.channelCounts.instagram), "instagram"],
-	      ["Facebook", channelLiveCount("facebook", derived.channelCounts.facebook), "facebook"],
-	      ["LinkedIn", channelLiveCount("linkedin", derived.channelCounts.linkedin), "linkedin"],
-	      ["TikTok", channelLiveCount("tiktok", derived.channelCounts.tiktok), "tiktok"],
-	      ["Google Ads", channelLiveCount("google", derived.channelCounts.google), "google"],
-	      ["App Store", channelLiveCount("app store", derived.channelCounts.appStore), "website"],
-	      ["Play Store", channelLiveCount("play", derived.channelCounts.playStore), "google"],
-	    ];
 	    const integrationRows = crmIntegrationStatusRows();
 	    const visibleIntegrationRows = state.crmIntegrationsExpanded ? integrationRows : integrationRows.slice(0, 5);
     const stages = [
@@ -5084,7 +5018,6 @@
       ["Negotiation", derived.stageCounts.negotiation || 0],
       ["Closed Won", derived.statusCounts.closed || 0],
     ];
-    const maxStage = Math.max(1, ...stages.map(function (stage) { return stage[1]; }));
     const activeFacet = state.moduleFacet.crm || "dashboard";
     const customers = state.leads.filter(function (lead) {
       return /customer|closed|won|active/i.test(`${lead.status || ""} ${lead.stage || lead.commercial_stage || ""}`);
@@ -5102,9 +5035,6 @@
     const partnerRecords = state.leads.filter(function (lead) {
       return /partner|channel|broker|developer/i.test(`${lead.source || ""} ${lead.company || ""} ${lead.project_type || ""}`);
     }).length;
-    const leadRegistryRows = state.leads.slice(0, 8).map(function (lead) {
-      return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(leadTitle(lead))}</strong><small class="subtext">${escapeHtml(displayValue(lead.company || lead.source || lead.channel, "Source pending"))}</small></span><strong>${escapeHtml(displayValue(lead.status || lead.commercial_stage, "new"))}</strong></div>`;
-    }).join("");
     function crmFacetSummary() {
       const titleMap = {
         leads: "Lead Registry",
@@ -5162,16 +5092,18 @@
       `;
     }
 
+    const crmRegistryRows = state.leads.slice(0, 12).map(function (lead) {
+      return {
+        title: leadTitle(lead),
+        description: displayValue(lead.company || lead.source || lead.channel, "Source pending"),
+        meta: `${displayValue(lead.status || lead.commercial_stage, "new")} · ${displayValue(lead.next_action, "No next action recorded")}`,
+        status: displayValue(lead.status || lead.commercial_stage, "new"),
+        icon: "lead",
+      };
+    });
     el.crmAgentsPanel.innerHTML = `
-      <div class="command-page">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">CRM + Support Command Center</p>
-            <h3>Manage leads, customers, organizations, conversations, support tickets, and deployment pipeline.</h3>
-            <p class="subtext" style="margin:8px 0 0;">Pure CRM workspace for relationship management, channel performance, support load, and commercial pipeline posture.</p>
-          </div>
-          <button class="ghost" data-command-action="view_reports" type="button">View full report</button>
-        </div>
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("CRM", "Manage commercial opportunities and customer relationships.")}
         ${operationalStrip([
           { label: "Leads", value: totals.leads || state.leads.length, meta: "CRM records" },
           { label: "Conversations", value: state.officeStats?.conversations || state.leads.length || 0, meta: "Relationship signals" },
@@ -5182,65 +5114,17 @@
           { label: "Follow-ups", value: followUps, meta: "Next actions" },
           { label: "Support Handoff", value: supportTickets.length, meta: "Support load" },
         ])}
-        <div class="command-layout">
-          <div class="command-main">
-            <article class="command-card">
-              <div class="command-card-head">
-                <h4>Lead Registry</h4>
-                <div class="toolbar">
-                  <input class="estate-search" type="search" placeholder="Search leads, partners, or companies..." />
-                  <button class="ghost compact" data-crm-facet="leads" type="button">All leads</button>
-                </div>
-              </div>
-              <div class="mission-list">
-                ${leadRegistryRows || '<div class="office-detail-empty">CRM records will appear when leads sync into Office.</div>'}
-              </div>
-            </article>
+        ${oisActionRow([{ label: "View full report", action: "view_reports", className: "ghost compact" }])}
+        ${oisModuleLayout(
+          `
+            ${oisRegistryCard(
+              "Lead Registry",
+              `<div class="ois-registry-list">${oisRegistryRows(crmRegistryRows, "CRM records will appear when leads sync into Office.")}</div>`,
+              `<div class="toolbar"><input class="estate-search" type="search" placeholder="Search leads, partners, or companies..." /><button class="ghost compact" data-crm-facet="leads" type="button">All leads</button></div>`
+            )}
             ${crmFacetSummary()}
-            <article class="command-card">
-	              <div class="command-card-head"><h4>Channel Performance</h4><button class="ghost compact" data-crm-facet="conversations" type="button">View all</button></div>
-	              <div class="channel-grid">
-	                ${channelRows.map(function (row) {
-	                  return `<div class="channel-card"><span class="command-icon ${platformIconClass(row[0])}">${officeIcon(row[2])}</span><strong>${escapeHtml(String(row[1]))}</strong><div class="subtext">${escapeHtml(row[0])}</div></div>`;
-	                }).join("")}
-	              </div>
-            </article>
-            <article class="command-card">
-              <div class="command-card-head"><h4>Lead Flow Analysis</h4><span class="subtext">${escapeHtml(String(state.leads.length))} total records</span></div>
-              <div class="funnel">
-                ${stages.map(function (stage, index) {
-                  const width = Math.max(28, Math.round((stage[1] / maxStage) * 100));
-                  return `<div class="funnel-row" style="width:${width}%;background:linear-gradient(90deg, hsl(${260 - index * 24}, 72%, 44%), hsl(${178 - index * 10}, 70%, 42%));"><span>${escapeHtml(stage[0])}</span><strong>${escapeHtml(String(stage[1]))}</strong></div>`;
-                }).join("")}
-              </div>
-            </article>
-            <article class="command-card">
-	              <div class="command-card-head"><h4>Account Manager Workload</h4><button class="ghost compact" data-crm-facet="account_managers" type="button">View accounts</button></div>
-	              <div class="agent-strip">
-	                ${accountManagers.length ? accountManagers.map(function (entry) {
-                  return `<div class="agent-mini-card">
-	                    <div style="display:flex;align-items:center;gap:10px;">
-	                      <span class="avatar-dot">${escapeHtml(String(entry.label || "C").slice(0, 1).toUpperCase())}</span>
-                        <div><strong>${escapeHtml(crmOwnerLabel(entry.label))}</strong><div class="subtext">Relationship owner</div></div>
-                      </div>
-                      <div class="agent-spark" style="margin-top:10px;">
-                        <div class="agent-spark-row"><span>Records</span><span class="agent-spark-track"><span class="agent-spark-fill" style="width:${Math.min(100, Number(entry.value || 0) * 8)}%;"></span></span><strong>${escapeHtml(String(entry.value || 0))}</strong></div>
-                      </div>
-                    </div>`;
-                  }).join("") : '<div class="office-detail-empty">Account manager workload will appear when CRM ownership data syncs.</div>'}
-              </div>
-            </article>
-          </div>
-          <aside class="command-side">
-            <article class="command-card">
-              <div class="command-card-head"><h4>Real-time Activity</h4></div>
-              <div class="mission-list">
-                ${state.notifications.slice(0, 5).map(function (note, index) {
-                  const tone = note.status === "resolved" ? "healthy" : note.type === "founder_escalation" ? "critical" : index % 2 ? "warning" : "info";
-                  return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot ${escapeHtml(tone === "healthy" ? "" : tone)}"></i></span><div class="activity-copy"><strong>${escapeHtml(note.title || note.type || "Activity")}</strong><span>${escapeHtml(formatDate(note.created_at || note.ts))}</span></div></div>`;
-                }).join("") || '<div class="subtext">No live CRM activity yet.</div>'}
-              </div>
-            </article>
+          `,
+          `
             <article class="command-card">
               <div class="command-card-head"><h4>Support Breakdown</h4></div>
               <div class="mission-list">
@@ -5249,16 +5133,16 @@
                 }).join("")}
               </div>
             </article>
-	            <article class="command-card">
-		              <div class="command-card-head"><h4>Channel Integration</h4><button class="ghost compact" data-crm-integrations-toggle type="button">${state.crmIntegrationsExpanded ? "Show less" : "View channels"}</button></div>
-	              <div class="mission-list">
-	                ${visibleIntegrationRows.map(function (row) {
-	                  return `<div class="device-category"><span style="display:inline-flex;align-items:center;gap:8px;"><span class="command-icon ${platformIconClass(row.name)}">${officeIcon(row.icon)}</span><span><strong style="font-weight:400;color:var(--ink);">${escapeHtml(row.name)}</strong><div class="subtext">${escapeHtml(row.detail)}</div></span></span><strong style="font-weight:400;color:${row.connected ? "var(--green)" : "#ff6b8a"};">${row.connected ? "Connected" : "Disconnected"}</strong></div>`;
-	                }).join("")}
-	              </div>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Channel Integration</h4><button class="ghost compact" data-crm-integrations-toggle type="button">${state.crmIntegrationsExpanded ? "Show less" : "View channels"}</button></div>
+              <div class="mission-list">
+                ${visibleIntegrationRows.map(function (row) {
+                  return `<div class="device-category"><span>${escapeHtml(row.name)}</span><strong style="color:${row.connected ? "var(--green)" : "#ff6b8a"};">${row.connected ? "Connected" : "Disconnected"}</strong></div>`;
+                }).join("")}
+              </div>
             </article>
-          </aside>
-        </div>
+          `
+        )}
       </div>
     `;
   }
@@ -5633,19 +5517,18 @@
       ["Failures", failedTraces.length],
     ];
 
+    const agentRegistryRows = agentRows.map(function (agent) {
+      return {
+        title: agent.name,
+        description: agent.role,
+        meta: `${agent.source} · ${agent.count} evidence records`,
+        status: agent.status,
+        icon: "ai_operations",
+      };
+    });
     el.aiOperationsPanel.innerHTML = `
-      <div class="command-page">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">Agents</p>
-            <h3>Supervise Oyi Core agents, tools, executions, confirmations, traces, and AI operations health.</h3>
-            <p class="subtext" style="margin:8px 0 0;">Office visualizes backend-owned intelligence. Awareness, reasoning, recommendations, automation, and execution ledger remain owned by Ochiga backend.</p>
-          </div>
-          <div class="toolbar">
-            <button class="ghost" data-office-target="intelligence" type="button">Open Oyi</button>
-            <button class="ghost" data-office-target="reports" type="button">Runtime reports</button>
-          </div>
-        </div>
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("Agents", "Monitor backend runtime and execution health.")}
         ${operationalStrip([
           { label: "Active Agents", value: agentRows.filter(function (agent) { return /active|connected|available|review/i.test(agent.status); }).length, meta: "Supervised surfaces" },
           { label: "Tools", value: toolRows.length, meta: "Registry mirror" },
@@ -5654,28 +5537,22 @@
           { label: "Failures", value: failedTraces.length, meta: "Needs review" },
           { label: "Backend Runtime", value: aiOps.available === false ? "Transitional" : "Connected", meta: displayValue(aiOps.reason, "Oyi Core authority") },
         ])}
-        <div class="command-layout">
-          <section class="command-card">
-            <div class="command-card-head">
-              <h4>Agent Registry</h4>
-              <div class="toolbar">
-                <button class="ghost compact" data-office-target="intelligence" type="button">Ask Oyi</button>
-                <button class="ghost compact" data-office-target="reports" type="button">Diagnostics</button>
-              </div>
-            </div>
-            <table class="command-table">
-              <thead><tr><th>Agent</th><th>Role</th><th>Status</th><th>Evidence</th><th>Source</th><th>Action</th></tr></thead>
-              <tbody>${agentRows.map(function (agent) {
-                return `<tr><td><strong>${escapeHtml(agent.name)}</strong></td><td>${escapeHtml(agent.role)}</td><td><span class="office-system-badge ${/review|transitional/i.test(agent.status) ? "warning" : ""}">${escapeHtml(agent.status)}</span></td><td>${escapeHtml(String(agent.count))}</td><td>${escapeHtml(agent.source)}</td><td><button class="ghost compact" data-office-target="intelligence" type="button">Review</button></td></tr>`;
-              }).join("")}</tbody>
-            </table>
-          </section>
-          <aside class="command-side">
+        ${oisActionRow([
+          { label: "Open Oyi", target: "intelligence", className: "ghost compact" },
+          { label: "Runtime reports", target: "reports", className: "ghost compact" },
+        ])}
+        ${oisModuleLayout(
+          oisRegistryCard(
+            "Agent Registry",
+            `<div class="ois-registry-list">${oisRegistryRows(agentRegistryRows, "No agent supervision data is available yet.")}</div>`,
+            `<div class="toolbar"><button class="ghost compact" data-office-target="intelligence" type="button">Ask Oyi</button><button class="ghost compact" data-office-target="reports" type="button">Diagnostics</button></div>`
+          ),
+          `
             <article class="command-card">
               <div class="command-card-head"><h4>Tool Registry</h4><span class="office-system-badge">${aiTools.length ? "Backend" : "Fallback mirror"}</span></div>
               <div class="mission-list">
                 ${toolRows.slice(0, 6).map(function (tool) {
-                  return `<div class="device-category"><span><strong style="display:block;color:var(--ink);font-weight:600;">${escapeHtml(tool.title)}</strong><small class="subtext">${escapeHtml(tool.meta)}</small></span><strong>${escapeHtml(String(tool.count))}</strong></div>`;
+                  return `<div class="device-category"><span>${escapeHtml(tool.title)}</span><strong>${escapeHtml(String(tool.count))}</strong></div>`;
                 }).join("")}
               </div>
             </article>
@@ -5687,16 +5564,8 @@
                 }).join("") : '<div class="office-detail-empty">Runtime executions and traces will appear when backend Oyi Core activity syncs.</div>'}
               </div>
             </article>
-            <article class="command-card">
-              <div class="command-card-head"><h4>AI Operations Health</h4></div>
-              <div class="mission-list">
-                ${healthRows.map(function (row) {
-                  return `<div class="device-category"><span>${escapeHtml(row[0])}</span><strong>${escapeHtml(String(row[1]))}</strong></div>`;
-                }).join("")}
-              </div>
-            </article>
-          </aside>
-        </div>
+          `
+        )}
       </div>
     `;
   }
@@ -6240,15 +6109,24 @@
     }
 
     const totals = state.report.totals || {};
+    const reportRows = [
+      { title: "Executive summary", description: "Office-wide record posture", meta: `${totals.leads || 0} total records · ${totals.demos || 0} reviews`, status: `${totals.sales_handoff_conversion_pct || 0}%`, icon: "trend" },
+      { title: "Escalation pressure", description: "Founder and operational review", meta: `${totals.escalations || 0} escalations · ${totals.hot_leads || 0} priority records`, status: "Review", icon: "alert" },
+      { title: "Average score", description: "Commercial health", meta: `${totals.average_score || 0} average score`, status: "Live", icon: "lead" },
+    ];
     el.reportsPanel.innerHTML = `
-      <div class="trace-head"><strong>Total records</strong><span>${escapeHtml(String(totals.leads || 0))}</span></div>
-      <div class="trace-head"><strong>Total reviews</strong><span>${escapeHtml(String(totals.demos || 0))}</span></div>
-      <div class="trace-head"><strong>Escalations</strong><span>${escapeHtml(String(totals.escalations || 0))}</span></div>
-      <div class="trace-head"><strong>Sales handoff conversion</strong><span>${escapeHtml(
-        `${totals.sales_handoff_conversion_pct || 0}%`
-      )}</span></div>
-      <div class="trace-head"><strong>Priority records</strong><span>${escapeHtml(String(totals.hot_leads || 0))}</span></div>
-      <div class="trace-head"><strong>Average score</strong><span>${escapeHtml(String(totals.average_score || 0))}</span></div>
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("Reports", "Review analytics, diagnostics and executive summaries.")}
+        ${operationalStrip([
+          { label: "Records", value: totals.leads || 0, meta: "Tracked" },
+          { label: "Reviews", value: totals.demos || 0, meta: "Scheduled" },
+          { label: "Escalations", value: totals.escalations || 0, meta: "Open" },
+          { label: "Conversion", value: `${totals.sales_handoff_conversion_pct || 0}%`, meta: "Commercial" },
+          { label: "Priority", value: totals.hot_leads || 0, meta: "Needs action" },
+          { label: "Score", value: totals.average_score || 0, meta: "Average" },
+        ])}
+        ${oisRegistryCard("Executive Reports", `<div class="ois-registry-list">${oisRegistryRows(reportRows, "No report summary is available yet.")}</div>`)}
+      </div>
     `;
     el.sourcesPanel.innerHTML = keyValueLines(
       state.report.by_source,
@@ -9002,6 +8880,12 @@
       }
     }, 120));
     el.webPresencePanel.addEventListener("click", function (event) {
+      const facetNode = event.target.closest("[data-document-facet]");
+      if (facetNode) {
+        setModuleFacet("documents", facetNode.getAttribute("data-document-facet") || "dashboard");
+        renderDocumentsWorkspace(buildOverviewDomains().domains.web_presence);
+        return;
+      }
       const openNode = event.target.closest("[data-document-open]");
       if (!openNode) return;
       event.preventDefault();
