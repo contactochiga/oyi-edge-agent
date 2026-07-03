@@ -6602,6 +6602,248 @@
           width: 100%;
         }
       }
+      /* Final internal OIS cleanup: remove legacy inner-panel sizing and tighten deep module/mobile behavior. */
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+      .workspace-shell {
+        height: auto !important;
+        min-height: calc(100dvh - 64px);
+      }
+      .workspace-body,
+      .tab-panel,
+      .tab-panel.active,
+      .tab-panel-scroll,
+      .command-page,
+      .ois-module-page,
+      .ois-module-grid,
+      .ois-module-main,
+      .ois-module-side,
+      .conversation-shell,
+      .terminal-card,
+      .terminal-thread,
+      .staff-workspace,
+      .notification-list,
+      .founder-list {
+        min-height: 0 !important;
+        height: auto !important;
+        max-width: 100% !important;
+      }
+      .workspace-body,
+      .tab-panel-scroll {
+        overflow-x: hidden !important;
+        overflow-y: visible !important;
+      }
+      .tab-panel[data-panel="intelligence"] .tab-panel-scroll {
+        padding-bottom: calc(132px + env(safe-area-inset-bottom)) !important;
+      }
+      .conversation-shell {
+        display: flex;
+        flex-direction: column;
+      }
+      .terminal-card {
+        position: relative !important;
+        inset: auto !important;
+      }
+      .terminal-thread {
+        padding: 16px 16px 132px !important;
+      }
+      .composer-card {
+        position: sticky !important;
+        bottom: 0;
+      }
+      .command-page,
+      .ois-module-page {
+        gap: 10px !important;
+      }
+      .ois-page-header p,
+      .command-head .subtext,
+      .command-card-head .subtext {
+        max-width: 100%;
+      }
+      .command-layout,
+      .ois-module-grid.with-side {
+        align-items: start;
+      }
+      .device-category,
+      .ois-office-row,
+      .command-list-row,
+      .staff-compact-card,
+      .admin-dashboard-card,
+      .inbox-row {
+        width: 100%;
+        min-width: 0;
+      }
+      .device-category {
+        display: grid !important;
+        grid-template-columns: minmax(0,1fr) auto;
+        align-items: center;
+        gap: 10px;
+      }
+      .device-category > span,
+      .ois-office-row-main,
+      .inbox-row-title > div {
+        min-width: 0;
+      }
+      .device-category > span,
+      .ois-office-row-desc,
+      .ois-office-row-meta,
+      .inbox-row-snippet {
+        overflow-wrap: anywhere;
+      }
+      .office-system-badge,
+      .pill,
+      .priority-tag {
+        white-space: nowrap;
+      }
+      .staff-control-panel .toolbar,
+      .staff-control-row,
+      .inbox-action-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .staff-control-panel .text-input,
+      .staff-control-select {
+        min-width: 0;
+        width: 100%;
+      }
+      .office-mobile-footer {
+        display: none;
+      }
+      @media (min-width: 761px) {
+        .office-mobile-footer {
+          display: none !important;
+        }
+      }
+      @media (max-width: 760px) {
+        .workspace-body {
+          padding: 12px 12px calc(124px + env(safe-area-inset-bottom)) !important;
+        }
+        .tab-panel-scroll {
+          padding-bottom: calc(124px + env(safe-area-inset-bottom)) !important;
+        }
+        .command-head,
+        .office-overview-hero,
+        .command-card,
+        .ois-registry-card {
+          padding: 12px !important;
+        }
+        .ois-page-header h3 {
+          font-size: 18px !important;
+        }
+        .ois-page-header p {
+          font-size: 11px !important;
+          line-height: 1.35;
+        }
+        .office-operational-strip {
+          padding: 8px 10px !important;
+        }
+        .office-strip-item {
+          min-width: 104px !important;
+          flex-basis: 104px !important;
+          padding: 2px 8px !important;
+        }
+        .ois-action-row,
+        .ois-segment-tabs {
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          padding-bottom: 2px;
+        }
+        .command-table,
+        .tab-panel[data-panel="reports"] .command-table {
+          display: none !important;
+        }
+        .office-mobile-footer {
+          display: block !important;
+          padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+        }
+        .office-mobile-footer-shell {
+          width: min(calc(100% - 20px), 392px) !important;
+          max-width: calc(100vw - 20px) !important;
+          border-radius: 24px !important;
+        }
+        .office-mobile-footer-track {
+          gap: 6px !important;
+          padding: 6px !important;
+        }
+        .office-mobile-footer-page {
+          gap: 3px !important;
+        }
+        .office-mobile-nav-item {
+          min-height: 52px !important;
+          border-radius: 16px !important;
+          padding: 5px 3px !important;
+        }
+        .office-mobile-nav-icon {
+          width: 30px !important;
+          height: 30px !important;
+        }
+        .office-mobile-nav-icon svg {
+          width: 18px !important;
+          height: 18px !important;
+        }
+        .office-mobile-page-dots {
+          gap: 5px !important;
+        }
+        .office-mobile-composer {
+          width: auto !important;
+          max-width: 148px !important;
+          min-height: 38px !important;
+          padding: 0 12px !important;
+          border-radius: 18px !important;
+          background: rgba(255,255,255,0.04) !important;
+          border-color: rgba(255,255,255,0.08) !important;
+        }
+        .office-mobile-composer-copy strong {
+          font-size: 13px !important;
+          font-weight: 600 !important;
+        }
+        .office-mobile-orb {
+          width: 16px !important;
+          height: 16px !important;
+          box-shadow: none !important;
+          background: radial-gradient(circle, rgba(255,255,255,.92), rgba(125,211,252,.9)) !important;
+        }
+        .office-mobile-composer-expanded {
+          min-height: 44px !important;
+          grid-template-columns: 32px minmax(0,1fr) 42px 42px !important;
+          gap: 6px !important;
+          padding: 4px !important;
+          border-radius: 20px !important;
+          background: rgba(255,255,255,0.04) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+        }
+        .office-mobile-composer-close,
+        .office-mobile-composer-voice,
+        .office-mobile-composer-send {
+          width: 40px !important;
+          min-width: 40px !important;
+          height: 40px !important;
+          border-radius: 14px !important;
+        }
+        .office-mobile-composer-input {
+          min-width: 0 !important;
+          font-size: 16px !important;
+          line-height: 1.2 !important;
+        }
+        .office-mobile-composer-wave {
+          min-width: 0;
+        }
+        .office-mobile-composer-timer {
+          font-size: 10px !important;
+        }
+        .tab-panel[data-panel="team"] .command-head,
+        .tab-panel[data-panel="team"] .admin-kpis {
+          margin-bottom: 0 !important;
+        }
+        .tab-panel[data-panel="team"] .command-layout,
+        .tab-panel[data-panel="reports"] .command-layout {
+          display: grid !important;
+          grid-template-columns: 1fr !important;
+          gap: 10px !important;
+        }
+      }
     </style>
     <script defer src="/_vercel/insights/script.js"></script>
 

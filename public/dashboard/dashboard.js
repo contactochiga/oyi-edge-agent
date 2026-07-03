@@ -4156,6 +4156,18 @@
       if (status === "error") return "#ff5f7a";
       return "#ffc247";
     };
+    const providerRows = readinessGroups.flatMap(function (group) {
+      return group.rows.map(function (row) {
+        return {
+          title: row.name || row.key || "Provider",
+          description: group.title,
+          meta: Array.isArray(row.missing) && row.missing.length ? `Missing: ${row.missing.join(", ")}` : "Credentials and runtime checks available",
+          status: integrationStatusText(row),
+          tone: row.production_ready || String(row.status || "") === "connected" ? "" : "warning",
+          icon: /map|google/i.test(String(row.name || row.key || "")) ? "estate" : /email|whatsapp|meta|linkedin/i.test(String(row.name || row.key || "")) ? "messenger" : "settings",
+        };
+      });
+    });
 
     el.platformInfrastructurePanel.innerHTML = `
       <div class="command-page ois-module-page">
@@ -4174,13 +4186,7 @@
         ${oisModuleLayout(
           oisRegistryCard(
             "Provider Registry",
-            `<div class="mission-list">
-              ${readinessGroups.map(function (group) {
-                return `<div class="platform-readiness-group"><div class="subtext" style="margin:8px 0 6px;text-transform:uppercase;letter-spacing:.08em;">${escapeHtml(group.title)}</div>${group.rows.map(function (row) {
-                  return `<div class="device-category"><span>${escapeHtml(row.name || row.key || "Provider")}</span><strong style="color:${integrationStatusColor(row)}">${escapeHtml(integrationStatusText(row))}</strong></div>`;
-                }).join("")}</div>`;
-              }).join("")}
-            </div>`,
+            `<div class="ois-registry-list">${oisRegistryRows(providerRows, "Provider health will appear when integrations are configured.")}</div>`,
             `<div class="toolbar"><span class="office-system-badge ${missing ? "warning" : ""}">${missing ? `${missing} checks pending` : "Operational"}</span></div>`
           ),
           `
@@ -4191,6 +4197,15 @@
                 <div class="device-category"><span>Facility API</span><strong>${integrations.facility?.production_ready ? "Ready" : "Pending"}</strong></div>
                 <div class="device-category"><span>Consumer API</span><strong>${integrations.consumer?.production_ready ? "Ready" : "Pending"}</strong></div>
                 <div class="device-category"><span>Map Provider</span><strong>${state.mapConfig?.google_maps?.configured ? "Google" : "Static"}</strong></div>
+              </div>
+            </article>
+            <article class="command-card">
+              <div class="command-card-head"><h4>Readiness Summary</h4></div>
+              <div class="mission-list">
+                <div class="device-category"><span>Providers ready</span><strong>${escapeHtml(String(productionReady))}</strong></div>
+                <div class="device-category"><span>Connected checks</span><strong>${escapeHtml(String(connected))}</strong></div>
+                <div class="device-category"><span>Pending checks</span><strong>${escapeHtml(String(missing))}</strong></div>
+                <div class="device-category"><span>Readiness</span><strong>${escapeHtml(String(readiness?.readiness_pct || 0))}%</strong></div>
               </div>
             </article>
           `
@@ -5008,6 +5023,19 @@
         icon: "trend",
       },
     ];
+    const twinTimelineRows = scenes.slice(0, 2).map(function (scene) {
+      return {
+        title: displayValue(scene.name || scene.title, "Scene review"),
+        meta: `${displayValue(scene.status, "pending")} · ${displayValue(scene.updated_at ? formatDate(scene.updated_at) : "", "Update pending")}`,
+        time: formatDate(scene.updated_at || scene.created_at),
+      };
+    }).concat(state.audit.slice(0, 3).map(function (event) {
+      return {
+        title: displayValue(event.action, "Runtime overlay"),
+        meta: displayValue(event.actor_email || event.actor, "Office"),
+        time: formatDate(event.created_at || event.ts),
+      };
+    })).slice(0, 5);
     el.digitalTwinPanel.innerHTML = `
       <div class="command-page ois-module-page">
         ${oisPageHeader("Digital Twin", "Monitor spatial scenes, devices, and runtime overlays.")}
@@ -5023,7 +5051,15 @@
           { label: "Review Scene", target: "reports", className: "ghost compact" },
         ])}
         ${oisModuleLayout(
-          oisRegistryCard("Twin Registry", `<div class="ois-registry-list">${oisRegistryRows(twinRows, "Digital twin records will appear when edge and facility scenes sync into Office.")}</div>`)
+          oisRegistryCard("Twin Registry", `<div class="ois-registry-list">${oisRegistryRows(twinRows, "Digital twin records will appear when edge and facility scenes sync into Office.")}</div>`),
+          `<article class="command-card">
+            <div class="command-card-head"><h4>Twin Timeline</h4></div>
+            <div class="mission-list">
+              ${twinTimelineRows.length ? twinTimelineRows.map(function (row) {
+                return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot"></i></span><div class="activity-copy"><strong>${escapeHtml(row.title)}</strong><span>${escapeHtml(row.meta)} · ${escapeHtml(row.time)}</span></div></div>`;
+              }).join("") : '<div class="office-detail-empty">Twin activity will appear when spatial scenes and runtime overlays sync.</div>'}
+            </div>
+          </article>`
         )}
       </div>
     `;
@@ -6033,66 +6069,60 @@
       diagnostics: "Diagnostics",
     }[activeFacet] || "Office Reports Overview";
 
+    const reportRegistryRows = reportRows.map(function (row) {
+      return {
+        title: row.title,
+        description: `${row.type} · ${row.owner}`,
+        meta: `${row.evidence} · ${row.action}`,
+        status: row.status,
+        tone: /attention|pending/i.test(row.status) ? "warning" : "",
+        icon: row.type === "Commercial" ? "wallet" : row.type === "Deployments" ? "estate" : row.type === "Diagnostics" ? "settings" : "trend",
+      };
+    });
+    const evidenceRegistryRows = reportEvidenceRows.map(function (row) {
+      return {
+        title: row.title,
+        description: row.meta,
+        meta: row.tone === "critical" ? "Requires review" : "Evidence available",
+        status: row.tone === "critical" ? "Attention" : "Available",
+        tone: row.tone === "critical" ? "alert" : "",
+        icon: row.tone === "critical" ? "alert" : "trend",
+      };
+    });
+    const activityRegistryRows = activityRows.map(function (row) {
+      return {
+        title: row.title,
+        description: row.meta,
+        meta: row.tone === "critical" ? "Operational escalation" : "Recent signal",
+        status: row.tone === "critical" ? "Escalated" : "Live",
+        tone: row.tone === "critical" ? "alert" : row.tone === "warning" ? "warning" : "",
+        icon: row.tone === "critical" ? "alert" : "activity",
+      };
+    });
     el.infrastructureIntelligencePanel.innerHTML = `
-      <div class="command-page">
-        <div class="command-head">
-          <div>
-            <p class="eyebrow">Reports</p>
-            <h3>Review executive summaries, operational reports, commercial posture, deployment evidence, and runtime diagnostics.</h3>
-            <p class="subtext" style="margin:8px 0 0;">Office reports are assembled from existing report summaries, traces, audit logs, notifications, CRM, deployments, and Office collections.</p>
-          </div>
-          <div class="toolbar">
-            <button class="ghost" data-command-action="view_reports" type="button">Export summary</button>
-            <button class="ghost" data-office-target="intelligence" type="button">Ask Oyi</button>
-          </div>
-        </div>
+      <div class="command-page ois-module-page">
+        ${oisPageHeader("Reports", "Review executive summaries and operational evidence.")}
         ${operationalStrip([
           { label: "Executive", value: state.report ? "Available" : "Pending", meta: "Summary source" },
           { label: "Operational", value: overview.openNotifications || 0, meta: "Open signals" },
           { label: "Commercial", value: state.allProposals.length, meta: "Proposal records" },
-          { label: "Deployments", value: state.allDemos.length, meta: "Reviews/workspaces" },
-          { label: "Audit", value: state.audit.length, meta: "Governance trail" },
-          { label: "Diagnostics", value: diagnostics, meta: "Trace + audit evidence" },
+          { label: "Diagnostics", value: diagnostics, meta: "Trace + audit" },
         ])}
-        <div class="command-layout">
-          <div class="command-main">
-            <section class="command-card">
-              <div class="command-card-head">
-                <h4>${escapeHtml(facetTitle)}</h4>
-                <div class="toolbar">
-                  <button class="ghost compact" data-office-target="crm" type="button">CRM</button>
-                  <button class="ghost compact" data-office-target="deployments" type="button">Deployments</button>
-                  <button class="ghost compact" data-office-target="agents" type="button">Traces</button>
-                </div>
-              </div>
-              <table class="command-table">
-                <thead><tr><th>Report</th><th>Type</th><th>Owner</th><th>Status</th><th>Evidence</th><th>Action</th></tr></thead>
-                <tbody>${reportRows.map(function (row) {
-                  return `<tr><td><strong>${escapeHtml(row.title)}</strong></td><td>${escapeHtml(row.type)}</td><td>${escapeHtml(row.owner)}</td><td><span class="office-system-badge ${/attention|pending/i.test(row.status) ? "warning" : ""}">${escapeHtml(row.status)}</span></td><td>${escapeHtml(row.evidence)}</td><td><button class="ghost compact" data-office-target="${row.type === "Commercial" ? "crm" : row.type === "Deployments" ? "deployments" : row.type === "Diagnostics" ? "agents" : "intelligence"}" type="button">${escapeHtml(row.action)}</button></td></tr>`;
-                }).join("")}</tbody>
-              </table>
-            </section>
+        ${oisActionRow([
+          { label: "Export Summary", action: "view_reports", className: "ghost compact" },
+          { label: "Open CRM", target: "crm", className: "ghost compact" },
+          { label: "Review Deployments", target: "deployments", className: "ghost compact" },
+          { label: "Ask Oyi", target: "intelligence", className: "ghost compact" },
+        ])}
+        ${oisModuleLayout(
+          `
+            ${oisRegistryCard("Report Registry", `<div class="ois-registry-list">${oisRegistryRows(reportRegistryRows, "Report summaries will appear when Office reporting data syncs.")}</div>`, `<div class="toolbar"><span class="office-system-badge">${escapeHtml(facetTitle)}</span></div>`)}
+            ${oisRegistryCard("Audit and Trace Evidence", `<div class="ois-registry-list">${oisRegistryRows(evidenceRegistryRows, "Report evidence will appear as traces and audit records sync.")}</div>`)}
+          `,
+          `
+            ${oisRegistryCard("Recent Activity", `<div class="ois-registry-list">${oisRegistryRows(activityRegistryRows, "No recent reporting activity has synced yet.")}</div>`)}
             <article class="command-card">
-              <div class="command-card-head"><h4>Audit / Trace Evidence</h4><span class="office-system-badge">${reportEvidenceRows.length ? "Available" : "Pending"}</span></div>
-              <div class="mission-list">
-                ${reportEvidenceRows.length ? reportEvidenceRows.map(function (row) {
-                  return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot ${row.tone || ""}"></i></span><div class="activity-copy"><strong>${escapeHtml(row.title)}</strong><span>${escapeHtml(row.meta)}</span></div></div>`;
-                }).join("") : '<div class="office-detail-empty">Report evidence will appear as traces and audit records sync.</div>'}
-              </div>
-            </article>
-          </div>
-          <aside class="command-side context-rail">
-            <article class="command-card">
-              <div class="command-card-head"><h4>Recent Activity</h4><button class="ghost compact" data-office-target="notifications" type="button">View all</button></div>
-              <div class="mission-list">
-                ${activityRows.length ? activityRows.map(function (item, index) {
-                  const tone = item.tone || ["healthy", "warning", "info", "critical", "healthy"][index % 5];
-                  return `<div class="activity-row compact"><span class="activity-track"><i class="activity-dot ${escapeHtml(tone === "healthy" ? "" : tone)}"></i></span><div class="activity-copy"><strong>${escapeHtml(item.title || "Activity")}</strong><span>${escapeHtml(item.meta || "Live update")}</span></div></div>`;
-                }).join("") : '<div class="office-detail-empty">No live infrastructure activity has synced yet.</div>'}
-              </div>
-            </article>
-            <article class="command-card">
-              <div class="command-card-head"><h4>Report Detail</h4><span class="office-system-badge">Review</span></div>
+              <div class="command-card-head"><h4>Report Snapshot</h4></div>
               <div class="mission-list">
                 <div class="device-category"><span>Total records</span><strong>${escapeHtml(String(totals.leads || 0))}</strong></div>
                 <div class="device-category"><span>Review bookings</span><strong>${escapeHtml(String(state.report ? state.report.demos_booked || 0 : 0))}</strong></div>
@@ -6100,17 +6130,8 @@
                 <div class="device-category"><span>Average score</span><strong>${escapeHtml(String(totals.average_score || 0))}</strong></div>
               </div>
             </article>
-            <article class="command-card">
-              <div class="command-card-head"><h4>Conversation-ready Actions</h4></div>
-              <div class="shortcut-grid compact-action-grid">
-                <button class="shortcut-btn" data-office-target="intelligence" type="button"><span>${officeIcon("messenger")}</span>Ask Oyi</button>
-                <button class="shortcut-btn" data-office-target="facilities" type="button"><span>${officeIcon("estate")}</span>Facility report</button>
-                <button class="shortcut-btn" data-office-target="crm" type="button"><span>${officeIcon("lead")}</span>Commercial report</button>
-                <button class="shortcut-btn" data-office-target="edge" type="button"><span>${officeIcon("camera")}</span>Edge report</button>
-              </div>
-            </article>
-          </aside>
-        </div>
+          `
+        )}
       </div>
     `;
   }
@@ -6872,6 +6893,10 @@
       .map(function (notification) {
         const lead = derived.leadsById.get(notification.lead_id);
         const status = String(notification.status || "open").toLowerCase();
+        const snippet = displayValue(
+          notification.summary || notification.reason || notification.message,
+          "No summary recorded."
+        );
         const typeLabel =
           notification.type === "founder_escalation"
             ? "Founder escalation"
@@ -6898,11 +6923,9 @@
               </div>
               <span class="office-system-badge">${escapeHtml(status)}</span>
             </div>
-            <div class="value" style="margin-top:8px;">${escapeHtml(
-              notification.summary || notification.reason || "No summary recorded."
-            )}</div>
+            <div class="value inbox-row-snippet" style="margin-top:8px;">${escapeHtml(snippet)}</div>
             <div class="inbox-action-row">
-              <button class="ghost" type="button" data-notification-open="${notification.lead_id || ""}">Open record</button>
+              <button class="ghost compact" type="button" data-notification-open="${notification.lead_id || ""}" ${notification.lead_id ? "" : "disabled"}>Open record</button>
               <button class="outline" type="button" data-notification-status="${notification.id}" data-status-value="resolved">Mark resolved</button>
               <button class="outline" type="button" data-notification-status="${notification.id}" data-status-value="open">Reopen</button>
             </div>
@@ -6992,27 +7015,33 @@
       },
     };
     const sectionData = rowsBySection[section] || rowsBySection.settings;
+    const sectionRows = sectionData.cards.map(function (card, index) {
+      return {
+        title: card[0],
+        description: card[2],
+        meta: sectionData.title,
+        status: String(card[1]),
+        tone: /restricted|pending|needs/i.test(String(card[1])) ? "warning" : "",
+        icon: index % 2 ? "governance" : "settings",
+      };
+    });
     el.teamPanel.innerHTML = `
-      <article class="team-card staff-profile-card admin-section-panel">
-        <div class="command-card-head">
-          <div>
-            <h4>${escapeHtml(sectionData.title)}</h4>
-            <p class="subtext" style="margin:6px 0 0;">${escapeHtml(sectionData.subtitle)}</p>
-          </div>
-          <span class="office-system-badge">Permission-aware</span>
-        </div>
-        <div class="office-detail-metrics admin-section-metrics">
-          ${sectionData.cards.map(function (card) {
-            return `<div class="office-system-metric"><div class="key">${escapeHtml(card[0])}</div><strong>${escapeHtml(String(card[1]))}</strong><span class="subtext">${escapeHtml(card[2])}</span></div>`;
-          }).join("")}
-        </div>
-        <div class="shortcut-grid admin-section-actions">
-          ${sectionData.actions.map(function (action) {
-            const special = ["admin_staff", "admin_invite", "admin_audit", "admin_settings", "admin_integrations"].includes(action[1]);
-            return `<button class="shortcut-btn" ${special ? `data-admin-shortcut="${escapeHtml(action[1])}"` : `data-command-action="${escapeHtml(action[1])}"`} type="button"><span>${officeIcon(action[2])}</span>${escapeHtml(action[0])}</button>`;
-          }).join("")}
-        </div>
-      </article>
+      ${oisPageHeader(sectionData.title, sectionData.subtitle)}
+      ${operationalStrip(sectionData.cards.map(function (card) {
+        return { label: card[0], value: card[1], meta: card[2] };
+      }))}
+      <div class="ois-action-row">
+        ${sectionData.actions.map(function (action) {
+          const special = ["admin_staff", "admin_invite", "admin_audit", "admin_settings", "admin_integrations"].includes(action[1]);
+          return `<button class="ghost compact" ${special ? `data-admin-shortcut="${escapeHtml(action[1])}"` : `data-command-action="${escapeHtml(action[1])}"`} type="button">${escapeHtml(action[0])}</button>`;
+        }).join("")}
+      </div>
+      ${oisModuleLayout(
+        oisRegistryCard("Administration Registry", `<div class="ois-registry-list">${oisRegistryRows(sectionRows, "Administration records will appear when governance data syncs.")}</div>`),
+        `<article class="command-card"><div class="command-card-head"><h4>Permission Context</h4><span class="office-system-badge">Permission-aware</span></div><div class="mission-list">${sectionData.actions.map(function (action) {
+          return `<div class="device-category"><span>${escapeHtml(action[0])}</span><strong>${escapeHtml(action[1].replace(/_/g, " "))}</strong></div>`;
+        }).join("")}</div></article>`
+      )}
     `;
     if (el.staffActivityPanel) {
       const activity = state.audit.slice(0, 5).map(function (event) {
