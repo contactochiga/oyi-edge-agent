@@ -71,6 +71,7 @@
     footerComposerText: "",
     footerVoiceState: "idle",
     footerVoiceSeconds: 0,
+    selectedNotificationId: "",
     leftCollapsed: window.localStorage.getItem(LEFT_COLLAPSED_STORAGE) === "1",
     detailCollapsed: window.localStorage.getItem(DETAIL_COLLAPSED_STORAGE) === "1",
     centerMode: "browser",
@@ -470,6 +471,7 @@
     timelinePanel: document.getElementById("timelinePanel"),
     channelsPanel: document.getElementById("channelsPanel"),
     notificationsPanel: document.getElementById("notificationsPanel"),
+    messageDetailPanel: document.getElementById("messageDetailPanel"),
     notificationFilters: document.getElementById("notificationFilters"),
     founderInbox: document.getElementById("founderInbox"),
     bookingsPanel: document.getElementById("bookingsPanel"),
@@ -1231,6 +1233,40 @@
       return fallback || "Not captured";
     }
     return normalized;
+  }
+
+  function humanizeOfficeLabel(value, fallback) {
+    const normalized = String(value || "").trim();
+    if (!normalized) return fallback || "Not captured";
+    return normalized
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, function (match) { return match.toUpperCase(); });
+  }
+
+  function messageTypeLabel(notification) {
+    const type = String(notification && notification.type || "").trim();
+    if (type === "founder_escalation") return "Founder escalation";
+    if (type === "sales_handoff") return "Sales handoff";
+    if (type === "demo_requested") return "Review request";
+    if (type === "inbound_message") return "New inbound message";
+    if (type === "ochiga_website_deployment_request") return "Website deployment request";
+    return humanizeOfficeLabel(type, "Message");
+  }
+
+  function messageSourceLabel(notification) {
+    const source = String(
+      notification && (notification.channel || notification.metadata?.source || notification.source || notification.origin) || ""
+    ).trim();
+    if (!source) return "Sender not captured";
+    if (/website/i.test(source)) return "Website";
+    if (/whatsapp/i.test(source)) return "WhatsApp";
+    if (/instagram/i.test(source)) return "Instagram";
+    if (/facebook|messenger/i.test(source)) return "Facebook";
+    if (/email/i.test(source)) return "Email";
+    if (/review|demo/i.test(source)) return "Review queue";
+    return humanizeOfficeLabel(source, "Sender not captured");
   }
 
   function leadTitle(lead) {
@@ -6856,10 +6892,100 @@
     return true;
   }
 
+  function selectedNotificationRecord(items) {
+    const selected = items.find(function (notification) {
+      return String(notification.id || "") === String(state.selectedNotificationId || "");
+    });
+    return selected || items[0] || null;
+  }
+
+  async function openNotificationDetail(notificationId) {
+    const nextId = String(notificationId || "").trim();
+    if (!nextId) return;
+    const notification = state.notifications.find(function (item) {
+      return String(item.id || "") === nextId;
+    });
+    state.selectedNotificationId = nextId;
+    if (notification && notification.lead_id) {
+      try {
+        await selectLead(String(notification.lead_id), true);
+      } catch (error) {
+        console.error("[office-notification-detail]", error);
+      }
+    }
+    renderNotifications();
+  }
+
+  function renderMessageDetail(notification) {
+    if (!el.messageDetailPanel) return;
+    if (!notification) {
+      el.messageDetailPanel.innerHTML = `
+        <div class="office-detail-empty">Open a message to review its source, full detail, linked record, and conversation context.</div>
+      `;
+      return;
+    }
+    const derived = getDerivedData();
+    const lead = derived.leadsById.get(notification.lead_id);
+    const detailStatus = displayValue(notification.status, "open");
+    const detailSource = messageSourceLabel(notification);
+    const detailBody = displayValue(notification.message || notification.summary || notification.reason, "No message body was captured.");
+    const threadRows = notification.lead_id && state.selectedLeadId === notification.lead_id ? state.conversations : [];
+    const canReply = Boolean(notification.lead_id && hasPermission("manage_leads"));
+    el.messageDetailPanel.innerHTML = `
+      <article class="command-card ois-message-detail-card">
+        <div class="command-card-head">
+          <div>
+            <h4>${escapeHtml(messageTypeLabel(notification))}</h4>
+            <span class="subtext">${escapeHtml(detailSource)} · ${escapeHtml(formatDate(notification.created_at || notification.ts))}</span>
+          </div>
+          <span class="office-system-badge ${detailStatus === "resolved" ? "" : "warning"}">${escapeHtml(detailStatus)}</span>
+        </div>
+        <div class="ois-message-summary">
+          <div class="device-category"><span>Linked record</span><strong>${escapeHtml(lead ? leadTitle(lead) : "Unavailable")}</strong></div>
+          <div class="device-category"><span>Source</span><strong>${escapeHtml(detailSource)}</strong></div>
+          <div class="device-category"><span>Received</span><strong>${escapeHtml(formatDate(notification.created_at || notification.ts))}</strong></div>
+        </div>
+        <div class="ois-message-body">${escapeHtml(detailBody)}</div>
+        <div class="ois-action-row">
+          <button class="ghost compact" type="button" data-message-open-record="${escapeHtml(notification.lead_id || "")}" ${notification.lead_id ? "" : "disabled"}>Open record</button>
+          <button class="outline" type="button" data-notification-status="${escapeHtml(notification.id)}" data-status-value="resolved">Resolve</button>
+          <button class="outline" type="button" data-notification-status="${escapeHtml(notification.id)}" data-status-value="open">Reopen</button>
+        </div>
+      </article>
+      <article class="command-card ois-message-thread-card">
+        <div class="command-card-head">
+          <h4>Conversation Workspace</h4>
+          <span class="subtext">${escapeHtml(canReply ? "Linked Oyi thread" : "Linked conversation unavailable")}</span>
+        </div>
+        <div class="ois-message-thread">
+          ${threadRows.length ? threadRows.map(function (item) {
+            const role =
+              item.message_role === "assistant"
+                ? "assistant"
+                : item.message_role === "tool"
+                ? "tool"
+                : "user";
+            const body = role === "tool" ? toolSummary(item.content) : item.content;
+            return `<div class="message ${role}"><div>${escapeHtml(body)}</div><div class="meta">${escapeHtml(`${ownerLabel(item.agent_name)} · ${formatDate(item.created_at)}`)}</div></div>`;
+          }).join("") : `<div class="office-detail-empty">${escapeHtml(canReply ? "No conversation history has been recorded for this linked record yet." : "This message is not linked to a reply-capable Office record.")}</div>`}
+        </div>
+        ${canReply ? `
+          <form class="ois-message-reply-form" data-message-reply-form="${escapeHtml(notification.lead_id)}">
+            <input class="text-input ois-message-reply-input" name="message" type="text" autocomplete="off" placeholder="Reply through Oyi Intelligence..." />
+            <button class="primary" type="submit">Send</button>
+          </form>
+        ` : ""}
+      </article>
+    `;
+  }
+
   function renderNotifications() {
     if (!hasPermission("manage_notifications")) {
       el.notificationsPanel.innerHTML =
         '<div class="office-detail-empty">Your role cannot access the notification inbox.</div>';
+      if (el.messageDetailPanel) {
+        el.messageDetailPanel.innerHTML = '<div class="office-detail-empty">Your role cannot access message detail.</div>';
+      }
       return;
     }
 
@@ -6882,9 +7008,12 @@
     if (el.messagesInboundMetric) el.messagesInboundMetric.textContent = String(items.length);
     if (el.messagesOpenMetric) el.messagesOpenMetric.textContent = String(openCount);
     if (el.messagesEscalatedMetric) el.messagesEscalatedMetric.textContent = String(escalatedCount);
+    const selected = selectedNotificationRecord(items);
+    state.selectedNotificationId = selected ? String(selected.id || "") : "";
     if (!items.length) {
       el.notificationsPanel.innerHTML =
         '<div class="office-detail-empty">No notifications match this view right now.</div>';
+      renderMessageDetail(null);
       return;
     }
 
@@ -6897,18 +7026,11 @@
           notification.summary || notification.reason || notification.message,
           "No summary recorded."
         );
-        const typeLabel =
-          notification.type === "founder_escalation"
-            ? "Founder escalation"
-            : notification.type === "sales_handoff"
-            ? "Sales handoff"
-            : notification.type === "demo_requested"
-            ? "Demo request"
-            : notification.type === "inbound_message"
-            ? "New inbound message"
-            : notification.type || "Notification";
+        const typeLabel = messageTypeLabel(notification);
+        const sourceLabel = messageSourceLabel(notification);
+        const active = String(notification.id || "") === String(state.selectedNotificationId || "");
         return `
-          <article class="command-list-row inbox-row">
+          <article class="command-list-row inbox-row ${active ? "active" : ""}" data-notification-detail="${notification.id}">
             <div class="inbox-row-top">
               <div class="inbox-row-title">
                 <span class="inbox-dot ${status === "open" ? "open" : ""}">•</span>
@@ -6916,16 +7038,14 @@
                   <strong>${escapeHtml(typeLabel)}</strong>
                   <div class="subtext" style="margin-top:4px;">${escapeHtml(
                     lead ? leadTitle(lead) : "Record"
-                  )} · ${escapeHtml(
-                    displayValue(notification.channel || notification.metadata?.source, "website")
-                  )} · ${escapeHtml(formatDate(notification.created_at))}</div>
+                  )} · ${escapeHtml(sourceLabel)} · ${escapeHtml(formatDate(notification.created_at))}</div>
                 </div>
               </div>
               <span class="office-system-badge">${escapeHtml(status)}</span>
             </div>
             <div class="value inbox-row-snippet" style="margin-top:8px;">${escapeHtml(snippet)}</div>
             <div class="inbox-action-row">
-              <button class="ghost compact" type="button" data-notification-open="${notification.lead_id || ""}" ${notification.lead_id ? "" : "disabled"}>Open record</button>
+              <button class="ghost compact" type="button" data-notification-detail="${notification.id}">Open</button>
               <button class="outline" type="button" data-notification-status="${notification.id}" data-status-value="resolved">Mark resolved</button>
               <button class="outline" type="button" data-notification-status="${notification.id}" data-status-value="open">Reopen</button>
             </div>
@@ -6933,6 +7053,7 @@
         `;
       })
       .join("");
+    renderMessageDetail(selected);
   }
 
   function renderAdminModuleSection(section) {
@@ -7081,23 +7202,13 @@
 
   function renderTeamPanel() {
     if (!hasPermission("view_users")) {
-      if (el.adminMetricsPanel) {
-        el.adminMetricsPanel.innerHTML = [
-          ["Staff Accounts", "Blocked", "Permission required"],
-          ["Roles", "Blocked", "Permission required"],
-          ["Invites", "Blocked", "Permission required"],
-          ["Security", "Blocked", "Permission required"],
-        ].map(function (item) {
-          return `<div class="command-kpi"><div class="key">${escapeHtml(item[0])}</div><strong>${escapeHtml(item[1])}</strong><div class="subtext">${escapeHtml(item[2])}</div></div>`;
-        }).join("");
-      }
       el.teamPanel.innerHTML =
         '<div class="office-detail-empty">Your role cannot view office staff.</div>';
-      el.createUserBtn.disabled = true;
-      el.newUserName.disabled = true;
-      el.newUserEmail.disabled = true;
-      el.newUserRole.disabled = true;
-      el.newUserPassword.disabled = true;
+      if (el.createUserBtn) el.createUserBtn.disabled = true;
+      if (el.newUserName) el.newUserName.disabled = true;
+      if (el.newUserEmail) el.newUserEmail.disabled = true;
+      if (el.newUserRole) el.newUserRole.disabled = true;
+      if (el.newUserPassword) el.newUserPassword.disabled = true;
       setTeamStatus("Your role cannot access office staff administration.", true);
       setInviteStatus("Your role cannot create invite links.", true);
       return;
@@ -7116,31 +7227,16 @@
       return !user.last_login_at;
     }).length;
 
-    if (el.adminMetricsPanel) {
-      el.adminMetricsPanel.innerHTML = operationalStrip([
-        { label: "Staff", value: state.adminUsers.length, meta: `${activeUsers} active` },
-        { label: "Roles", value: Object.keys(roleCounts).length, meta: "Available" },
-        { label: "Pending", value: pendingLogins, meta: "No login yet" },
-        { label: "Security", value: hasPermission("manage_security") ? "Ready" : "Restricted", meta: "Access posture" },
-      ]);
-    }
-
-    const activeAdminSection = state.adminSection || "staff";
-    Array.from(document.querySelectorAll("[data-admin-section]")).forEach(function (node) {
-      node.classList.toggle("active", node.getAttribute("data-admin-section") === activeAdminSection);
-    });
-    if (!["staff", "dashboard"].includes(activeAdminSection)) {
-      renderAdminModuleSection(activeAdminSection);
-      return;
-    }
-
-    if (el.adminMainTitle) el.adminMainTitle.textContent = "Staff Registry";
-    if (el.adminMainSubtitle) {
-      el.adminMainSubtitle.textContent = "Manage staff, roles, permissions, and account readiness.";
-    }
-
     if (!state.adminUsers.length) {
-      el.teamPanel.innerHTML = '<div class="office-detail-empty">No staff accounts loaded yet.</div>';
+      el.teamPanel.innerHTML = `
+        ${oisPageHeader("Team", "Manage staff, roles, permissions, and invites.")}
+        ${operationalStrip([
+          { label: "Staff", value: 0, meta: "No accounts" },
+          { label: "Roles", value: Object.keys(roleCounts).length, meta: "Available" },
+          { label: "Pending", value: pendingLogins, meta: "Invite state" },
+        ])}
+        <div class="office-detail-empty">No staff accounts loaded yet.</div>
+      `;
       if (el.staffActivityPanel) {
         el.staffActivityPanel.innerHTML = '<div class="office-detail-empty">Staff activity appears when accounts sync.</div>';
       }
@@ -7157,77 +7253,35 @@
           icon: "user",
         };
       });
-      const staffControls = state.adminUsers
-        .map(function (user) {
-          const canManageUsers = hasPermission("manage_users");
-          const role = user.role || "viewer";
-          const status = user.status || "active";
-          const displayName = user.display_name || user.name || user.email || "Office staff";
-	          return `
-	            <details class="staff-compact-card">
-	              <summary class="staff-identity-row">
-	                <div class="staff-photo" aria-label="Staff passport placeholder">${escapeHtml(initialsFromEmail(user.email || displayName))}</div>
-	                <div>
-	                  <div class="team-head" style="margin-bottom:4px;">
-	                    <strong>${escapeHtml(displayName)}</strong>
-	                    <span class="mono" style="font-size:11px;color:#667c73;">${escapeHtml(roleLabel(role))}</span>
-	                  </div>
-	                  <div class="subtext">${escapeHtml(user.email || "Email pending")}</div>
-	                  <div class="subtext" style="margin-top:5px;">${escapeHtml(displayValue(user.phone || user.mobile, "Phone pending"))} · ${escapeHtml(displayValue(user.department || user.unit, "Office operations"))}</div>
-	                </div>
-	                <span class="office-system-badge ${status === "active" ? "" : "warning"}">${escapeHtml(status)}</span>
-	              </summary>
-              <div class="staff-control-panel">
-                <div class="staff-control-row">
-                  <label class="staff-select-wrap">
-                    <select class="staff-control-select" data-user-role="${user.id}" ${
-                      canManageUsers ? "" : "disabled"
-                    }>
-                      <option value="viewer" ${role === "viewer" ? "selected" : ""}>viewer</option>
-                      <option value="operator" ${role === "operator" ? "selected" : ""}>operator</option>
-                      <option value="sales" ${role === "sales" ? "selected" : ""}>sales</option>
-                      <option value="founder" ${role === "founder" ? "selected" : ""}>founder</option>
-                      <option value="admin" ${role === "admin" ? "selected" : ""}>admin</option>
-                    </select>
-                  </label>
-                  <label class="staff-select-wrap">
-                    <select class="staff-control-select" data-user-status="${user.id}" ${
-                      canManageUsers ? "" : "disabled"
-                    }>
-                      <option value="active" ${status === "active" ? "selected" : ""}>active</option>
-                      <option value="inactive" ${status === "inactive" ? "selected" : ""}>inactive</option>
-                    </select>
-                  </label>
-                  <button class="ghost" type="button" data-user-save="${user.id}" ${
-                    canManageUsers ? "" : "disabled"
-                  }>Save access</button>
-                </div>
-                <div class="toolbar">
-                  <input class="text-input" style="padding:10px 12px;" type="password" placeholder="Temporary reset password" data-user-password="${user.id}" ${
-                    canManageUsers ? "" : "disabled"
-                  } />
-                  <button class="outline" type="button" data-user-reset="${user.id}" ${
-                    canManageUsers ? "" : "disabled"
-                  }>Reset password</button>
-                  <button class="outline" type="button" data-user-reset-link="${user.id}" ${
-                    canManageUsers ? "" : "disabled"
-                  }>Issue reset link</button>
-                </div>
-              </div>
-	            </details>
-	          `;
-        })
-        .join("");
+      const roleRows = Object.keys(roleCounts).length
+        ? Object.keys(roleCounts).map(function (role) {
+            return {
+              title: roleLabel(role),
+              description: `${roleCounts[role]} staff`,
+              meta: role === "admin" || role === "founder" ? "High authority" : "Operational role",
+              status: roleCounts[role],
+              icon: role === "sales" ? "lead" : role === "operator" ? "support" : "governance",
+            };
+          })
+        : [];
       el.teamPanel.innerHTML = `
         ${oisPageHeader("Team", "Manage staff, roles, permissions, and invites.")}
-        ${oisActionRow([
-          { label: "Invite Staff", className: "ghost compact" },
-          { label: "Open Permissions", className: "ghost compact" },
-          { label: "View Audit", target: "audit", className: "ghost compact" },
+        ${operationalStrip([
+          { label: "Staff", value: state.adminUsers.length, meta: `${activeUsers} active` },
+          { label: "Roles", value: Object.keys(roleCounts).length, meta: "Assigned" },
+          { label: "Pending", value: pendingLogins, meta: "Invite state" },
         ])}
-        <div class="ois-module-grid">
+        <div class="ois-action-row">
+          <button class="ghost compact" type="button" data-team-open="invite">Invite Staff</button>
+          <button class="ghost compact" type="button" data-command-action="open_permissions">Permissions</button>
+          <button class="ghost compact" type="button" data-admin-shortcut="admin_audit">View Audit</button>
+        </div>
+        <div class="ois-module-grid with-side">
           ${oisRegistryCard("Staff Registry", `<div class="ois-registry-list">${oisRegistryRows(staffSummaryRows, "No staff accounts loaded yet.")}</div>`)}
-          ${oisRegistryCard("Access Controls", staffControls || '<div class="office-detail-empty">Staff controls will appear when accounts sync into Office.</div>')}
+          <article class="command-card">
+            <div class="command-card-head"><h4>Role Registry</h4><span class="office-system-badge">${escapeHtml(String(adminUsers))} elevated</span></div>
+            <div class="ois-registry-list">${oisRegistryRows(roleRows, "Roles will appear when staff accounts sync into Office.")}</div>
+          </article>
         </div>
       `;
       if (el.staffActivityPanel) {
@@ -7241,15 +7295,15 @@
 
     const canManageUsers = hasPermission("manage_users");
     const canManageSecurity = hasPermission("manage_security");
-    el.createUserBtn.disabled = !canManageUsers;
-    el.newUserName.disabled = !canManageUsers;
-    el.newUserEmail.disabled = !canManageUsers;
-    el.newUserRole.disabled = !canManageUsers;
-    el.newUserPassword.disabled = !canManageUsers;
-    el.inviteUserBtn.disabled = !canManageSecurity;
-    el.inviteUserName.disabled = !canManageSecurity;
-    el.inviteUserEmail.disabled = !canManageSecurity;
-    el.inviteUserRole.disabled = !canManageSecurity;
+    if (el.createUserBtn) el.createUserBtn.disabled = !canManageUsers;
+    if (el.newUserName) el.newUserName.disabled = !canManageUsers;
+    if (el.newUserEmail) el.newUserEmail.disabled = !canManageUsers;
+    if (el.newUserRole) el.newUserRole.disabled = !canManageUsers;
+    if (el.newUserPassword) el.newUserPassword.disabled = !canManageUsers;
+    if (el.inviteUserBtn) el.inviteUserBtn.disabled = !canManageSecurity;
+    if (el.inviteUserName) el.inviteUserName.disabled = !canManageSecurity;
+    if (el.inviteUserEmail) el.inviteUserEmail.disabled = !canManageSecurity;
+    if (el.inviteUserRole) el.inviteUserRole.disabled = !canManageSecurity;
     if (!canManageUsers) {
       setTeamStatus("Your role cannot create users.", true);
     } else {
@@ -8869,16 +8923,6 @@
     }
   );
   el.notificationsPanel.addEventListener("click", function (event) {
-    const openNode = event.target.closest("[data-notification-open]");
-    if (openNode) {
-      const leadId = openNode.getAttribute("data-notification-open");
-      if (leadId) {
-        state.workspaceTab = "intelligence";
-        renderWorkspaceTabs();
-        selectLead(leadId);
-      }
-      return;
-    }
     const statusNode = event.target.closest("[data-notification-status]");
     if (statusNode) {
       updateNotificationStatus(
@@ -8887,8 +8931,48 @@
       ).catch(function (error) {
         setBulkStatus(error.message || "Notification update failed.", true);
       });
+      return;
+    }
+    const detailNode = event.target.closest("[data-notification-detail]");
+    if (detailNode) {
+      openNotificationDetail(detailNode.getAttribute("data-notification-detail") || "").catch(function (error) {
+        setBulkStatus(error.message || "Could not open message detail.", true);
+      });
     }
   });
+  if (el.messageDetailPanel) {
+    el.messageDetailPanel.addEventListener("click", function (event) {
+      const openRecordNode = event.target.closest("[data-message-open-record]");
+      if (openRecordNode) {
+        const leadId = openRecordNode.getAttribute("data-message-open-record");
+        if (leadId) {
+          state.workspaceTab = "intelligence";
+          renderWorkspaceTabs();
+          selectLead(leadId);
+        }
+      }
+    });
+    el.messageDetailPanel.addEventListener("submit", function (event) {
+      const form = event.target.closest("[data-message-reply-form]");
+      if (!form) return;
+      event.preventDefault();
+      const leadId = form.getAttribute("data-message-reply-form");
+      const input = form.querySelector('input[name="message"]');
+      const message = input ? String(input.value || "").trim() : "";
+      if (!leadId || !message) return;
+      selectLead(leadId, true)
+        .then(function () {
+          return sendAgentMessage(message);
+        })
+        .then(function () {
+          if (input) input.value = "";
+          return openNotificationDetail(state.selectedNotificationId || "");
+        })
+        .catch(function (error) {
+          setComposerStatus(error.message || "Could not send the reply.", true);
+        });
+    });
+  }
   el.founderInbox.addEventListener("click", function (event) {
     const openNode = event.target.closest("[data-founder-open]");
     if (openNode) {
@@ -8909,6 +8993,17 @@
     }
   });
   el.teamPanel.addEventListener("click", function (event) {
+    const openActionNode = event.target.closest("[data-team-open]");
+    if (openActionNode) {
+      const target = openActionNode.getAttribute("data-team-open");
+      if (target === "invite") {
+        const invitePanel = document.getElementById("inviteStaffAction");
+        if (invitePanel) {
+          invitePanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }
+      return;
+    }
     const saveNode = event.target.closest("[data-user-save]");
     if (saveNode) {
       const userId = saveNode.getAttribute("data-user-save");

@@ -6703,6 +6703,41 @@
         flex-wrap: wrap;
         gap: 8px;
       }
+      .ois-message-detail-card,
+      .ois-message-thread-card {
+        overflow: hidden;
+      }
+      .ois-message-summary,
+      .ois-message-thread {
+        display: grid;
+        gap: 8px;
+      }
+      .ois-message-body {
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(31,39,51,0.78);
+        background: rgba(255,255,255,0.02);
+        color: var(--ois-text-secondary);
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+      .ois-message-reply-form {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .ois-message-reply-input {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+      .inbox-row.active {
+        border-color: rgba(125,211,252,.24) !important;
+        background: rgba(37,99,235,.12) !important;
+      }
+      .team-actions-layout > .command-card,
+      .team-actions-layout > .stack-12 {
+        min-width: 0;
+      }
       .staff-control-panel .text-input,
       .staff-control-select {
         min-width: 0;
@@ -6806,13 +6841,33 @@
           background: radial-gradient(circle, rgba(255,255,255,.92), rgba(125,211,252,.9)) !important;
         }
         .office-mobile-composer-expanded {
+          display: grid !important;
+          align-items: center !important;
           min-height: 44px !important;
-          grid-template-columns: 32px minmax(0,1fr) 42px 42px !important;
+          grid-template-columns: 32px minmax(0,1fr) auto 40px 40px !important;
           gap: 6px !important;
           padding: 4px !important;
           border-radius: 20px !important;
           background: rgba(255,255,255,0.04) !important;
           border: 1px solid rgba(255,255,255,0.08) !important;
+        }
+        .office-mobile-composer-close {
+          grid-column: 1;
+        }
+        .office-mobile-composer-input,
+        .office-mobile-composer-wave {
+          grid-column: 2;
+        }
+        .office-mobile-composer-timer {
+          grid-column: 3;
+          justify-self: end;
+          min-width: 22px;
+        }
+        .office-mobile-composer-voice {
+          grid-column: 4;
+        }
+        .office-mobile-composer-send {
+          grid-column: 5;
         }
         .office-mobile-composer-close,
         .office-mobile-composer-voice,
@@ -6821,17 +6876,22 @@
           min-width: 40px !important;
           height: 40px !important;
           border-radius: 14px !important;
+          flex-shrink: 0 !important;
         }
         .office-mobile-composer-input {
           min-width: 0 !important;
+          width: 100% !important;
           font-size: 16px !important;
           line-height: 1.2 !important;
         }
         .office-mobile-composer-wave {
           min-width: 0;
+          width: 100%;
+          overflow: hidden;
         }
         .office-mobile-composer-timer {
           font-size: 10px !important;
+          white-space: nowrap;
         }
         .tab-panel[data-panel="team"] .command-head,
         .tab-panel[data-panel="team"] .admin-kpis {
@@ -6842,6 +6902,9 @@
           display: grid !important;
           grid-template-columns: 1fr !important;
           gap: 10px !important;
+        }
+        .ois-message-reply-form {
+          flex-direction: column;
         }
       }
     </style>
@@ -7500,12 +7563,17 @@
                     <button class="ois-segment-tab" data-notification-filter="sales" type="button">Sales</button>
                     <button class="ois-segment-tab" data-notification-filter="demo" type="button">Reviews</button>
                   </div>
-                  <div class="command-card">
-                    <div class="command-card-head">
-                      <h4>Message Registry</h4>
-                      <span class="subtext">Source, record, time and response state</span>
+                  <div class="ois-module-grid with-side">
+                    <div class="command-card">
+                      <div class="command-card-head">
+                        <h4>Message Registry</h4>
+                        <span class="subtext">Source, record, time and response state</span>
+                      </div>
+                      <div class="notification-list" id="notificationsPanel"></div>
                     </div>
-                    <div class="notification-list" id="notificationsPanel"></div>
+                    <div id="messageDetailPanel" class="stack-12">
+                      <div class="office-detail-empty">Open a message to review its source, detail, and conversation context.</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -7553,106 +7621,57 @@
             </div>
             <div class="tab-panel" data-panel="team">
               <div class="tab-panel-scroll staff-workspace">
-                <div class="command-page">
-                  <div class="command-head">
-                    <div>
-                      <p class="eyebrow">Team</p>
-                      <h3>Office identity, permission, account, and super-admin control</h3>
-                      <p class="subtext" style="margin:8px 0 0;">Manage staff access, role posture, invitation flow, password security, credentials, and operational account readiness.</p>
-                    </div>
-                    <span class="office-system-badge">RBAC active</span>
-                  </div>
-                  <div class="admin-tabs" role="tablist" aria-label="Administration sections">
-                    <button class="admin-tab active" data-admin-section="dashboard" type="button">Overview</button>
-                    <button class="admin-tab" data-admin-section="staff" type="button">Staff & Roles</button>
-                    <button class="admin-tab" data-admin-section="permissions" type="button">Permissions</button>
-                    <button class="admin-tab" data-admin-section="settings" type="button">System Settings</button>
-                    <button class="admin-tab" data-admin-section="integrations" type="button">Integrations</button>
-                    <button class="admin-tab" data-admin-section="accounts" type="button">Accounts</button>
-                    <button class="admin-tab" data-admin-section="super_admin" type="button">Super Admin</button>
-                  </div>
-                  <div class="command-kpis admin-kpis" id="adminMetricsPanel"></div>
-                  <div class="command-layout staff-command-layout">
-                    <div class="command-main">
-                      <div class="command-card">
-                        <div class="command-card-head">
-                          <h4 id="adminMainTitle">Administration workspace</h4>
-                          <span class="subtext" id="adminMainSubtitle">Identity, roles, permissions, settings, integrations, accounts, and super-admin posture</span>
-                        </div>
-                        <div id="teamPanel" class="team-list"></div>
+                <div class="command-page ois-module-page">
+                  <div id="teamPanel" class="team-list"></div>
+                  <div class="ois-module-grid with-side team-actions-layout">
+                    <article class="command-card">
+                      <div class="command-card-head"><h4>Create Staff</h4><span class="subtext">Prepare a staff account and invite</span></div>
+                      <div class="stack-12">
+                        <input id="newUserName" class="text-input" type="text" placeholder="Display name" />
+                        <input id="newUserEmail" class="text-input" type="email" placeholder="Email address" />
+                        <select id="newUserRole" class="select-input">
+                          <option value="viewer">viewer</option>
+                          <option value="admin">admin</option>
+                          <option value="founder">founder</option>
+                          <option value="operator">operator</option>
+                          <option value="sales">sales</option>
+                        </select>
+                        <input id="newUserPassword" class="text-input" type="password" placeholder="Temporary password" />
+                        <button class="primary" id="createUserBtn" type="button">Create staff</button>
+                        <div class="status-line" id="teamStatus"></div>
                       </div>
-                    </div>
-                    <aside class="command-side context-rail">
+                    </article>
+                    <div class="stack-12">
+                      <article class="command-card" id="inviteStaffAction">
+                        <div class="command-card-head"><h4>Invite Staff</h4><span class="subtext">Create a secure invite link</span></div>
+                        <div class="stack-12">
+                          <input id="inviteUserName" class="text-input" type="text" placeholder="Display name" />
+                          <input id="inviteUserEmail" class="text-input" type="email" placeholder="Invite email" />
+                          <select id="inviteUserRole" class="select-input">
+                            <option value="viewer">viewer</option>
+                            <option value="operator">operator</option>
+                            <option value="sales">sales</option>
+                            <option value="founder">founder</option>
+                            <option value="admin">admin</option>
+                          </select>
+                          <button class="ghost" id="inviteUserBtn" type="button">Create invite link</button>
+                          <div class="status-line" id="inviteStatus"></div>
+                        </div>
+                      </article>
+                      <article class="command-card" id="passwordStaffAction">
+                        <div class="command-card-head"><h4>Security</h4><span class="subtext">Change your Office password</span></div>
+                        <div class="stack-12">
+                          <input id="currentPasswordInput" class="text-input" type="password" placeholder="Current password" />
+                          <input id="newPasswordInput" class="text-input" type="password" placeholder="New password" />
+                          <button class="ghost" id="changePasswordBtn" type="button">Change password</button>
+                          <div class="status-line" id="passwordStatus"></div>
+                        </div>
+                      </article>
                       <article class="command-card">
                         <div class="command-card-head"><h4>Recent Staff Activity</h4></div>
                         <div class="mission-list" id="staffActivityPanel"></div>
                       </article>
-                      <article class="command-card">
-                        <div class="command-card-head"><h4>Staff Actions</h4></div>
-                        <div class="staff-command-row">
-                          <details class="staff-action" id="createStaffAction">
-                            <summary>
-                              <span class="staff-action-chip" title="Create a staff account">
-                                <span class="staff-plus">+</span>
-                                Create staff
-                              </span>
-                            </summary>
-                            <div class="staff-action-panel">
-                              <div class="key">Create Staff Account</div>
-                              <input id="newUserName" class="text-input" type="text" placeholder="Display name" />
-                              <input id="newUserEmail" class="text-input" type="email" placeholder="Email address" />
-                              <select id="newUserRole" class="select-input">
-                                <option value="viewer">viewer</option>
-                                <option value="admin">admin</option>
-                                <option value="founder">founder</option>
-                                <option value="operator">operator</option>
-                                <option value="sales">sales</option>
-                              </select>
-                              <input id="newUserPassword" class="text-input" type="password" placeholder="Temporary password" />
-                              <button class="primary" id="createUserBtn" type="button">Create and prepare email invite</button>
-                              <div class="status-line" id="teamStatus"></div>
-                            </div>
-                          </details>
-                          <details class="staff-action" id="inviteStaffAction">
-                            <summary>
-                              <span class="staff-action-chip" title="Send staff invite">
-                                <span class="staff-plus">↗</span>
-                                Invite
-                              </span>
-                            </summary>
-                            <div class="staff-action-panel">
-                              <div class="key">Invite Staff Member</div>
-                              <input id="inviteUserName" class="text-input" type="text" placeholder="Display name" />
-                              <input id="inviteUserEmail" class="text-input" type="email" placeholder="Invite email" />
-                              <select id="inviteUserRole" class="select-input">
-                                <option value="viewer">viewer</option>
-                                <option value="operator">operator</option>
-                                <option value="sales">sales</option>
-                                <option value="founder">founder</option>
-                                <option value="admin">admin</option>
-                              </select>
-                              <button class="ghost" id="inviteUserBtn" type="button">Create invite link</button>
-                              <div class="status-line" id="inviteStatus"></div>
-                            </div>
-                          </details>
-                          <details class="staff-action" id="passwordStaffAction">
-                            <summary>
-                              <span class="staff-action-chip" title="Change your password">
-                                <span class="staff-plus">••</span>
-                                Password
-                              </span>
-                            </summary>
-                            <div class="staff-action-panel">
-                              <div class="key">Change Your Password</div>
-                              <input id="currentPasswordInput" class="text-input" type="password" placeholder="Current password" />
-                              <input id="newPasswordInput" class="text-input" type="password" placeholder="New password" />
-                              <button class="ghost" id="changePasswordBtn" type="button">Change password</button>
-                              <div class="status-line" id="passwordStatus"></div>
-                            </div>
-                          </details>
-                        </div>
-                      </article>
-                    </aside>
+                    </div>
                   </div>
                 </div>
               </div>
