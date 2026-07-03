@@ -70,6 +70,7 @@
     footerComposerOpen: false,
     footerComposerText: "",
     footerVoiceState: "idle",
+    footerVoiceSeconds: 0,
     leftCollapsed: window.localStorage.getItem(LEFT_COLLAPSED_STORAGE) === "1",
     detailCollapsed: window.localStorage.getItem(DETAIL_COLLAPSED_STORAGE) === "1",
     centerMode: "browser",
@@ -110,6 +111,7 @@
   const footerVoiceRuntime = {
     recognition: null,
     fallbackTimer: 0,
+    secondsTimer: 0,
     touchStartX: null,
   };
 
@@ -423,6 +425,7 @@
     officeFooterComposerVoice: document.getElementById("officeFooterComposerVoice"),
     officeFooterComposerSend: document.getElementById("officeFooterComposerSend"),
     officeFooterComposerWave: document.getElementById("officeFooterComposerWave"),
+    officeFooterComposerTimer: document.getElementById("officeFooterComposerTimer"),
     officeMobileFooterTrack: document.querySelector(".office-mobile-footer-track"),
     overviewFocusPanel: document.getElementById("overviewFocusPanel"),
     settingsIntegrationHub: document.getElementById("settingsIntegrationHub"),
@@ -992,8 +995,25 @@
     }
   }
 
+  function stopFooterVoiceTimer() {
+    if (footerVoiceRuntime.secondsTimer) {
+      window.clearInterval(footerVoiceRuntime.secondsTimer);
+      footerVoiceRuntime.secondsTimer = 0;
+    }
+  }
+
+  function startFooterVoiceTimer() {
+    stopFooterVoiceTimer();
+    state.footerVoiceSeconds = 0;
+    footerVoiceRuntime.secondsTimer = window.setInterval(function () {
+      state.footerVoiceSeconds += 1;
+      renderFooterComposer();
+    }, 1000);
+  }
+
   function stopFooterVoiceCapture() {
     clearFooterVoiceFallback();
+    stopFooterVoiceTimer();
     if (footerVoiceRuntime.recognition) {
       try {
         footerVoiceRuntime.recognition.onresult = null;
@@ -1011,7 +1031,7 @@
   }
 
   function renderFooterComposer() {
-    if (!el.officeFooterAskOyi || !el.officeFooterComposerExpanded || !el.officeFooterComposerInput || !el.officeFooterComposerVoice || !el.officeFooterComposerSend) {
+    if (!el.officeFooterAskOyi || !el.officeFooterComposerExpanded || !el.officeFooterComposerInput || !el.officeFooterComposerVoice || !el.officeFooterComposerSend || !el.officeFooterComposerTimer) {
       return;
     }
     const open = Boolean(state.footerComposerOpen);
@@ -1025,6 +1045,7 @@
     el.officeFooterComposerInput.placeholder = unsupported ? "Voice unavailable in this browser" : "Ask Oyi...";
     el.officeFooterComposerVoice.innerHTML = footerVoiceIcon(recording ? "stop" : "mic");
     el.officeFooterComposerSend.classList.toggle("ready", Boolean((state.footerComposerText || "").trim()) || recording);
+    el.officeFooterComposerTimer.textContent = unsupported ? "Voice unavailable" : `${state.footerVoiceSeconds || 0}s`;
   }
 
   function openFooterComposer(options) {
@@ -1049,6 +1070,7 @@
     stopFooterVoiceCapture();
     state.footerComposerOpen = false;
     state.footerVoiceState = "idle";
+    state.footerVoiceSeconds = 0;
     if (config.clear !== false) {
       state.footerComposerText = "";
     }
@@ -1097,14 +1119,18 @@
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) {
       state.footerVoiceState = "unsupported";
+      state.footerVoiceSeconds = 0;
+      startFooterVoiceTimer();
       renderFooterComposer();
       clearFooterVoiceFallback();
       footerVoiceRuntime.fallbackTimer = window.setTimeout(function () {
         if (state.footerVoiceState === "unsupported") {
+          state.footerComposerText = state.footerComposerText || "Voice unavailable on this browser. Type your request instead.";
           state.footerVoiceState = "idle";
+          stopFooterVoiceTimer();
           renderFooterComposer();
         }
-      }, 1800);
+      }, 1400);
       return;
     }
     clearFooterVoiceFallback();
@@ -1114,6 +1140,8 @@
     recognition.interimResults = true;
     recognition.continuous = false;
     state.footerVoiceState = "recording";
+    state.footerVoiceSeconds = 0;
+    startFooterVoiceTimer();
     renderFooterComposer();
     recognition.onresult = function (event) {
       const transcript = Array.from(event.results || []).map(function (result) {
@@ -1124,11 +1152,13 @@
     };
     recognition.onerror = function () {
       state.footerVoiceState = "unsupported";
+      stopFooterVoiceTimer();
       footerVoiceRuntime.recognition = null;
       renderFooterComposer();
     };
     recognition.onend = function () {
       footerVoiceRuntime.recognition = null;
+       stopFooterVoiceTimer();
       if (state.footerVoiceState === "recording") {
         state.footerVoiceState = "idle";
       }
@@ -1138,6 +1168,7 @@
       recognition.start();
     } catch (_error) {
       state.footerVoiceState = "unsupported";
+      stopFooterVoiceTimer();
       footerVoiceRuntime.recognition = null;
       renderFooterComposer();
     }

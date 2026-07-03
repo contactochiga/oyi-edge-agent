@@ -6034,6 +6034,304 @@
           gap: 8px !important;
         }
       }
+
+      /* Final mobile containment + minimal OIS cleanup */
+      @media (max-width: 860px) {
+        *,
+        *::before,
+        *::after {
+          max-width: 100%;
+        }
+        .page,
+        .shell,
+        .workspace-shell,
+        .workspace-body,
+        .tab-panel,
+        .tab-panel-scroll,
+        .command-page,
+        .command-main,
+        .command-side,
+        .command-layout,
+        .command-card,
+        .ois-office-stack,
+        .ois-office-panel,
+        .settings-card-grid,
+        .platform-grid,
+        .team-workspace-grid,
+        .office-ops-grid,
+        .office-chart-grid,
+        .office-ops-mini-grid,
+        .channel-grid,
+        .document-action-grid,
+        .team-list,
+        .staff-meta-grid,
+        .trace-list,
+        .mission-list,
+        .notification-list,
+        .founder-list,
+        .detail-accordion-content,
+        .summary-grid,
+        .toolbar,
+        .staff-command-row,
+        .staff-action-panel,
+        .platform-readiness-group {
+          min-width: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          overflow-x: hidden;
+        }
+        .workspace-shell,
+        .workspace-body,
+        .tab-panel-scroll {
+          padding-inline: 0 !important;
+        }
+        .workspace-body {
+          padding: 10px 10px calc(102px + env(safe-area-inset-bottom)) !important;
+        }
+        .tab-panel-scroll {
+          padding-bottom: calc(102px + env(safe-area-inset-bottom)) !important;
+        }
+        .command-page {
+          gap: 8px !important;
+        }
+        .command-head,
+        .office-overview-hero,
+        .command-card,
+        .ois-office-panel,
+        .detail-column,
+        .detail-accordion,
+        .card,
+        .detail-card {
+          border-radius: 18px !important;
+          padding: 10px !important;
+        }
+        .command-head h3,
+        .office-overview-hero .welcome-copy h2,
+        .workspace-title-copy h2 {
+          font-size: 16px !important;
+          line-height: 1.14 !important;
+        }
+        .command-head .subtext,
+        .office-overview-hero .subtext,
+        .workspace-title-copy .subtext,
+        .command-card-head .subtext {
+          font-size: 11px !important;
+          line-height: 1.3 !important;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .command-card-head h4,
+        .ois-office-panel-head h3 {
+          font-size: 13px !important;
+        }
+        .office-operational-strip,
+        .command-kpis,
+        .mothership-kpi-grid,
+        .admin-kpis,
+        .settings-kpis,
+        .ai-ops-kpis,
+        .intelligence-kpis {
+          padding: 8px 10px !important;
+          border-radius: 14px !important;
+        }
+        .office-strip-item,
+        .command-kpi,
+        .mothership-kpi,
+        .metric-card,
+        .overview-metric-card {
+          min-width: 94px !important;
+          padding-inline: 8px !important;
+        }
+        .office-strip-item strong,
+        .command-kpi strong,
+        .mothership-kpi strong,
+        .metric-card strong {
+          font-size: 12px !important;
+        }
+        .office-strip-item span,
+        .office-strip-item small,
+        .queue-label,
+        .queue-subtext,
+        .key,
+        .subtext {
+          letter-spacing: 0 !important;
+        }
+        .ois-office-row,
+        .device-category,
+        .activity-item,
+        .task-row,
+        .mission-list-row,
+        .lead-card,
+        .command-list-row,
+        .staff-compact-card {
+          min-height: 58px !important;
+          padding: 9px 10px !important;
+          gap: 8px !important;
+          border-radius: 12px !important;
+        }
+        .ois-office-row-icon {
+          width: 24px !important;
+          height: 24px !important;
+          border-radius: 0 !important;
+          background: transparent !important;
+        }
+        .ois-office-row-icon svg,
+        .office-mobile-nav-icon svg {
+          width: 16px !important;
+          height: 16px !important;
+        }
+        .ois-office-row-title {
+          font-size: 13px !important;
+        }
+        .ois-office-row-desc,
+        .ois-office-row-meta {
+          font-size: 10px !important;
+          line-height: 1.25 !important;
+        }
+        .command-table,
+        .estate-table {
+          width: 100% !important;
+          max-width: 100% !important;
+          border-spacing: 0 6px !important;
+        }
+        .command-table th,
+        .command-table td,
+        .estate-table th,
+        .estate-table td {
+          padding: 8px 9px !important;
+          font-size: 11px !important;
+        }
+        .topbar {
+          min-height: calc(54px + env(safe-area-inset-top)) !important;
+          padding: calc(8px + env(safe-area-inset-top)) 10px 8px !important;
+          gap: 8px !important;
+        }
+        .brand-mark {
+          gap: 8px !important;
+        }
+        .brand-logo {
+          height: 38px !important;
+          min-width: 148px !important;
+          padding: 0 10px !important;
+          border-radius: 14px !important;
+        }
+        .brand-logo::before {
+          width: 8px !important;
+          height: 8px !important;
+          margin-right: 8px !important;
+        }
+        .brand-logo::after {
+          font-size: 12px !important;
+        }
+        .avatar-btn,
+        .header-icon-btn {
+          width: 38px !important;
+          height: 38px !important;
+          border-radius: 12px !important;
+        }
+        .office-mobile-footer {
+          padding: 0 0 calc(8px + env(safe-area-inset-bottom)) !important;
+        }
+        .office-mobile-footer-shell {
+          width: min(calc(100% - 20px), 404px) !important;
+          max-width: calc(100vw - 20px) !important;
+          border-radius: 24px !important;
+        }
+        .office-mobile-footer-track {
+          gap: 6px !important;
+          padding: 6px !important;
+        }
+        .office-mobile-footer-page {
+          gap: 2px !important;
+        }
+        .office-mobile-nav-item {
+          min-height: 48px !important;
+          border-radius: 18px !important;
+          padding: 4px 2px !important;
+          gap: 1px !important;
+          color: rgba(255,255,255,0.52) !important;
+        }
+        .office-mobile-nav-item.active {
+          background: rgba(255,255,255,0.05) !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06) !important;
+        }
+        .office-mobile-nav-icon {
+          width: auto !important;
+          height: auto !important;
+          border-radius: 0 !important;
+          background: transparent !important;
+          border: 0 !important;
+        }
+        .office-mobile-nav-item > span:last-child {
+          font-size: 9px !important;
+          font-weight: 500 !important;
+        }
+        .office-mobile-page-dots {
+          gap: 5px !important;
+          padding-left: 4px !important;
+        }
+        .office-mobile-page-dots button {
+          width: 6px !important;
+          height: 6px !important;
+        }
+        .office-mobile-page-dots button.active {
+          width: 16px !important;
+        }
+        .office-mobile-composer {
+          min-width: 96px !important;
+          min-height: 32px !important;
+          padding: 0 12px !important;
+          gap: 6px !important;
+          border-radius: 999px !important;
+        }
+        .office-mobile-composer-copy strong {
+          font-size: 10px !important;
+        }
+        .office-mobile-orb,
+        .office-mobile-composer-expanded-icon {
+          width: 12px !important;
+          height: 12px !important;
+        }
+        .office-mobile-composer-expanded {
+          min-height: 36px !important;
+          gap: 6px !important;
+          padding: 0 8px !important;
+          border-radius: 999px !important;
+        }
+        .office-mobile-composer-close,
+        .office-mobile-composer-voice,
+        .office-mobile-composer-send {
+          width: 22px !important;
+          height: 22px !important;
+        }
+        .office-mobile-composer-close {
+          font-size: 15px !important;
+        }
+        .office-mobile-composer-input {
+          height: 30px !important;
+          font-size: 13px !important;
+        }
+        .office-mobile-composer-wave {
+          min-width: 28px !important;
+          gap: 2px !important;
+        }
+        .office-mobile-composer-wave span {
+          height: 9px !important;
+        }
+        .office-mobile-composer-timer {
+          display: none;
+          font-size: 10px;
+          color: rgba(255,255,255,0.54);
+        }
+        .office-mobile-composer-expanded.recording .office-mobile-composer-timer,
+        .office-mobile-composer-expanded.unsupported .office-mobile-composer-timer {
+          display: inline-block;
+        }
+        .office-mobile-composer-expanded.unsupported .office-mobile-composer-timer {
+          min-width: 54px;
+        }
+      }
     </style>
     <script defer src="/_vercel/insights/script.js"></script>
 
@@ -7266,6 +7564,7 @@
               <div class="office-mobile-composer-wave" id="officeFooterComposerWave" aria-hidden="true">
                 <span></span><span></span><span></span><span></span><span></span>
               </div>
+              <span class="office-mobile-composer-timer" id="officeFooterComposerTimer" aria-live="polite">0s</span>
               <button class="office-mobile-composer-voice" id="officeFooterComposerVoice" type="button" aria-label="Record voice">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><path d="M12 19v3"></path></svg>
               </button>
