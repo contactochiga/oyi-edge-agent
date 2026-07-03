@@ -1245,6 +1245,47 @@
       .replace(/\b\w/g, function (match) { return match.toUpperCase(); });
   }
 
+  function summarizeEvidenceValue(value) {
+    if (value === null || typeof value === "undefined" || value === "") return "Not captured";
+    if (Array.isArray(value)) {
+      return value.length ? value.slice(0, 4).map(function (item) {
+        return typeof item === "object" ? humanizeOfficeLabel(item.name || item.id || item.type || "item", "item") : String(item);
+      }).join(", ") : "Not captured";
+    }
+    if (typeof value === "object") {
+      const keys = Object.keys(value || {});
+      if (!keys.length) return "Not captured";
+      return keys.slice(0, 3).map(function (key) {
+        return `${humanizeOfficeLabel(key)}: ${summarizeEvidenceValue(value[key])}`;
+      }).join(" · ");
+    }
+    return String(value);
+  }
+
+  function structuredSummaryRows(value, limit, preferredKeys) {
+    if (!value || typeof value !== "object") return [];
+    const keys = Array.isArray(preferredKeys) && preferredKeys.length
+      ? preferredKeys.filter(function (key) { return typeof value[key] !== "undefined" && value[key] !== ""; })
+      : Object.keys(value || {});
+    return keys.slice(0, limit || 4).map(function (key) {
+      return {
+        label: humanizeOfficeLabel(key, "Field"),
+        value: summarizeEvidenceValue(value[key]),
+      };
+    }).filter(function (row) {
+      return row.value && row.value !== "Not captured";
+    });
+  }
+
+  function summaryListMarkup(rows, emptyText) {
+    if (!rows || !rows.length) {
+      return `<div class="office-detail-empty">${escapeHtml(emptyText || "No evidence attached.")}</div>`;
+    }
+    return `<div class="mission-list">${rows.map(function (row) {
+      return `<div class="device-category"><span>${escapeHtml(row.label)}</span><strong>${escapeHtml(String(row.value))}</strong></div>`;
+    }).join("")}</div>`;
+  }
+
   function messageTypeLabel(notification) {
     const type = String(notification && notification.type || "").trim();
     if (type === "founder_escalation") return "Founder escalation";
@@ -6841,9 +6882,14 @@
       .map(function (event) {
         const target = [event.target_type || "", event.target_id || ""].filter(Boolean).join(" ");
         const actor = [event.actor_email || "System", event.actor_role || ""].filter(Boolean).join(" · ");
-        const metadata = event.metadata && Object.keys(event.metadata || {}).length
-          ? JSON.stringify(event.metadata || {})
-          : "No extra evidence attached.";
+        const metadataRows = structuredSummaryRows(event.metadata || {}, 4, [
+          "reason",
+          "status",
+          "scope",
+          "target",
+          "entity",
+          "notes",
+        ]);
         return `
           <article class="command-list-row knowledge-row">
             <div class="knowledge-row-top">
@@ -6856,7 +6902,7 @@
               </div>
               <span class="subtext">${escapeHtml(formatDate(event.created_at))}</span>
             </div>
-            <div class="value" style="margin-top:8px;">${escapeHtml(metadata)}</div>
+            <div style="margin-top:8px;">${summaryListMarkup(metadataRows, "No extra evidence attached.")}</div>
           </article>
         `;
       })
@@ -7174,23 +7220,35 @@
 
   function renderAdministrationDashboard(roleCounts, activeUsers, adminUsers, pendingLogins) {
     const integrationRows = crmIntegrationStatusRows();
+    const dashboardRows = [
+      ["Staff & Roles", state.adminUsers.length, `${activeUsers} active accounts`, "lead", "staff"],
+      ["Permissions", (roleCounts.admin || 0) + (roleCounts.founder || 0), "High authority roles", "governance", "permissions"],
+      ["System Settings", hasPermission("manage_security") ? "Ready" : "Restricted", "Security-scoped controls", "settings", "settings"],
+      ["Integrations", integrationRows.filter(function (row) { return row.connected; }).length, `${integrationRows.length} provider checks`, "trend", "integrations"],
+      ["Accounts", pendingLogins, "Pending first login", "messenger", "accounts"],
+      ["Super Admin", isSuperAdmin() ? "Full" : "Scoped", "Authority boundary", "alert", "super_admin"],
+    ];
     if (el.adminMainTitle) el.adminMainTitle.textContent = "Administration workspace";
     if (el.adminMainSubtitle) {
       el.adminMainSubtitle.textContent = "Holistic identity, roles, permissions, settings, integrations, accounts, and super-admin posture";
     }
     el.teamPanel.innerHTML = `
-      <div class="admin-dashboard-grid">
-        ${[
-          ["Staff & Roles", state.adminUsers.length, `${activeUsers} active accounts`, "lead", "staff"],
-          ["Permissions", (roleCounts.admin || 0) + (roleCounts.founder || 0), "High authority roles", "governance", "permissions"],
-          ["System Settings", hasPermission("manage_security") ? "Ready" : "Restricted", "Security-scoped controls", "settings", "settings"],
-          ["Integrations", integrationRows.filter(function (row) { return row.connected; }).length, `${integrationRows.length} provider checks`, "trend", "integrations"],
-          ["Accounts", pendingLogins, "Pending first login", "messenger", "accounts"],
-          ["Super Admin", isSuperAdmin() ? "Full" : "Scoped", "Authority boundary", "alert", "super_admin"],
-        ].map(function (card) {
-          return `<button class="admin-dashboard-card" data-admin-section="${escapeHtml(card[4])}" type="button"><span class="command-icon">${officeIcon(card[3])}</span><div><strong>${escapeHtml(card[0])}</strong><small>${escapeHtml(card[2])}</small></div><b>${escapeHtml(String(card[1]))}</b></button>`;
-        }).join("")}
-      </div>
+      ${oisPageHeader("Administration", "Review staff authority, system controls, integrations, accounts, and governance posture.")}
+      ${operationalStrip([
+        { label: "Staff", value: state.adminUsers.length, meta: `${activeUsers} active` },
+        { label: "Authority", value: adminUsers, meta: "Elevated roles" },
+        { label: "Pending", value: pendingLogins, meta: "First login" },
+      ])}
+      ${oisRegistryCard("Administration Registry", `<div class="ois-registry-list">${oisRegistryRows(dashboardRows.map(function (card) {
+        return {
+          title: card[0],
+          description: card[2],
+          meta: "Administration",
+          status: String(card[1]),
+          icon: card[3],
+          tone: /restricted|pending/i.test(String(card[1])) ? "warning" : "",
+        };
+      }), "Administration records will appear here as governance data syncs.")}</div>`)}
     `;
     if (el.staffActivityPanel) {
       const activity = state.audit.slice(0, 6).map(function (event) {
@@ -7421,6 +7479,15 @@
     el.traceExplorer.innerHTML = traces
       .slice(0, 80)
       .map(function (trace) {
+        const payloadRows = structuredSummaryRows(trace.payload || trace.context || trace.metadata || {}, 4, [
+          "status",
+          "reason",
+          "entity",
+          "estate",
+          "provider",
+          "action",
+          "result",
+        ]);
         return `
           <article class="trace-item">
             <div class="trace-head">
@@ -7439,9 +7506,7 @@
                 .filter(Boolean)
                 .join(" · ")
             )}</div>
-            <div class="value" style="margin-top: 8px;">${escapeHtml(
-              JSON.stringify(trace.payload || {})
-            )}</div>
+            <div style="margin-top: 8px;">${summaryListMarkup(payloadRows, "No payload evidence attached.")}</div>
           </article>
         `;
       })
@@ -7734,14 +7799,36 @@
       el.memoryPanel.className = "value empty";
       el.memoryBadge.textContent = "0";
     } else {
-      el.memoryPanel.textContent = [
-        `Known: ${JSON.stringify(state.memory.known_fields || {}, null, 2)}`,
-        `Need signals: ${(state.memory.need_signals || []).join(", ") || "none"}`,
-        `Open questions: ${(state.memory.open_questions || []).join(", ") || "none"}`,
-        `Keywords: ${(state.memory.keywords || []).join(", ") || "none"}`,
-        `Last status: ${state.memory.last_status || "unknown"}`,
-        `Last owner: ${ownerLabel(state.memory.last_owner)}`,
-      ].join("\n\n");
+      el.memoryPanel.innerHTML = summaryListMarkup([
+        {
+          label: "Known fields",
+          value: structuredSummaryRows(state.memory.known_fields || {}, 3)
+            .map(function (entry) { return `${entry.label}: ${entry.value}`; })
+            .join(" · ") || "Not captured",
+        },
+        {
+          label: "Need signals",
+          value: (state.memory.need_signals || []).map(function (item) {
+            return humanizeOfficeLabel(item, item);
+          }).join(", ") || "None",
+        },
+        {
+          label: "Open questions",
+          value: (state.memory.open_questions || []).join(", ") || "None",
+        },
+        {
+          label: "Keywords",
+          value: (state.memory.keywords || []).join(", ") || "None",
+        },
+        {
+          label: "Last status",
+          value: humanizeOfficeLabel(state.memory.last_status, "Unknown"),
+        },
+        {
+          label: "Last owner",
+          value: ownerLabel(state.memory.last_owner),
+        },
+      ], "No memory stored yet.");
       el.memoryPanel.className = "value";
       el.memoryBadge.textContent = String(
         [
