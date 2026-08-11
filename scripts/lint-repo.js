@@ -21,35 +21,43 @@ function requireText(relativePath, matcher, message) {
 [
   "README.md",
   "agent.js",
-  "lead-agents-server.js",
-  "public/dashboard/index.html",
-  "public/dashboard/dashboard.js",
-  "src/intelligence-core/index.js",
-  "src/lead-agents/server.js",
-  "docs/office-os-2-architecture.md",
-  "docs/office-edge-split-plan.md",
-  "docs/office-backend-integration-plan.md",
+  "src/edge/intelligence-events.js",
+  "scripts/edge-camera-common.js",
+  "scripts/generate-go2rtc-config.js",
+  "scripts/check-camera-runtime-readiness.js",
+  "scripts/camera-ai-processor.js",
+  "examples/camera-registry.example.json",
+  "EDGE_PHASE_1_CAMERA_PROTOCOL_ONBOARDING.md",
 ].forEach(requireFile);
+
+[
+  "lead-agents-server.js",
+  "src/lead-agents/server.js",
+  "public/dashboard/index.html",
+  "public/widget/oma-widget.js",
+  "db/lead-agents-schema.sql",
+  "prompt-packs/sales-agent/prompt-pack.json",
+].forEach((relativePath) => {
+  const fullPath = path.join(ROOT, relativePath);
+  if (fs.existsSync(fullPath)) {
+    throw new Error(`Edge repository must not contain Office runtime file: ${relativePath}`);
+  }
+});
 
 requireText(
   ".gitignore",
-  /^outputs\/$/m,
-  "must ignore generated outputs/"
+  /^edge\/camera\/registry\/local\*\.json$/m,
+  "must ignore local camera registry files"
 );
 requireText(
   "README.md",
-  /Ochiga Office OS \+ Oyi Edge Agent/,
-  "must describe the hybrid Office and Edge ownership"
+  /Oyi Edge Agent/,
+  "must describe Edge runtime ownership"
 );
 requireText(
-  "src/intelligence-core/index.js",
-  /Transitional Office intelligence registry\./,
-  "must clearly mark local intelligence as transitional"
-);
-requireText(
-  "public/dashboard/index.html",
-  /Message Ochiga Office/,
-  "must use Ochiga Office user-facing branding"
+  "src/edge/intelligence-events.js",
+  /function normalizeEvent/,
+  "must keep Edge event normalization local"
 );
 
-console.log("lint: repository structure and release markers look good");
+console.log("lint: Edge repository structure and release markers look good");

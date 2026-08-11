@@ -1,34 +1,41 @@
 const assert = require("assert");
-const { permissionsForRole, hasPermission } = require("../src/lead-agents/permissions");
-const { estateContract, deviceContract, auditLogContract } = require("../src/lead-agents/contracts");
-const { createRealtimeHub } = require("../src/lead-agents/realtime");
-const { createStorageService } = require("../src/lead-agents/storage");
+const { EVENT_CATEGORIES, normalizeEvent } = require("../src/edge/intelligence-events");
+const {
+  normalizeProvider,
+  normalizeProtocol,
+  streamId,
+  credentialSummary,
+} = require("./edge-camera-common");
 
 async function main() {
-  assert(hasPermission({ role: "super_admin", permissionScopes: [] }, "settings.manage"));
-  assert(hasPermission({ role: "security_operator", permissionScopes: [] }, "cameras.view"));
-  assert(!hasPermission({ role: "resident", permissionScopes: [] }, "staff.manage"));
-  assert(permissionsForRole("admin").includes("estates.write"));
+  assert(EVENT_CATEGORIES.includes("edge"));
+  assert(EVENT_CATEGORIES.includes("camera"));
 
-  const estate = estateContract({ id: "est_1", name: "Green Canopy", latitude: 6.4 });
-  assert.equal(estate.type, "estate");
-  assert.equal(estate.name, "Green Canopy");
+  const event = normalizeEvent({
+    agent_id: "camera",
+    event_type: "camera_offline",
+    category: "camera",
+    title: "Front gate camera offline",
+  });
+  assert.equal(event.surface, "edge");
+  assert.equal(event.category, "camera");
+  assert.equal(event.event_type, "camera_offline");
 
-  const device = deviceContract({ id: "dev_1", category: "camera", status: "online" });
-  assert.equal(device.type, "device");
-  assert.equal(device.category, "camera");
+  assert.equal(normalizeProvider("HikVision"), "hikvision");
+  assert.equal(normalizeProtocol("RTSP"), "rtsp");
+  assert.equal(streamId({ camera_id: "Front Gate Camera" }), "Front_Gate_Camera");
 
-  const audit = auditLogContract({ action: "device.command.requested", resource_type: "device", resource_id: "dev_1" });
-  assert.equal(audit.type, "audit_log");
-  assert.equal(audit.action, "device.command.requested");
+  const credentials = credentialSummary([
+    { camera_id: "cam-1", credential_ref: "front_gate" },
+    { camera_id: "cam-2", credential_ref: "front_gate" },
+  ], {
+    EDGE_CREDENTIAL_FRONT_GATE_USER: "configured",
+    EDGE_CREDENTIAL_FRONT_GATE_PASS: "configured",
+  });
+  assert.equal(credentials.length, 1);
+  assert.equal(credentials[0].ready, true);
 
-  const realtime = createRealtimeHub();
-  assert(realtime.stats().events.includes("edge.heartbeat"));
-
-  const storage = createStorageService({ officeStorageDir: "/tmp/ochiga-tier1-smoke" });
-  assert.equal(storage.health().driver, "local");
-
-  console.log("tier1 foundation smoke checks passed");
+  console.log("tier1 edge foundation smoke checks passed");
 }
 
 main().catch((error) => {

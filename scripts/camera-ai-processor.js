@@ -11,7 +11,7 @@ const {
   redactUrl,
   streamId,
 } = require("./edge-camera-common");
-const { normalizeEvent } = require("../src/intelligence-core");
+const { normalizeEvent } = require("../src/edge/intelligence-events");
 
 const ALLOWED_EVENTS = new Set([
   "person_detection",
