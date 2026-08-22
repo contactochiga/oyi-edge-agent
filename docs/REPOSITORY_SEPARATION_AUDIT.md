@@ -1,6 +1,6 @@
 # Oyi Edge Agent Repository Separation Audit
 
-Audit date: 2026-08-23  
+Audit date: 2026-08-23
 Compared revisions: `oyi-edge-agent@5226af2` (pre-cleanup) and `ochiga-office@baefa3f` (extraction baseline), then `ochiga-office@73dd14c` (audited current local production branch).
 
 ## Decision

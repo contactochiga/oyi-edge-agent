@@ -3,7 +3,7 @@ const { execSync } = require("child_process");
 const commands = [
   "npm run security:secrets",
   "npm run lint",
-  "npm run check",
+  "npm test",
   "npm run build",
   "npm run edge:camera:dry-run",
   "npm run edge:camera-ai:dry-run",

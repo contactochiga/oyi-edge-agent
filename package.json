@@ -6,11 +6,11 @@
   "scripts": {
     "start": "node agent.js",
     "check": "node scripts/check-repo.js",
-  "lint": "node scripts/lint-repo.js",
-  "build": "node scripts/build-edge-assets.js",
-  "security:secrets": "node scripts/check-secrets.js",
-  "validate:release": "node scripts/validate-release.js",
-    "test": "npm run check",
+    "lint": "node scripts/lint-repo.js",
+    "build": "node scripts/build-edge-assets.js",
+    "security:secrets": "node scripts/check-secrets.js",
+    "validate:release": "node scripts/validate-release.js",
+    "test": "npm run check && npm run tier1:smoke",
     "edge:go2rtc:dry-run": "node scripts/generate-go2rtc-config.js --dry-run",
     "edge:go2rtc:config": "node scripts/generate-go2rtc-config.js",
     "edge:camera": "node agent.js",
@@ -28,7 +28,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "axios": "^1.13.4",
+    "axios": "^1.18.0",
     "dotenv": "^17.2.4"
   }
 }
