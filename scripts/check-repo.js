@@ -12,7 +12,7 @@ const SKIP_DIRS = new Set([
 
 function walk(dir, files = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name.startsWith(".") && entry.name !== ".env.lead-agents.example") {
+    if (entry.name.startsWith(".")) {
       if (entry.name !== ".gitignore") {
         continue;
       }

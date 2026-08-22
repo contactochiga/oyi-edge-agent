@@ -3,15 +3,10 @@
 .env.*.local
 node_modules/
 data/outbox.json
-data/lead-agents-store.json
-data/lead-agent-traces.jsonl
-data/lead-memory.json
-data/plan-studio-store.json
 edge/camera/registry/local*.json
 edge/camera/go2rtc/*.local.yaml
 go2rtc.generated.yaml
 .DS_Store
 .vercel
-outputs/
 
 edge/camera/go2rtc/go2rtc.generated.yaml

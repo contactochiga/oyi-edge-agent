@@ -1,8 +1,10 @@
-# Ochiga Office OS + Oyi Edge Agent
+# Oyi Edge Agent
 
-Phase 1 edge-core daemon for Oyi Smart Estate OS.
+Oyi Edge Agent is the local physical-building runtime for Oyi deployments.
 
-## Current capabilities
+It owns device/camera discovery, go2rtc configuration, local runtime health, heartbeat, backend connectivity, durable outbox replay, and hardware-adjacent execution support. It does not own Ochiga Office CRM, lead-agent, dashboard, OMA/OSA, or corporate workflow behavior; those now live in the standalone `ochiga-office` repository.
+
+## Current Capabilities
 
 - Agent registration
 - Periodic heartbeats
@@ -11,17 +13,21 @@ Phase 1 edge-core daemon for Oyi Smart Estate OS.
 - Exponential retry/backoff replay from outbox
 - Periodic remote config pull
 - Health endpoint (`/healthz`)
+- Camera registry readiness checks
+- go2rtc config generation
+- Camera AI dry-run/event normalization path
 - Structured JSON logs
 - Graceful shutdown on `SIGINT`/`SIGTERM`
 
-## Required environment variables
+## Required Environment Variables
 
 - `AGENT_ID`
 - `SITE_ID`
 - `CLOUD_URL`
 
-## Optional environment variables
+## Optional Environment Variables
 
+- `OYI_EDGE_AGENT_TOKEN` or `EDGE_AGENT_TOKEN`
 - `CAMERA_IP`
 - `ONVIF_PORT` (default: `8080`)
 - `ONVIF_USER`
@@ -39,18 +45,25 @@ Phase 1 edge-core daemon for Oyi Smart Estate OS.
 - `RETRY_MAX_MS` (default: `60000`)
 - `LOCAL_QUEUE_PATH` (default: `./data/outbox.json`)
 - `HEALTH_PORT` (default: `9090`)
+- `GO2RTC_API_URL` (default: `http://127.0.0.1:1984`)
 - `LEGACY_MODE` (`true` or `false`, default: `false`)
 
-## Cloud endpoint expectations
+## Cloud Endpoint Expectations
 
 - `POST EDGE_REGISTER_PATH`
 - `POST EDGE_HEARTBEAT_PATH`
 - `POST EDGE_DISCOVERY_PUSH_PATH`
 - `GET EDGE_CONFIG_PATH?site_id=...&agent_id=...`
 
-If your existing backend only supports discovery, set:
+If an existing backend only supports discovery, set `LEGACY_MODE=true`.
 
-- `LEGACY_MODE=true`
+## Local Validation
+
+```bash
+npm run validate:release
+```
+
+The validation path is Edge-only and fails if Office lead-agent or CRM files are reintroduced.
 
 ## Run
 
@@ -58,73 +71,10 @@ If your existing backend only supports discovery, set:
 npm start
 ```
 
-## Health check
+## Health Check
 
 ```bash
 curl http://127.0.0.1:9090/healthz
 ```
 
-Response includes uptime, outbox depth, interval timers, and last success/error per task.
-
-## Prompt packs
-
-Reusable prompt assets live under [`prompt-packs/marketing-agent`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/marketing-agent).
-
-Included files:
-
-- [`SYSTEM_PROMPT.md`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/marketing-agent/SYSTEM_PROMPT.md): base behavior and routing rules
-- [`SCORING_RUBRIC.md`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/marketing-agent/SCORING_RUBRIC.md): fit scoring model
-- [`TEMPLATES.md`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/marketing-agent/TEMPLATES.md): qualification, handoff, escalation, and summary templates
-- [`TOOLS.md`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/marketing-agent/TOOLS.md): CRM, solution-fit, scheduling, and escalation tool contract
-- [`prompt-pack.json`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/marketing-agent/prompt-pack.json): simple manifest for loading the pack programmatically
-
-Sales prompt assets live under [`prompt-packs/sales-agent`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/sales-agent).
-
-- [`SYSTEM_PROMPT.md`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/sales-agent/SYSTEM_PROMPT.md): sales qualification and escalation rules
-- [`SCORING_RUBRIC.md`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/sales-agent/SCORING_RUBRIC.md): sales fit scoring model
-- [`TEMPLATES.md`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/sales-agent/TEMPLATES.md): discovery, booking, escalation, and summary templates
-- [`TOOLS.md`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/sales-agent/TOOLS.md): tool usage contract for sales workflows
-- [`prompt-pack.json`](/Users/ochigaidoko/oyi-edge-agent/prompt-packs/sales-agent/prompt-pack.json): manifest for loading the sales pack
-
-Shared v1 lead-agent assets:
-
-- [`config/openai/lead-agent-tools.json`](/Users/ochigaidoko/oyi-edge-agent/config/openai/lead-agent-tools.json): Responses API tool definitions
-- [`db/lead-agents-schema.sql`](/Users/ochigaidoko/oyi-edge-agent/db/lead-agents-schema.sql): minimal CRM schema
-- [`docs/lead-agents-v1.md`](/Users/ochigaidoko/oyi-edge-agent/docs/lead-agents-v1.md): stack, flow, routing, and storage notes
-
-Run the lead-agents backend with:
-
-```bash
-npm run lead-agents:start
-```
-
-Production-ready backend modules live under [`src/lead-agents`](/Users/ochigaidoko/oyi-edge-agent/src/lead-agents), including:
-
-- pluggable storage with file and Supabase drivers
-- API-key auth and in-memory rate limiting
-- admin session login for the internal Office workspace
-- Responses API orchestration and tool execution
-- tracing, lead memory, and file-backed knowledge retrieval
-- founder and demo webhook dispatch
-
-Deployment and testing assets:
-
-- [`render.yaml`](/Users/ochigaidoko/oyi-edge-agent/render.yaml): Render Blueprint for the lead-agents service
-- [`.env.lead-agents.example`](/Users/ochigaidoko/oyi-edge-agent/.env.lead-agents.example): env template for local or hosted setup
-- [`scripts/test-lead-agents.js`](/Users/ochigaidoko/oyi-edge-agent/scripts/test-lead-agents.js): mock-backed integration harness
-- [`scripts/run-lead-agents-evals.js`](/Users/ochigaidoko/oyi-edge-agent/scripts/run-lead-agents-evals.js): v1.5 eval runner
-
-Website widget assets:
-
-- [`public/widget/index.html`](/Users/ochigaidoko/oyi-edge-agent/public/widget/index.html): local preview page for Oma
-- [`public/widget/oma-widget.js`](/Users/ochigaidoko/oyi-edge-agent/public/widget/oma-widget.js): embeddable website widget script
-
-Office workspace assets:
-
-- [`public/dashboard/index.html`](/Users/ochigaidoko/oyi-edge-agent/public/dashboard/index.html): internal Ochiga Office workspace shell
-- [`public/dashboard/dashboard.js`](/Users/ochigaidoko/oyi-edge-agent/public/dashboard/dashboard.js): Office workspace client logic for commercial and operational workflows
-
-V1.5 foundation assets:
-
-- [`knowledge`](/Users/ochigaidoko/oyi-edge-agent/knowledge): file-backed knowledge base for agent retrieval
-- [`evals/lead-agents/cases.json`](/Users/ochigaidoko/oyi-edge-agent/evals/lead-agents/cases.json): baseline eval cases
+The response includes uptime, outbox depth, interval timers, go2rtc health, and last success/error per task.
