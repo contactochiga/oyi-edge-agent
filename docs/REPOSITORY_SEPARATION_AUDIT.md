@@ -36,6 +36,8 @@ Plan Studio is not an edge execution component. It is a design/plan intelligence
 
 This repository has no Vercel or Render application definition. The Edge Agent is installed at a building/local node and launched with `npm start` (or a host process manager). It connects outward to the configured `CLOUD_URL`, exposes a local `/healthz`, and optionally talks to local go2rtc and a detector bridge. Cloud deployment definitions would misrepresent that topology.
 
+The legacy Vercel project `oyi-edge-agent` was disconnected from this GitHub repository on 2026-08-23 after its final preview confirmed it still expected the removed Office `public/` output. The canonical `ochiga-office` Vercel project and its Git connection were not changed.
+
 ## Remaining cross-system mentions
 
 References to Office in `EDGE_PHASE_1_CAMERA_PROTOCOL_ONBOARDING.md` are integration verification instructions only: the backend projects camera state for Office/Facility visibility. References in `README.md` and structural lint are explicit ownership boundaries and regression guards. None is executable Office code.
