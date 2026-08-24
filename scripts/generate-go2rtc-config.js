@@ -61,7 +61,8 @@ async function main() {
 
   const outputPath = path.isAbsolute(args.output) ? args.output : repoPath(args.output);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, result.yaml);
+  fs.writeFileSync(outputPath, result.yaml, { mode: 0o600 });
+  fs.chmodSync(outputPath, 0o600);
   console.log(JSON.stringify({ ...summary, output: outputPath }, null, 2));
 }
 

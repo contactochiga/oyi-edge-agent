@@ -130,10 +130,12 @@ async function detect(camera, snapshot) {
 function edgeHeaders() {
   const token = process.env.OYI_EDGE_AGENT_TOKEN || process.env.EDGE_AGENT_TOKEN || process.env.CAMERA_REGISTRY_TOKEN || process.env.BACKEND_TOKEN || "";
   const agentId = process.env.AGENT_ID || process.env.EDGE_AGENT_ID || defaultAgentId();
+  const siteId = process.env.SITE_ID || process.env.ESTATE_ID || "";
   return {
     token,
     agentId,
-    headers: token ? { Authorization: `Bearer ${token}`, "x-edge-token": token, "x-edge-agent-id": agentId } : { "x-edge-agent-id": agentId },
+    siteId,
+    headers: token ? { Authorization: `Bearer ${token}`, "x-edge-token": token, "x-edge-agent-id": agentId, "x-edge-site-id": siteId } : { "x-edge-agent-id": agentId, "x-edge-site-id": siteId },
   };
 }
 

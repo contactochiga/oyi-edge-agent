@@ -6,6 +6,7 @@ const {
   streamId,
   credentialSummary,
 } = require("./edge-camera-common");
+const fs = require("fs");
 
 async function main() {
   assert(EVENT_CATEGORIES.includes("edge"));
@@ -34,6 +35,14 @@ async function main() {
   });
   assert.equal(credentials.length, 1);
   assert.equal(credentials[0].ready, true);
+
+  const agentSource = fs.readFileSync(require.resolve("../agent.js"), "utf8");
+  const aiSource = fs.readFileSync(require.resolve("./camera-ai-processor.js"), "utf8");
+  const generatorSource = fs.readFileSync(require.resolve("./generate-go2rtc-config.js"), "utf8");
+  assert.match(agentSource, /"x-edge-site-id": cfg\.SITE_ID/);
+  assert.match(aiSource, /"x-edge-site-id": siteId/);
+  assert.match(generatorSource, /mode: 0o600/);
+  assert.match(generatorSource, /chmodSync\(outputPath, 0o600\)/);
 
   console.log("tier1 edge foundation smoke checks passed");
 }

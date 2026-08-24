@@ -76,6 +76,7 @@ client.interceptors.request.use((config) => {
       "x-edge-token": cfg.EDGE_AGENT_TOKEN,
       Authorization: `Bearer ${cfg.EDGE_AGENT_TOKEN}`,
       "x-edge-agent-id": cfg.AGENT_ID,
+      "x-edge-site-id": cfg.SITE_ID,
     };
   }
   return config;
