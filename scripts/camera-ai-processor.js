@@ -11,21 +11,10 @@ const {
   redactUrl,
   streamId,
 } = require("./edge-camera-common");
-const { normalizeEvent } = require("../src/edge/intelligence-events");
 const { ExternalDetectorProvider } = require("../src/camera/providers/external-detector");
 const { CameraInferenceRuntime } = require("../src/camera/inference-runtime");
 const { DetectionOutbox } = require("../src/camera/detection-outbox");
 const detectionOutbox=new DetectionOutbox();
-
-const ALLOWED_EVENTS = new Set([
-  "person_detection",
-  "vehicle_detection",
-  "suspicious_motion",
-  "line_crossing",
-  "zone_intrusion",
-  "camera_tamper",
-  "camera_offline",
-]);
 
 function parseArgs(argv) {
   const out = {
@@ -87,36 +76,6 @@ function snapshotUrlForCamera(camera) {
   if (String(camera.protocol || "").toLowerCase() === "http_snapshot" && camera.http_snapshot_url) return camera.http_snapshot_url;
   const go2rtc = cleanBaseUrl(process.env.GO2RTC_API_URL || DEFAULT_GO2RTC_API_URL);
   return `${go2rtc}/api/frame.jpeg?src=${encodeURIComponent(streamId(camera))}`;
-}
-
-function normalizeEventType(value) {
-  const text = String(value || "").toLowerCase().replace(/[\s-]+/g, "_");
-  if (/person|human/.test(text)) return "person_detection";
-  if (/vehicle|car|truck|bike|motor/.test(text)) return "vehicle_detection";
-  if (/line/.test(text)) return "line_crossing";
-  if (/zone|intrusion|area/.test(text)) return "zone_intrusion";
-  if (/tamper|covered|obstruct|moved/.test(text)) return "camera_tamper";
-  if (/offline|unreachable|stream_failed/.test(text)) return "camera_offline";
-  if (/motion|movement/.test(text)) return "suspicious_motion";
-  return "";
-}
-
-function normalizeDetections(camera, response) {
-  const rows = Array.isArray(response?.detections) ? response.detections : Array.isArray(response?.events) ? response.events : [];
-  return rows.map((row) => {
-    const eventType = normalizeEventType(row.event_type || row.type || row.label || row.class || row.name);
-    if (!ALLOWED_EVENTS.has(eventType)) return null;
-    const confidence = Number(row.confidence ?? row.score ?? response?.confidence ?? 0);
-    return {
-      event_type: eventType,
-      confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : null,
-      title: row.title || `${eventType.replace(/_/g, " ")} detected`,
-      message: row.message || `${eventType.replace(/_/g, " ")} detected on ${camera.name || camera.camera_id || "camera"}.`,
-      bbox: Array.isArray(row.bbox) ? row.bbox : undefined,
-      zone: row.zone || row.zone_id || undefined,
-      raw_label: row.label || row.class || row.type || undefined,
-    };
-  }).filter(Boolean);
 }
 
 async function detect(camera, snapshot) {
