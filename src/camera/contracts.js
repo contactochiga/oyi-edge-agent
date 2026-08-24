@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 
-const ERROR_CODES = new Set(["camera_not_found","camera_auth_failed","onvif_unreachable","rtsp_unavailable","stream_unavailable","edge_unreachable","discovery_timeout","unsupported_device","duplicate_camera","scope_conflict","invalid_discovery_scope","expired_command"]);
+const ERROR_CODES = new Set(["camera_not_found","camera_auth_failed","onvif_unreachable","rtsp_unavailable","stream_unavailable","edge_unreachable","discovery_timeout","unsupported_device","duplicate_camera","scope_conflict","invalid_discovery_scope","expired_command","snapshot_unavailable","media_capture_failed","media_upload_failed"]);
 
 function clean(value) { return String(value || "").trim(); }
 function safeError(code, message = "") { return { code: ERROR_CODES.has(code) ? code : "unsupported_device", message: clean(message).slice(0, 180) || "Camera operation could not be completed." }; }

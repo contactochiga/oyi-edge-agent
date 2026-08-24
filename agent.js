@@ -31,6 +31,8 @@ const BASE_CONFIG = {
   RETRY_BASE_MS: Number(env.RETRY_BASE_MS || 2_000),
   RETRY_MAX_MS: Number(env.RETRY_MAX_MS || 60_000),
   LOCAL_QUEUE_PATH: env.LOCAL_QUEUE_PATH || "./data/outbox.json",
+  MEDIA_STAGING_MAX_BYTES: Number(env.MEDIA_STAGING_MAX_BYTES || 25 * 1024 * 1024),
+  MEDIA_STAGING_MAX_FILES: Number(env.MEDIA_STAGING_MAX_FILES || 20),
   HEALTH_PORT: Number(env.HEALTH_PORT || 9090),
   GO2RTC_API_URL: env.GO2RTC_API_URL || "http://127.0.0.1:1984",
   EDGE_COMMAND_ACK_PATH: env.EDGE_COMMAND_ACK_PATH || "/edge/commands",
@@ -62,6 +64,7 @@ const state = {
   server: null,
   remoteConfig: {},
   activeCommands: new Set(),
+  mediaStaging: { evicted:0, failedUploads:0 },
   go2rtc: {
     reachable: false,
     configured_streams: 0,
@@ -203,7 +206,7 @@ class Outbox {
 
   async persist() {
     this.pendingWrite = this.pendingWrite.then(() =>
-      fs.writeFile(this.filePath, JSON.stringify(this.items, null, 2))
+      fs.writeFile(this.filePath, JSON.stringify(this.items, null, 2), { mode: 0o600 }).then(()=>fs.chmod(this.filePath,0o600))
     );
     return this.pendingWrite;
   }
@@ -218,6 +221,12 @@ class Outbox {
   }
 
   async enqueue(item) {
+    const cfg=getEffectiveConfig();
+    if(item.event_type==="camera_media"){
+      const size=Buffer.byteLength(JSON.stringify(item));
+      if(size>cfg.MEDIA_STAGING_MAX_BYTES)throw new Error("media_staging_item_too_large");
+      while(this.items.filter((entry)=>entry.event_type==="camera_media").length>=cfg.MEDIA_STAGING_MAX_FILES||Buffer.byteLength(JSON.stringify([...this.items,item]))>cfg.MEDIA_STAGING_MAX_BYTES){const index=this.items.findIndex((entry)=>entry.event_type==="camera_media");if(index<0)throw new Error("media_staging_full");this.items.splice(index,1);state.mediaStaging.evicted++;}
+    }
     this.items.push(item);
     await this.persist();
   }
@@ -278,6 +287,8 @@ async function postOrEnqueue(eventType, pathname, payload) {
     return false;
   }
 }
+
+async function postMediaOrEnqueue(pathname,payload){try{const res=await postEvent(pathname,payload,{eventType:"camera_media"});state.lastSuccess.camera_media=nowIso();return{uploaded:true,data:res.data};}catch(err){state.mediaStaging.failedUploads++;const queued={id:crypto.randomUUID(),event_type:"camera_media",path:pathname,payload,attempts:0,created_at:nowIso(),updated_at:nowIso(),next_attempt_at_ms:Date.now()};await outbox.enqueue(queued);state.lastError.camera_media=`${nowIso()} media_upload_failed`;return{uploaded:false,queued:true};}}
 
 async function flushOutbox() {
   const due = outbox.dueItems();
@@ -403,8 +414,10 @@ async function processEdgeCommand(command) {
     await postEvent(`${cfg.EDGE_COMMAND_ACK_PATH}/${encodeURIComponent(commandId)}/ack`, { site_id:cfg.SITE_ID, agent_id:cfg.AGENT_ID, status:"running", acknowledged_at:nowIso() });
     log("info", "edge.command.acknowledged", { command_id:commandId, type:command.type });
     const execution = await executeCameraCommand(command, { siteId:cfg.SITE_ID, agentId:cfg.AGENT_ID });
+    let mediaResult=null;
+    if(execution.ok&&execution.media){const media=execution.media;mediaResult=await postMediaOrEnqueue(`/edge/cameras/${encodeURIComponent(media.cameraId)}/media`,{site_id:cfg.SITE_ID,agent_id:cfg.AGENT_ID,kind:media.kind,mime_type:media.mimeType,data_base64:media.base64,captured_at:media.capturedAt,duration_ms:media.durationMs,event_id:media.eventId,idempotency_key:commandId,retention_class:media.retention,metadata:{content_sha256:media.contentSha256,capture_latency_ms:media.latencyMs}});}
     const status = execution.ok ? "completed" : "failed";
-    await postOrEnqueue("edge_command_completion", `${cfg.EDGE_COMMAND_ACK_PATH}/${encodeURIComponent(commandId)}/complete`, { site_id:cfg.SITE_ID, agent_id:cfg.AGENT_ID, status, result:execution.result || null, error:execution.error || null, duration_ms:Date.now()-startedAt, completed_at:nowIso() });
+    await postOrEnqueue("edge_command_completion", `${cfg.EDGE_COMMAND_ACK_PATH}/${encodeURIComponent(commandId)}/complete`, { site_id:cfg.SITE_ID, agent_id:cfg.AGENT_ID, status, result:execution.result || (mediaResult?{media:{uploaded:mediaResult.uploaded,queued:Boolean(mediaResult.queued),id:mediaResult.data?.reference?.id||null}}:null), error:execution.error || null, duration_ms:Date.now()-startedAt, completed_at:nowIso() });
     log(execution.ok ? "info" : "error", "edge.command.completed", { command_id:commandId, type:command.type, status, duration_ms:Date.now()-startedAt, candidates_found:execution.result?.candidates?.length || 0, error_code:execution.error?.code || null });
   } catch (err) {
     log("error", "edge.command.failed", { command_id:commandId, type:command?.type, duration_ms:Date.now()-startedAt, error:"edge_command_transport_failed" });
@@ -491,6 +504,13 @@ function startHealthServer() {
         configured_streams: go2rtc.configured_streams,
         healthy_streams: go2rtc.healthy_streams,
         go2rtc,
+        media_staging: {
+          file_count: outbox.items.filter((item)=>item.event_type==="camera_media").length,
+          bytes_used: Buffer.byteLength(JSON.stringify(outbox.items.filter((item)=>item.event_type==="camera_media"))),
+          oldest_item_at: outbox.items.filter((item)=>item.event_type==="camera_media").map((item)=>item.created_at).sort()[0]||null,
+          failed_upload_count: state.mediaStaging.failedUploads,
+          evicted_count: state.mediaStaging.evicted,
+        },
         intervals_ms: activeIntervals,
         last_success: state.lastSuccess,
         last_error: state.lastError,
