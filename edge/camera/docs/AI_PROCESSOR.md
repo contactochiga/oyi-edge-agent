@@ -1,6 +1,6 @@
 # Camera AI Processor V1
 
-Camera AI Processor V1 is the lightweight Edge-side runtime that turns camera snapshots into backend camera events.
+Camera AI Processor is the Edge-side runtime that turns camera snapshots into normalized detections and submits them through the canonical Detection Intelligence Runtime.
 
 Flow:
 
@@ -9,9 +9,9 @@ Backend/local camera registry
 -> go2rtc stream key
 -> snapshot capture
 -> detector adapter
--> normalized camera event
+-> normalized detections
 -> Ochiga backend
--> Ochiga Intelligence Core camera event metadata
+-> bounded event aggregation and canonical evidence
 ```
 
 ## What V1 Does
@@ -21,8 +21,8 @@ Backend/local camera registry
 - Captures snapshots from go2rtc using `/api/frame.jpeg?src=<stream>`.
 - Supports a no-op detector for safe dry runs.
 - Supports an external detector bridge through `YOLO_BRIDGE_URL`.
-- Normalizes detections into approved event types.
-- Posts events to `POST /edge/cameras/:cameraId/events` using the Edge token.
+- Normalizes provider output into the shared detection vocabulary.
+- Posts normalized detections to `POST /edge/cameras/:cameraId/detections` using the bound Edge identity.
 
 V1 does not run heavy YOLO locally. Local model execution belongs in a later runtime phase.
 
@@ -123,7 +123,7 @@ and return:
 The live Edge path posts to:
 
 ```text
-POST /edge/cameras/:cameraId/events
+POST /edge/cameras/:cameraId/detections
 ```
 
 Headers:
@@ -140,13 +140,17 @@ Payload:
 {
   "site_id": "estate-id",
   "agent_id": "edge-node-id",
-  "event_type": "person_detection",
-  "confidence": 0.91,
-  "title": "person detection detected",
-  "message": "person detection detected on Main Gate.",
-  "detections": [],
-  "metadata": {}
+  "provider": "external_detector",
+  "model": "configured-provider-model",
+  "detections": [
+    {
+      "type": "person",
+      "confidence": 0.91,
+      "observed_at": "2026-08-24T12:00:00Z",
+      "bounding_box": { "x": 0.1, "y": 0.2, "width": 0.3, "height": 0.5 }
+    }
+  ]
 }
 ```
 
-Backend writes `camera_events` and embeds a normalized Ochiga Intelligence Core `camera` agent event inside metadata.
+Backend persists normalized detections, aggregates meaningful `camera_events`, associates Camera Media evidence and publishes concise Oyi evidence.
