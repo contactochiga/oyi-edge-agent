@@ -11,6 +11,7 @@
     "security:secrets": "node scripts/check-secrets.js",
     "validate:release": "node scripts/validate-release.js",
     "test": "npm run check && npm run tier1:smoke",
+    "smoke:camera-gateway-phase3": "node scripts/camera-gateway-phase3-smoke.js",
     "edge:go2rtc:dry-run": "node scripts/generate-go2rtc-config.js --dry-run",
     "edge:go2rtc:config": "node scripts/generate-go2rtc-config.js",
     "edge:camera": "node agent.js",
@@ -29,6 +30,7 @@
   "type": "commonjs",
   "dependencies": {
     "axios": "^1.18.0",
-    "dotenv": "^17.2.4"
+    "dotenv": "^17.2.4",
+    "onvif": "^0.6.9"
   }
 }

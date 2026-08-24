@@ -2,6 +2,7 @@
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const {
   DEFAULT_GENERATED_CONFIG,
   buildGo2rtcConfig,
@@ -61,9 +62,13 @@ async function main() {
 
   const outputPath = path.isAbsolute(args.output) ? args.output : repoPath(args.output);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, result.yaml, { mode: 0o600 });
+  const previous = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, "utf8") : "";
+  const changed = previous !== result.yaml;
+  const temporary = `${outputPath}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, result.yaml, { mode: 0o600 });
+  fs.renameSync(temporary, outputPath);
   fs.chmodSync(outputPath, 0o600);
-  console.log(JSON.stringify({ ...summary, output: outputPath }, null, 2));
+  console.log(JSON.stringify({ ...summary, output: outputPath, changed, config_sha256: crypto.createHash("sha256").update(result.yaml).digest("hex") }, null, 2));
 }
 
 main().catch((err) => {
