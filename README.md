@@ -1,5 +1,17 @@
 # Oyi Edge Agent
 
+## Bound camera-gateway identity
+
+Every Backend request sends `AGENT_ID` and `SITE_ID` as identity assertions in
+both the payload/query and `x-edge-agent-id` / `x-edge-site-id` headers. The
+Backend credential is configured against exactly that node and site; changing a
+payload identifier cannot move an authenticated node into another tenant.
+
+`OYI_EDGE_AGENT_TOKEN` remains local to the Edge host. Camera passwords are
+resolved from `credential_ref` environment entries and are only materialized in
+the generated go2rtc configuration, which is written with mode `0600`. Runtime
+logs and dry-run output redact credential-bearing URLs.
+
 Oyi Edge Agent is the local physical-building runtime for Oyi deployments.
 
 It owns device/camera discovery, go2rtc configuration, local runtime health, heartbeat, backend connectivity, durable outbox replay, and hardware-adjacent execution support. It does not own Ochiga Office CRM, lead-agent, dashboard, OMA/OSA, or corporate workflow behavior; those now live in the standalone `ochiga-office` repository.

@@ -12,6 +12,10 @@ const {
   streamId,
 } = require("./edge-camera-common");
 const { normalizeEvent } = require("../src/edge/intelligence-events");
+const { ExternalDetectorProvider } = require("../src/camera/providers/external-detector");
+const { CameraInferenceRuntime } = require("../src/camera/inference-runtime");
+const { DetectionOutbox } = require("../src/camera/detection-outbox");
+const detectionOutbox=new DetectionOutbox();
 
 const ALLOWED_EVENTS = new Set([
   "person_detection",
@@ -117,59 +121,44 @@ function normalizeDetections(camera, response) {
 
 async function detect(camera, snapshot) {
   const bridgeUrl = cleanBaseUrl(process.env.YOLO_BRIDGE_URL || "");
-  if (!bridgeUrl) return { mode: "noop", detections: [], reason: "YOLO_BRIDGE_URL not configured" };
-  const response = await requestJson(`${bridgeUrl}/detect`, {
-    camera_id: camera.camera_id || camera.id,
-    stream_key: streamId(camera),
-    image_base64: snapshot.body.toString("base64"),
-    metadata: { camera_name: camera.name || null, provider: camera.provider || null, protocol: camera.protocol || null },
-  }, { timeoutMs: Number(process.env.YOLO_BRIDGE_TIMEOUT_MS || 12000) });
-  return { mode: "external_yolo_bridge", detections: normalizeDetections(camera, response), bridge_status: response?.ok === false ? "failed" : "ok" };
+  const provider=new ExternalDetectorProvider({url:bridgeUrl,requestJson,timeoutMs:Number(process.env.YOLO_BRIDGE_TIMEOUT_MS||12000)});
+  if(!bridgeUrl)return{mode:"noop",detections:[],reason:"YOLO_BRIDGE_URL not configured",providerHealth:provider.health()};
+  const runtime=new CameraInferenceRuntime(provider,{sampleIntervalMs:Number(process.env.CAMERA_AI_SAMPLE_INTERVAL_MS||15000),minimumConfidence:Number(process.env.CAMERA_AI_MIN_CONFIDENCE||.5),enabledDetectionTypes:String(process.env.CAMERA_AI_ENABLED_TYPES||"motion,person,vehicle").split(",").map(v=>v.trim()).filter(Boolean)});
+  const result=await runtime.sample(camera,snapshot.body,{streamKey:streamId(camera),cameraName:camera.name});
+  return{mode:"external_detector",...result,providerHealth:provider.health()};
 }
 
 function edgeHeaders() {
   const token = process.env.OYI_EDGE_AGENT_TOKEN || process.env.EDGE_AGENT_TOKEN || process.env.CAMERA_REGISTRY_TOKEN || process.env.BACKEND_TOKEN || "";
   const agentId = process.env.AGENT_ID || process.env.EDGE_AGENT_ID || defaultAgentId();
+  const siteId = process.env.SITE_ID || process.env.ESTATE_ID || "";
   return {
     token,
     agentId,
-    headers: token ? { Authorization: `Bearer ${token}`, "x-edge-token": token, "x-edge-agent-id": agentId } : { "x-edge-agent-id": agentId },
+    siteId,
+    headers: token ? { Authorization: `Bearer ${token}`, "x-edge-token": token, "x-edge-agent-id": agentId, "x-edge-site-id": siteId } : { "x-edge-agent-id": agentId, "x-edge-site-id": siteId },
   };
 }
 
-async function postDetection(camera, detection, snapshotInfo, registry) {
+async function postDetections(camera, detections, snapshotInfo, registry, mediaId = null) {
   const backend = cleanBaseUrl(process.env.CLOUD_URL || process.env.BACKEND_URL || process.env.OYI_BACKEND_URL || "");
   if (!backend) return { ok: false, skipped: true, reason: "backend_url_missing" };
   const { token, agentId, headers } = edgeHeaders();
   if (!token) return { ok: false, skipped: true, reason: "edge_token_missing" };
   const cameraId = camera.camera_id || camera.id;
   const estateId = registry.site_id || camera.estate_id || process.env.SITE_ID || process.env.ESTATE_ID || "";
-  const coreEvent = normalizeEvent({
-    agent_id: "camera",
-    surface: "edge",
-    actor_id: agentId,
-    estate_id: estateId,
-    camera_id: cameraId,
-    event_type: detection.event_type,
-    category: "Camera",
-    title: detection.title,
-    summary: detection.message,
-    confidence: detection.confidence >= 0.8 ? "confirmed" : detection.confidence >= 0.5 ? "probable" : "possible",
-    source: "edge_camera_ai",
-    metadata: { stream_key: streamId(camera), detector: "camera_ai_processor_v1" },
-  });
-  return requestJson(`${backend}/edge/cameras/${encodeURIComponent(cameraId)}/events`, {
+  const body={
     site_id: estateId,
     agent_id: agentId,
-    event_type: detection.event_type,
-    confidence: detection.confidence,
-    title: detection.title,
-    message: detection.message,
-    detections: [detection],
-    detector: { name: "camera_ai_processor_v1", mode: snapshotInfo.detector_mode },
-    metadata: { stream_key: streamId(camera), snapshot_url: snapshotInfo.snapshot_url_redacted, core_event: coreEvent, bbox: detection.bbox || null, zone: detection.zone || null },
-  }, { headers });
+    detections,
+    provider: snapshotInfo.detector_mode,
+    model: snapshotInfo.model||null,
+    model_version: snapshotInfo.modelVersion||null,
+    media_id: mediaId,
+  };try{return await requestJson(`${backend}/edge/cameras/${encodeURIComponent(cameraId)}/detections`,body,{headers})}catch(error){const idempotencyKey=crypto.createHash("sha256").update(`${cameraId}:${detections.map(d=>d.idempotency_key||d.provider_observation_id||`${d.type}:${d.observed_at}`).join(",")}`).digest("hex");detectionOutbox.enqueue({idempotencyKey,cameraId,body});return{ok:false,queued:true,reason:"backend_unavailable"}}
 }
+
+async function persistEventSnapshot(camera,snapshot,registry,detections){const backend=cleanBaseUrl(process.env.CLOUD_URL||process.env.BACKEND_URL||process.env.OYI_BACKEND_URL||"");const {token,agentId,headers}=edgeHeaders();if(!backend||!token||!detections.length)return null;const cameraId=camera.camera_id||camera.id;const capturedAt=detections.map(d=>d.observed_at).filter(Boolean).sort()[0]||new Date().toISOString();const idempotency=crypto.createHash("sha256").update(`${cameraId}:${capturedAt}:${detections.map(d=>d.provider_observation_id||d.type).join(",")}`).digest("hex");const result=await requestJson(`${backend}/edge/cameras/${encodeURIComponent(cameraId)}/media`,{site_id:registry.site_id||camera.estate_id,agent_id:agentId,kind:"event_snapshot",mime_type:String(snapshot.headers?.["content-type"]||"image/jpeg").split(";")[0],data_base64:snapshot.body.toString("base64"),captured_at:capturedAt,idempotency_key:`detection:${idempotency}`,retention_class:"security",metadata:{source:"camera_detection_runtime"}},{headers,timeoutMs:15000});return result?.reference?.id||null}
 
 async function processCamera(camera, registry, options) {
   const id = camera.camera_id || camera.id || streamId(camera);
@@ -184,20 +173,17 @@ async function processCamera(camera, registry, options) {
   try {
     snapshot = await requestBuffer(snapshotUrl, { timeoutMs: Number(process.env.CAMERA_AI_SNAPSHOT_TIMEOUT_MS || 8000) });
   } catch (error) {
-    const offline = { event_type: "camera_offline", confidence: 1, title: "Camera stream unavailable", message: `${camera.name || id} could not provide a snapshot.` };
-    const posted = await postDetection(camera, offline, { detector_mode: "stream_health", snapshot_url_redacted: redactUrl(snapshotUrl) }, registry);
-    return { camera_id: id, stream_key: streamKey, snapshot_error: error.message, posted: posted?.ok === false ? 0 : 1, event_type: "camera_offline" };
+    return { camera_id: id, stream_key: streamKey, snapshot_error: "snapshot_unavailable", posted: 0, camera_health: "unknown", inference_health:"not_sampled" };
   }
 
   const detector = await detect(camera, snapshot);
-  const posted = [];
-  for (const detection of detector.detections) {
-    posted.push(await postDetection(camera, detection, { detector_mode: detector.mode, snapshot_url_redacted: redactUrl(snapshotUrl) }, registry));
-  }
-  return { camera_id: id, stream_key: streamKey, snapshot_bytes: snapshot.body.length, detector_mode: detector.mode, detections: detector.detections.length, posted: posted.filter((item) => item && item.ok !== false).length };
+  let mediaId=null;try{mediaId=await persistEventSnapshot(camera,snapshot,registry,detector.detections)}catch{mediaId=null}
+  const posted=detector.detections.length?[await postDetections(camera,detector.detections,{detector_mode:detector.mode,model:detector.model,modelVersion:detector.modelVersion},registry,mediaId)]:[];
+  return { camera_id: id, stream_key: streamKey, snapshot_bytes: snapshot.body.length, detector_mode: detector.mode, provider_health:detector.providerHealth, metrics:detector.metrics, detections: detector.detections.length, media_persisted:Boolean(mediaId), posted: posted.filter((item) => item && item.ok !== false).length };
 }
 
 async function runOnce(options) {
+  const backend=cleanBaseUrl(process.env.CLOUD_URL||process.env.BACKEND_URL||process.env.OYI_BACKEND_URL||"");const auth=edgeHeaders();const outbox=backend&&auth.token?await detectionOutbox.flush(row=>requestJson(`${backend}/edge/cameras/${encodeURIComponent(row.cameraId)}/detections`,row.body,{headers:auth.headers})): {sent:0,pending:detectionOutbox.load().length};
   const loaded = await loadRegistry({ registry: options.registry, registryUrl: options.registryUrl, fallbackLocalOnRemoteError: options.dryRun });
   const registry = loaded.registry || {};
   const cameras = (registry.cameras || []).filter((camera) => camera.enabled !== false).slice(0, Math.max(1, options.maxCameras || 12));
@@ -218,6 +204,7 @@ async function runOnce(options) {
     detections: results.reduce((sum, item) => sum + Number(item.detections || 0), 0),
     events_posted: results.reduce((sum, item) => sum + Number(item.posted || 0), 0),
     results,
+    detection_outbox:outbox,
   };
   console.log(JSON.stringify(summary, null, 2));
   return summary;

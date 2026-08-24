@@ -1,0 +1,8 @@
+const {CameraInferenceProvider,normalizeProviderDetection}=require("../inference-provider");
+class ExternalDetectorProvider extends CameraInferenceProvider{
+ constructor(options){super("external_detector");this.url=String(options.url||"").replace(/\/+$/,"");this.requestJson=options.requestJson;this.timeoutMs=Number(options.timeoutMs||12000);this.metrics={requests:0,failures:0,latencyTotalMs:0,lastError:null}}
+ capabilities(){return this.url?{availability:"configured",types:["motion","person","vehicle"]}:{availability:"unavailable",types:[]}}
+ health(){return{status:!this.url?"unavailable":this.metrics.lastError?"degraded":"available",averageLatencyMs:this.metrics.requests?Math.round(this.metrics.latencyTotalMs/this.metrics.requests):null,failures:this.metrics.failures}}
+ async detect(frame,context){if(!this.url)return{detections:[],provider:this.name,health:this.health()};const started=Date.now();this.metrics.requests++;try{const response=await this.requestJson(`${this.url}/detect`,{camera_id:context.cameraId,stream_key:context.streamKey,image_base64:frame.toString("base64"),metadata:{camera_name:context.cameraName||null}},{timeoutMs:this.timeoutMs});const rows=Array.isArray(response?.detections)?response.detections:Array.isArray(response?.events)?response.events:[];this.metrics.latencyTotalMs+=Date.now()-started;this.metrics.lastError=null;return{detections:rows.slice(0,50).map(row=>normalizeProviderDetection(row,context)),provider:this.name,model:response?.model||null,modelVersion:response?.model_version||null,health:this.health()}}catch(error){this.metrics.failures++;this.metrics.lastError="provider_unavailable";throw Object.assign(new Error("inference_provider_unavailable"),{cause:error})}}
+}
+module.exports={ExternalDetectorProvider};

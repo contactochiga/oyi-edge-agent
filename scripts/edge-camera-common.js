@@ -94,20 +94,21 @@ function yamlString(value) {
   return JSON.stringify(String(value));
 }
 
-function authHeaders(token, agentId) {
+function authHeaders(token, agentId, siteId) {
   const headers = {};
   if (token) {
     headers.Authorization = `Bearer ${token}`;
     headers["x-edge-token"] = token;
   }
   if (agentId) headers["x-edge-agent-id"] = agentId;
+  if (siteId) headers["x-edge-site-id"] = siteId;
   return headers;
 }
 
 function fetchJson(url, token, options = {}) {
   return new Promise((resolve, reject) => {
     const client = url.startsWith("https:") ? https : http;
-    const req = client.get(url, { headers: authHeaders(token, options.agentId) }, (res) => {
+    const req = client.get(url, { headers: authHeaders(token, options.agentId, options.siteId) }, (res) => {
       let body = "";
       res.setEncoding("utf8");
       res.on("data", (chunk) => { body += chunk; });
@@ -140,7 +141,7 @@ async function loadRegistry(args = {}, env = process.env) {
   if (url) {
     const token = env.CAMERA_REGISTRY_TOKEN || env.OYI_EDGE_AGENT_TOKEN || env.EDGE_AGENT_TOKEN || env.EDGE_BACKEND_TOKEN || env.BACKEND_TOKEN || "";
     try {
-      const data = await fetchJson(url, token, { agentId: env.AGENT_ID || env.EDGE_AGENT_ID, timeoutMs: args.timeoutMs });
+      const data = await fetchJson(url, token, { agentId: env.AGENT_ID || env.EDGE_AGENT_ID, siteId: env.SITE_ID || env.ESTATE_ID, timeoutMs: args.timeoutMs });
       return { source: "remote", registryPath: url, registry: normalizeRegistry(data), token_present: Boolean(token) };
     } catch (err) {
       if (!args.fallbackLocalOnRemoteError) throw err;
