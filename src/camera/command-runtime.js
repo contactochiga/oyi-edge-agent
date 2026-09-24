@@ -13,7 +13,7 @@ function validCommand(command, identity, now=Date.now()) {
 async function executeCameraCommand(command, identity, dependencies={}) {
   const validation=validCommand(command,identity,dependencies.now?.()||Date.now()); if(!validation.ok)return{ok:false,commandId:command?.id||null,error:{code:validation.code,message:"Edge command is invalid or outside this node scope."}};
   const payload=command.payload;
-  if(command.type==="camera.snapshot"){const capture=await captureSnapshot(payload.cameraId,{axios:dependencies.axios,go2rtcUrl:dependencies.go2rtcUrl,timeoutMs:payload.timeoutMs});return capture.ok?{ok:true,commandId:command.id,requestId:payload.requestId,media:{...capture.media,cameraId:payload.cameraId,eventId:payload.eventId||null,kind:payload.kind||"snapshot",retention:payload.retention||"standard"}}:{ok:false,commandId:command.id,error:capture.error};}
+  if(command.type==="camera.snapshot"){const capture=await captureSnapshot(payload.streamId||payload.cameraId,{axios:dependencies.axios,go2rtcUrl:dependencies.go2rtcUrl,timeoutMs:payload.timeoutMs});return capture.ok?{ok:true,commandId:command.id,requestId:payload.requestId,media:{...capture.media,cameraId:payload.cameraId,eventId:payload.eventId||null,kind:payload.kind||"snapshot",retention:payload.retention||"standard"}}:{ok:false,commandId:command.id,error:capture.error};}
   const result=await discoverCameras({requestId:payload.requestId,mode:payload.mode||"onvif",cidr:payload.cidr,timeoutMs:payload.timeoutMs},{onvif:dependencies.onvif,probeTcp:dependencies.probeTcp,credentials:localCredentials(payload.credentialRef,dependencies.env)});
   return{ok:true,commandId:command.id,requestId:payload.requestId,result};
 }

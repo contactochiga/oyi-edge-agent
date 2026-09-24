@@ -38,9 +38,9 @@ async function discoverCameras(request, dependencies={}) {
   let endpoints=[]; if(request.mode!=="subnet") endpoints.push(...await wsProbe(onvif,Math.min(timeoutMs,8000)));
   if((request.mode==="subnet"||request.mode==="all")&&request.cidr){const hosts=cidrHosts(request.cidr);const live=await mapLimit(hosts,32,async(host)=>{for(const port of PORTS){if(await (dependencies.probeTcp||probeTcp)(host,port,250))return{address:host,port,xaddr:`http://${host}:${port}/onvif/device_service`};}return null});endpoints.push(...live.filter(Boolean));}
   const unique=Array.from(new Map(endpoints.map((item)=>[`${item.address}:${item.port}`,item])).values()).slice(0,MAX_HOSTS);
-  const results=await mapLimit(unique,8,(item)=>discoverOne(item,{onvif,credentials:dependencies.credentials||{},timeoutMs:Math.min(timeoutMs,5000),discoveredAt}));
-  const candidates=results.filter((r)=>r.candidate).map((r)=>r.candidate); const errors=results.filter((r)=>r.error).map((r)=>r.error);
-  return { requestId:request.requestId, mode:request.mode, candidates, errors:errors.slice(0,50), startedAt:new Date(startedAt).toISOString(),completedAt:new Date().toISOString(),durationMs:Date.now()-startedAt };
+  const results=await mapLimit(unique,8,async(item)=>({...await discoverOne(item,{onvif,credentials:dependencies.credentials||{},timeoutMs:Math.min(timeoutMs,5000),discoveredAt}),observedAt:new Date().toISOString()}));
+  const probeObservations=results.map((r,i)=>({host:unique[i].address,observedAt:r.observedAt,result:r.error?(r.error.code==="camera_auth_failed"?"authentication_failed":"failed"):"succeeded"})); const candidates=results.filter((r)=>r.candidate).map((r)=>r.candidate); const errors=results.filter((r)=>r.error).map((r)=>r.error);
+  return { requestId:request.requestId, mode:request.mode, candidates, probeObservations, errors:errors.slice(0,50), startedAt:new Date(startedAt).toISOString(),completedAt:new Date().toISOString(),durationMs:Date.now()-startedAt };
 }
 
 module.exports = { MAX_HOSTS, cidrHosts, discoverCameras, isPrivateIpv4, probeTcp };

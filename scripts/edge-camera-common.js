@@ -82,7 +82,7 @@ function templateForProvider(provider) {
 }
 
 function streamId(camera) {
-  return String(camera.camera_id || camera.id || camera.name || camera.host || "camera").replace(/[^a-zA-Z0-9_-]+/g, "_");
+  return String(camera.stream_id || camera.camera_id || camera.id || camera.name || camera.host || "camera").replace(/[^a-zA-Z0-9_-]+/g, "_");
 }
 
 function redactUrl(value) {

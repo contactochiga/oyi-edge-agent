@@ -12,7 +12,7 @@ function fingerprint(input = {}) {
 }
 function streamId(cameraId) {
   const id = clean(cameraId);
-  if (!/^[0-9a-zA-Z_-]{8,128}$/.test(id)) throw new Error("invalid canonical camera id");
+  if (!/^[0-9a-zA-Z_-]{1,128}$/.test(id)) throw new Error("invalid stream identifier");
   return id.replace(/[^0-9a-zA-Z_-]/g, "_");
 }
 

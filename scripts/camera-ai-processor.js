@@ -15,6 +15,9 @@ const { ExternalDetectorProvider } = require("../src/camera/providers/external-d
 const { CameraInferenceRuntime } = require("../src/camera/inference-runtime");
 const { DetectionOutbox } = require("../src/camera/detection-outbox");
 const detectionOutbox=new DetectionOutbox();
+const {canonicalId,frameObservation,inferenceObservation,batches}=require('../src/camera/observations');
+const {captureSnapshot}=require('../src/camera/snapshot');
+const observationOutbox=new DetectionOutbox(process.env.CAMERA_OBSERVATION_OUTBOX_PATH||require('path').join(process.cwd(),'data/camera-observation-outbox.json'),500);
 
 function parseArgs(argv) {
   const out = {
@@ -45,7 +48,7 @@ function requestBuffer(url, options = {}) {
       res.on("data", (chunk) => chunks.push(chunk));
       res.on("end", () => {
         const body = Buffer.concat(chunks);
-        if ((res.statusCode || 0) >= 400) return reject(new Error(`request returned ${res.statusCode}: ${body.toString("utf8").slice(0, 240)}`));
+        if ((res.statusCode || 0) < 200 || (res.statusCode || 0) >= 300) return reject(new Error(`request returned ${res.statusCode}`));
         resolve({ statusCode: res.statusCode, headers: res.headers, body });
       });
     });
@@ -104,7 +107,7 @@ async function postDetections(camera, detections, snapshotInfo, registry, mediaI
   if (!backend) return { ok: false, skipped: true, reason: "backend_url_missing" };
   const { token, agentId, headers } = edgeHeaders();
   if (!token) return { ok: false, skipped: true, reason: "edge_token_missing" };
-  const cameraId = camera.camera_id || camera.id;
+  const cameraId = canonicalId(camera);
   const estateId = registry.site_id || camera.estate_id || process.env.SITE_ID || process.env.ESTATE_ID || "";
   const body={
     site_id: estateId,
@@ -117,42 +120,56 @@ async function postDetections(camera, detections, snapshotInfo, registry, mediaI
   };try{return await requestJson(`${backend}/edge/cameras/${encodeURIComponent(cameraId)}/detections`,body,{headers})}catch(error){const idempotencyKey=crypto.createHash("sha256").update(`${cameraId}:${detections.map(d=>d.idempotency_key||d.provider_observation_id||`${d.type}:${d.observed_at}`).join(",")}`).digest("hex");detectionOutbox.enqueue({idempotencyKey,cameraId,body});return{ok:false,queued:true,reason:"backend_unavailable"}}
 }
 
-async function persistEventSnapshot(camera,snapshot,registry,detections){const backend=cleanBaseUrl(process.env.CLOUD_URL||process.env.BACKEND_URL||process.env.OYI_BACKEND_URL||"");const {token,agentId,headers}=edgeHeaders();if(!backend||!token||!detections.length)return null;const cameraId=camera.camera_id||camera.id;const capturedAt=detections.map(d=>d.observed_at).filter(Boolean).sort()[0]||new Date().toISOString();const idempotency=crypto.createHash("sha256").update(`${cameraId}:${capturedAt}:${detections.map(d=>d.provider_observation_id||d.type).join(",")}`).digest("hex");const result=await requestJson(`${backend}/edge/cameras/${encodeURIComponent(cameraId)}/media`,{site_id:registry.site_id||camera.estate_id,agent_id:agentId,kind:"event_snapshot",mime_type:String(snapshot.headers?.["content-type"]||"image/jpeg").split(";")[0],data_base64:snapshot.body.toString("base64"),captured_at:capturedAt,idempotency_key:`detection:${idempotency}`,retention_class:"security",metadata:{source:"camera_detection_runtime"}},{headers,timeoutMs:15000});return result?.reference?.id||null}
+async function persistEventSnapshot(camera,snapshot,registry,detections){const backend=cleanBaseUrl(process.env.CLOUD_URL||process.env.BACKEND_URL||process.env.OYI_BACKEND_URL||"");const {token,agentId,headers}=edgeHeaders();if(!backend||!token||!detections.length)return null;const cameraId=canonicalId(camera);const capturedAt=snapshot.capturedAt;const idempotency=crypto.createHash("sha256").update(`${cameraId}:${capturedAt}:${detections.map(d=>d.provider_observation_id||d.type).join(",")}`).digest("hex");const result=await requestJson(`${backend}/edge/cameras/${encodeURIComponent(cameraId)}/media`,{site_id:registry.site_id||camera.estate_id,agent_id:agentId,kind:"event_snapshot",mime_type:String(snapshot.headers?.["content-type"]||"image/jpeg").split(";")[0],data_base64:snapshot.body.toString("base64"),captured_at:capturedAt,idempotency_key:`detection:${idempotency}`,retention_class:"security",metadata:{source:"camera_detection_runtime"}},{headers,timeoutMs:15000});return result?.reference?.id||null}
 
 async function processCamera(camera, registry, options) {
-  const id = camera.camera_id || camera.id || streamId(camera);
+  const id = canonicalId(camera);
+  if(!id)return{skipped:true,reason:'canonical_camera_id_required',detections:0,posted:0};
   const snapshotUrl = snapshotUrlForCamera(camera);
   const streamKey = streamId(camera);
   if (options.dryRun) {
-    const detector = await detect(camera, { body: Buffer.from("") });
+    const detector = {mode:process.env.YOLO_BRIDGE_URL?'external_detector_configured':'noop',detections:[],reason:'dry_run_no_inference'};
     return { camera_id: id, stream_key: streamKey, snapshot_url: redactUrl(snapshotUrl), detector_mode: detector.mode, detections: detector.detections.length, posted: 0, dry_run: true, reason: detector.reason || null };
   }
 
-  let snapshot;
-  try {
-    snapshot = await requestBuffer(snapshotUrl, { timeoutMs: Number(process.env.CAMERA_AI_SNAPSHOT_TIMEOUT_MS || 8000) });
-  } catch (error) {
+  const capture=await captureSnapshot(streamKey,{url:snapshotUrl,timeoutMs:Number(process.env.CAMERA_AI_SNAPSHOT_TIMEOUT_MS||8000)});
+  options.observations?.push(frameObservation(camera,edgeHeaders().agentId,capture,'ai_snapshot'));
+  if(!capture.ok){
     return { camera_id: id, stream_key: streamKey, snapshot_error: "snapshot_unavailable", posted: 0, camera_health: "unknown", inference_health:"not_sampled" };
   }
-
-  const detector = await detect(camera, snapshot);
+  const snapshot={body:Buffer.from(capture.media.base64,'base64'),headers:{'content-type':capture.media.mimeType},capturedAt:capture.media.capturedAt};
+  let detector;const inferenceStarted=Date.now();
+  try{detector=await detect({...camera,camera_id:id},snapshot)}catch{
+    options.observations?.push(inferenceObservation(camera,edgeHeaders().agentId,{error:true},Date.now()-inferenceStarted));
+    return{camera_id:id,inference_error:'provider_failed',detections:0,posted:0};
+  }
+  options.observations?.push(inferenceObservation(camera,edgeHeaders().agentId,detector,Date.now()-inferenceStarted));
   let mediaId=null;try{mediaId=await persistEventSnapshot(camera,snapshot,registry,detector.detections)}catch{mediaId=null}
   const posted=detector.detections.length?[await postDetections(camera,detector.detections,{detector_mode:detector.mode,model:detector.model,modelVersion:detector.modelVersion},registry,mediaId)]:[];
   return { camera_id: id, stream_key: streamKey, snapshot_bytes: snapshot.body.length, detector_mode: detector.mode, provider_health:detector.providerHealth, metrics:detector.metrics, detections: detector.detections.length, media_persisted:Boolean(mediaId), posted: posted.filter((item) => item && item.ok !== false).length };
 }
 
 async function runOnce(options) {
-  const backend=cleanBaseUrl(process.env.CLOUD_URL||process.env.BACKEND_URL||process.env.OYI_BACKEND_URL||"");const auth=edgeHeaders();const outbox=backend&&auth.token?await detectionOutbox.flush(row=>requestJson(`${backend}/edge/cameras/${encodeURIComponent(row.cameraId)}/detections`,row.body,{headers:auth.headers})): {sent:0,pending:detectionOutbox.load().length};
-  const loaded = await loadRegistry({ registry: options.registry, registryUrl: options.registryUrl, fallbackLocalOnRemoteError: options.dryRun });
+  const backend=cleanBaseUrl(process.env.CLOUD_URL||process.env.BACKEND_URL||process.env.OYI_BACKEND_URL||"");const auth=edgeHeaders();const outbox=!options.dryRun&&backend&&auth.token?await detectionOutbox.flush(row=>requestJson(`${backend}/edge/cameras/${encodeURIComponent(row.cameraId)}/detections`,row.body,{headers:auth.headers})): {sent:0,pending:detectionOutbox.load().length};
+  if(!options.dryRun&&backend&&auth.token)await observationOutbox.flush(row=>requestJson(`${backend}/edge/camera-observations`,row.body,{headers:auth.headers}));
+  const registryUrl=options.registryUrl||(!options.registry&&backend&&!options.dryRun?`${backend}/edge/camera-observation-registry`:undefined);
+  const registryEnv=registryUrl?.endsWith('/edge/camera-observation-registry')?{...process.env,CAMERA_REGISTRY_TOKEN:auth.token}:process.env;
+  const loaded = await loadRegistry({ registry: options.registry, registryUrl, fallbackLocalOnRemoteError: options.dryRun },registryEnv);
   const registry = loaded.registry || {};
   const cameras = (registry.cameras || []).filter((camera) => camera.enabled !== false).slice(0, Math.max(1, options.maxCameras || 12));
   const results = [];
+  const observations=[];
   for (const camera of cameras) {
     try {
-      results.push(await processCamera(camera, registry, options));
+      results.push(await processCamera(camera, registry, {...options,observations}));
     } catch (error) {
       results.push({ camera_id: camera.camera_id || camera.id || streamId(camera), ok: false, error: error.message });
     }
+  }
+  if(!options.dryRun)for(const batch of batches(observations.filter(Boolean))){
+    const body={observations:batch},idempotencyKey=batch.map(o=>o.observation_id).join(':');
+    try{if(!backend||!auth.token)throw Error('transport_unavailable');await requestJson(`${backend}/edge/camera-observations`,body,{headers:auth.headers});}
+    catch{observationOutbox.enqueue({idempotencyKey,body})}
   }
   const summary = {
     ok: true,
@@ -181,7 +198,8 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+module.exports={processCamera,runOnce};
+if(require.main===module)main().catch((error) => {
   console.error(JSON.stringify({ ok: false, error: error.message }, null, 2));
   process.exit(1);
 });

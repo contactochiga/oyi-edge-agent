@@ -4,6 +4,7 @@
   "description": "Oyi Edge Agent local building runtime",
   "main": "agent.js",
   "scripts": {
+    "smoke:camera-observations-slice14c": "node scripts/camera-observation-slice14c-smoke.js",
     "smoke:camera-runtime-canonicalization": "node scripts/camera-runtime-canonicalization-smoke.js",
     "start": "node agent.js",
     "check": "node scripts/check-repo.js",

@@ -6,6 +6,8 @@ const crypto = require("crypto");
 const http = require("http");
 const { executeCameraCommand } = require("./src/camera/command-runtime");
 const { cameraHealth } = require("./src/camera/health");
+const { inspectStreams, frameObservation, observation, batches } = require("./src/camera/observations");
+let observationRegistry = [];
 
 const env = process.env;
 
@@ -166,6 +168,7 @@ async function checkGo2rtc() {
     const streamData = res.data && typeof res.data === "object" ? res.data : {};
     const streams = Object.keys(streamData);
     state.cameraHealth = streams.map((id) => cameraHealth({ id }, streamData));
+    state.cameraObservations = inspectStreams(observationRegistry,cfg.AGENT_ID,streamData);
     state.go2rtc = {
       reachable: true,
       configured_streams: streams.length,
@@ -174,6 +177,8 @@ async function checkGo2rtc() {
       error: null,
     };
   } catch (err) {
+    state.cameraHealth = [];
+    state.cameraObservations = inspectStreams(observationRegistry,cfg.AGENT_ID,null,true);
     state.go2rtc = {
       reachable: false,
       configured_streams: 0,
@@ -222,6 +227,14 @@ class Outbox {
 
   async enqueue(item) {
     const cfg=getEffectiveConfig();
+    if(item.event_type==='camera_observations'){
+      const queued=()=>this.items.filter(entry=>entry.event_type==='camera_observations');
+      while(queued().length>=256||Buffer.byteLength(JSON.stringify([...queued(),item]))>10*1024*1024){
+        const index=this.items.findIndex(entry=>entry.event_type==='camera_observations');
+        if(index<0)throw new Error('camera_observation_outbox_item_too_large');
+        this.items.splice(index,1); // Bounded latest-evidence transport, not a permanent journal.
+      }
+    }
     if(item.event_type==="camera_media"){
       const size=Buffer.byteLength(JSON.stringify(item));
       if(size>cfg.MEDIA_STAGING_MAX_BYTES)throw new Error("media_staging_item_too_large");
@@ -343,6 +356,10 @@ async function registerAgent() {
 async function sendHeartbeat() {
   const cfg = getEffectiveConfig();
   if (cfg.LEGACY_MODE) return;
+  try {
+    const response = await client.get(cloudUrl('/edge/camera-observation-registry'));
+    observationRegistry = Array.isArray(response.data?.cameras)?response.data.cameras:[];
+  } catch { /* Cached assignments may support offline observation; Backend revalidates every replay. */ }
   await checkGo2rtc();
   const payload = {
     site_id: cfg.SITE_ID,
@@ -359,16 +376,8 @@ async function sendHeartbeat() {
     local_runtime_host: `http://127.0.0.1:${cfg.HEALTH_PORT}`,
   };
   await postOrEnqueue("heartbeat", cfg.EDGE_HEARTBEAT_PATH, payload);
-  for (const camera of state.cameraHealth) {
-    await postOrEnqueue("camera_health", `/edge/cameras/${encodeURIComponent(camera.cameraId)}/stream-health`, {
-      site_id: cfg.SITE_ID,
-      agent_id: cfg.AGENT_ID,
-      status: camera.streamAvailable ? "online" : "degraded",
-      health_status: camera.state,
-      last_success_at: camera.streamAvailable ? camera.observedAt : null,
-      capabilities: camera.capabilities,
-    });
-  }
+  for (const batch of batches(state.cameraObservations||[]))
+    await postOrEnqueue('camera_observations','/edge/camera-observations',{observations:batch});
 }
 
 async function pushDiscovery() {
@@ -414,6 +423,19 @@ async function processEdgeCommand(command) {
     await postEvent(`${cfg.EDGE_COMMAND_ACK_PATH}/${encodeURIComponent(commandId)}/ack`, { site_id:cfg.SITE_ID, agent_id:cfg.AGENT_ID, status:"running", acknowledged_at:nowIso() });
     log("info", "edge.command.acknowledged", { command_id:commandId, type:command.type });
     const execution = await executeCameraCommand(command, { siteId:cfg.SITE_ID, agentId:cfg.AGENT_ID });
+    if(command.type==='camera.snapshot') {
+      const report=frameObservation({id:command.payload.cameraId},cfg.AGENT_ID,execution);
+      if(report)await postOrEnqueue('camera_observations','/edge/camera-observations',{observations:[report]});
+    }
+    if(command.type==='camera.discovery') {
+      const reports=(execution.result?.probeObservations||[]).flatMap(probe=>{
+        const matches=observationRegistry.filter(camera=>camera.host===probe.host);
+        // Ambiguous/unprovisioned discoveries remain candidates, never invented camera identity.
+        if(matches.length!==1)return [];
+        return [observation(matches[0],cfg.AGENT_ID,'reachability','onvif_probe',probe.result,{},probe.observedAt)];
+      }).filter(Boolean);
+      for(const batch of batches(reports))await postOrEnqueue('camera_observations','/edge/camera-observations',{observations:batch});
+    }
     let mediaResult=null;
     if(execution.ok&&execution.media){const media=execution.media;mediaResult=await postMediaOrEnqueue(`/edge/cameras/${encodeURIComponent(media.cameraId)}/media`,{site_id:cfg.SITE_ID,agent_id:cfg.AGENT_ID,kind:media.kind,mime_type:media.mimeType,data_base64:media.base64,captured_at:media.capturedAt,duration_ms:media.durationMs,event_id:media.eventId,idempotency_key:commandId,retention_class:media.retention,metadata:{content_sha256:media.contentSha256,capture_latency_ms:media.latencyMs}});}
     const status = execution.ok ? "completed" : "failed";
